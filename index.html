@@ -1,0 +1,242 @@
+<!doctype html>
+<html lang="fa" dir="rtl">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="theme-color" content="#f4f6fb">
+<title>همراه مطالعه حقوق</title>
+<link href="https://fonts.googleapis.com/css2?family=Vazirmatn:wght@400;600;700&display=swap" rel="stylesheet">
+<style>
+:root{--bg:#f4f6fb;--panel:#121d2e;--panel2:#f1f4fa;--line:#dfe5ef;--text:#1b2433;--muted:#667085;--accent:#75a7ff;--radius:18px;color-scheme:light;box-sizing:border-box;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}
+html{scroll-padding-top:env(safe-area-inset-top,0px)}
+*{box-sizing:border-box}body{margin:0;background:radial-gradient(900px 500px at 90% -10%,#dfe9ff 0%,transparent 60%),var(--bg);color:var(--text);font-family:'Vazirmatn',Tahoma,sans-serif;line-height:1.7}
+button,input,select,textarea{font:inherit}button{cursor:pointer;border:0}
+.app{max-width:1240px;margin:auto;padding:24px}
+header{display:flex;align-items:center;justify-content:space-between;gap:16px;margin-bottom:22px}
+.brand{display:flex;align-items:center;gap:13px}.logo{width:48px;height:48px;border-radius:15px;background:linear-gradient(135deg,#6ca7ff,#9b83f6);display:grid;place-items:center;font-size:24px;box-shadow:0 8px 30px #547fbd44}
+h1{font-size:22px;margin:0}header p{margin:2px 0 0;color:var(--muted);font-size:13px}
+.actions{display:flex;gap:8px;flex-wrap:wrap}.btn{padding:9px 14px;border-radius:12px;background:var(--panel2);color:var(--text);border:1px solid var(--line)}.btn.primary{background:linear-gradient(135deg,#548de8,#8b79e9);border:0;color:white}.btn.danger{color:#c0392b}
+.layout{display:grid;grid-template-columns:245px 1fr;gap:18px}.sidebar,.panel,.stat{background:#ffffff;border:1px solid var(--line);border-radius:var(--radius);box-shadow:0 12px 35px #10182814}
+.sidebar{padding:16px;height:max-content;position:sticky;top:14px}.nav-title{font-size:11px;color:var(--muted);margin:4px 8px 10px}.nav button{width:100%;text-align:right;background:transparent;color:var(--muted);padding:11px 12px;border-radius:11px;margin:2px 0}.nav button.active,.nav button:hover{background:#e8eefb;color:var(--text)}.side-note{margin-top:18px;padding:12px;background:#eef2fa;border-radius:13px;color:var(--muted);font-size:12px}
+main{min-width:0}.stats{display:grid;grid-template-columns:repeat(4,1fr);gap:12px;margin-bottom:16px}.stat{padding:16px}.stat .label{color:var(--muted);font-size:12px}.stat strong{display:block;font-size:25px;margin-top:4px}.stat small{color:var(--muted)}
+.panel{padding:19px;margin-bottom:16px}.panel-head{display:flex;align-items:center;justify-content:space-between;gap:12px;margin-bottom:15px}.panel h2{font-size:17px;margin:0}.muted{color:var(--muted)}.small{font-size:12px}.row{display:flex;align-items:center;gap:9px;flex-wrap:wrap}.between{justify-content:space-between}
+.progress{height:8px;background:#e3e8f2;border-radius:99px;overflow:hidden}.progress span{height:100%;display:block;background:linear-gradient(90deg,#58c7a5,#6ca7ff);border-radius:99px}
+.day-list{display:grid;gap:13px}.day-card{border:1px solid var(--line);background:#ffffff;border-radius:16px;padding:16px}.day-top{display:flex;justify-content:space-between;align-items:center;gap:12px}.day-title{font-weight:bold;font-size:16px}.pill{font-size:11px;padding:4px 9px;border-radius:99px;background:#e6eefc;color:#2f5fc4}.pill.done{background:#dcf5ec;color:#0b7a58}.pill.partial{background:#fdf0d4;color:#8a5a00}
+.block{margin-top:13px;padding:14px;border-radius:14px;background:#ffffff;border:1px solid #dfe5ef}.block-head{display:flex;justify-content:space-between;align-items:flex-start;gap:10px}.block h3{font-size:14px;margin:0}.block-meta{font-size:12px;color:var(--muted)}
+.checks{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:8px;margin:13px 0}.check{display:flex;align-items:center;gap:7px;padding:8px 9px;border:1px solid #d5dce9;border-radius:10px;font-size:12px;color:#27324a}.check input{accent-color:#2f9e7a;width:16px;height:16px}
+textarea,input,select{background:#ffffff;color:var(--text);border:1px solid #cdd6e6;border-radius:11px;padding:10px;outline:none;width:100%}textarea:focus,input:focus,select:focus{border-color:#75a7ff}textarea{min-height:70px;resize:vertical}.field{display:grid;gap:5px;min-width:0}.field label{font-size:12px;color:var(--muted)}.form-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px}
+.note-label{font-size:12px;color:var(--muted);display:block;margin:8px 0 5px}.block-foot{display:flex;justify-content:space-between;align-items:center;gap:10px;margin-top:10px}.select-small{width:auto;min-width:140px;padding:7px;font-size:12px}
+.empty{padding:35px;text-align:center;color:var(--muted);border:1px dashed #c3cddf;border-radius:15px}.subject-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px}.subject{padding:15px;background:#ffffff;border:1px solid var(--line);border-radius:14px}.subject h3{margin:0 0 6px;font-size:15px}.subject .sub{color:var(--muted);font-size:12px}
+.modal-back{position:fixed;inset:0;background:#101828aa;display:none;align-items:center;justify-content:center;padding:16px;z-index:10}.modal-back.show{display:flex}.modal{width:min(680px,100%);max-height:90vh;overflow:auto;background:#ffffff;border:1px solid #d0d9ea;border-radius:20px;padding:20px;box-shadow:0 25px 90px #1018283a}.modal h2{margin:0 0 15px;font-size:18px}.modal-actions{display:flex;justify-content:flex-end;gap:8px;margin-top:16px}.toast{position:fixed;bottom:20px;left:20px;background:#0f6b52;border:1px solid #0f6b52;color:#ffffff;padding:10px 15px;border-radius:12px;opacity:0;transform:translateY(10px);transition:.2s;pointer-events:none}.toast.show{opacity:1;transform:none}
+.hidden{display:none!important}
+@media(max-width:850px){.layout{grid-template-columns:1fr}.sidebar{position:static}.nav{display:flex;overflow:auto;gap:4px}.nav button{white-space:nowrap;width:auto}.side-note{display:none}.stats{grid-template-columns:repeat(2,1fr)}}
+@media(max-width:560px){.app{padding:13px}header{align-items:flex-start;flex-direction:column}.form-grid,.subject-grid{grid-template-columns:1fr}.checks{grid-template-columns:repeat(2,minmax(0,1fr))}.panel{padding:14px}.day-card{padding:12px}.block{padding:11px}}
+.day-card{background:var(--dt,#fff);border:1px solid var(--da,#dfe5ef);border-right:6px solid var(--da,#dfe5ef)}
+.day-title{color:var(--da)}
+textarea.note{overflow:hidden;resize:none;min-height:80px}
+.refs{margin-top:12px}.ref{display:flex;justify-content:space-between;align-items:center;gap:8px;padding:6px 10px;margin-top:6px;border:1px solid #dfe5ef;border-radius:10px;background:#f7f9fd;font-size:13px}.ref a{color:#2f5fc4;word-break:break-all}
+.sumline{white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:58vw}.day-top{align-items:flex-start}
+</style>
+</head>
+<body>
+<div class="app">
+<header>
+ <div class="brand"><div class="logo">⚖</div><div><h1>همراه مطالعه حقوق</h1><p>برنامه‌ریزی ماده‌محور، روزهای مطالعاتی و پیگیری مرورها</p></div></div>
+ <div class="actions">
+  <button class="btn hidden" id="outBtn" onclick="logout()">خروج از حساب</button><button class="btn" id="gnBtn">کپی نکات برای گودنوت</button>
+  <button class="btn" id="exportBtn">پشتیبان</button>
+  <button class="btn" id="importBtn">بازیابی</button>
+  <button class="btn primary" id="quickAdd">＋ افزودن برنامه</button>
+ </div>
+</header>
+<div class="layout">
+<aside class="sidebar">
+ <div class="nav-title">فضای مطالعاتی</div>
+ <nav class="nav">
+  <button class="active" data-view="dashboard">▦　داشبورد</button>
+  <button data-view="days">☷　روزهای مطالعاتی</button>
+  <button data-view="subjects">§　درس‌ها و قوانین</button>
+ </nav>
+ <div class="side-note">پس از ورود به حساب، اطلاعات روی سرور ذخیره می‌شود و از هر دستگاهی در دسترس است.</div>
+</aside>
+<main>
+ <section id="dashboardView">
+  <div class="stats">
+   <div class="stat"><div class="label">روزهای تعریف‌شده</div><strong id="statDays">۰</strong><small>روز مطالعاتی</small></div>
+   <div class="stat"><div class="label">واحدهای مطالعاتی</div><strong id="statBlocks">۰</strong><small>بازه‌های درس و ماده</small></div>
+   <div class="stat"><div class="label">مراحل انجام‌شده</div><strong id="statChecks">۰٪</strong><small id="statLeft">از کل چک‌لیست‌ها</small></div>
+   <div class="stat"><div class="label">واحدهای تکمیل‌شده</div><strong id="statDone">۰</strong><small>تمام مراحل هر واحد</small></div>
+  </div>
+  <div class="panel">
+   <div class="panel-head"><h2>پیشرفت کلی برنامه</h2><span class="muted small" id="overallText">۰٪</span></div>
+   <div class="progress"><span id="overallBar" style="width:0%"></span></div></div><div class="panel"><div class="panel-head"><h2>پیشرفت هر درس (بر اساس تعداد مواد)</h2></div><div id="subjProg" class="subject-grid"></div>
+  </div>
+  <div class="panel">
+   <div class="panel-head"><h2>ادامه برنامه مطالعاتی</h2><button class="btn primary" onclick="openDayModal()">＋ روز جدید</button></div>
+   <div id="dashboardDays" class="day-list"></div>
+  </div>
+ </section>
+ <section id="daysView" class="hidden">
+  <div class="panel">
+   <div class="panel-head"><div><h2>روزهای مطالعاتی</h2><div class="muted small">روز اول، روز دوم و ... بدون وابستگی به تاریخ</div></div><div class="row"><button class="btn" onclick="goFirst()">اولین روز ناتمام</button><button class="btn" onclick="setAll(true)">باز کردن همه</button><button class="btn" onclick="setAll(false)">بستن همه</button><button class="btn" onclick="openGenerator()">ساخت خودکار روزها</button><button class="btn primary" onclick="openDayModal()">＋ افزودن روز</button></div></div>
+   <div id="allDays" class="day-list"></div>
+  </div>
+ </section>
+ <section id="subjectsView" class="hidden">
+  <div class="panel">
+   <div class="panel-head"><div><h2>درس‌ها و قوانین</h2><div class="muted small">درس و قانون جدید اضافه کن یا فهرست را ویرایش کن.</div></div><button class="btn primary" onclick="openSubjectModal()">＋ افزودن درس</button></div>
+   <div id="subjectsList" class="subject-grid"></div>
+  </div>
+ </section>
+</main>
+</div>
+</div>
+<div class="modal-back" id="authBack"><div class="modal"><h2>ورود به همراه مطالعه حقوق</h2><div class="field"><label>ایمیل</label><input id="authEmail" type="email" dir="ltr"></div><div class="field" style="margin-top:10px"><label>رمز عبور (حداقل ۶ کاراکتر)</label><input id="authPass" type="password" dir="ltr"></div><p class="muted small" id="authMsg"></p><div class="modal-actions"><button class="btn" onclick="doAuth('up')">ثبت‌نام</button><button class="btn primary" onclick="doAuth('in')">ورود</button></div></div></div>
+<div class="modal-back" id="modalBack"><div class="modal" id="modal"></div></div>
+<div class="toast" id="toast">ذخیره شد</div>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.110.9/dist/umd/supabase.js"></script>
+<script>
+// ===== این دو خط را با مقادیر پروژه‌ی Supabase خودت عوض کن =====
+const SUPA_URL="https://xfmdpeeuzhuvqwoalfea.supabase.co";
+const SUPA_KEY="sb_publishable_ndrrbpAGh5VfuiVfETIE8g_IS-jfJD4";
+const CLOUD=SUPA_URL.startsWith("https://");
+const defaultSubjects=[
+ ["حقوق مدنی",["قانون مدنی","قانون مسئولیت مدنی"]],
+ ["آیین دادرسی مدنی",["قانون آیین دادرسی دادگاه‌های عمومی و انقلاب در امور مدنی","قانون اجرای احکام مدنی"]],
+ ["حقوق تجارت",["قانون تجارت","لایحه اصلاحی قانون تجارت","قانون صدور چک"]],
+ ["حقوق جزای عمومی",["قانون مجازات اسلامی ـ بخش عمومی"]],
+ ["حقوق جزای اختصاصی",["قانون مجازات اسلامی ـ بخش تعزیرات"]],
+ ["آیین دادرسی کیفری",["قانون آیین دادرسی کیفری"]],
+ ["حقوق اساسی",["قانون اساسی جمهوری اسلامی ایران"]],
+ ["حقوق اداری",["قوانین و مقررات اداری"]],
+ ["اصول فقه",["منابع اصول فقه"]],
+ ["متون فقه",["تحریر الوسیله","سایر متون فقهی"]],
+ ["حقوق ثبت",["قانون ثبت اسناد و املاک"]],
+ ["حقوق بین‌الملل عمومی",["منابع حقوق بین‌الملل عمومی"]],
+ ["حقوق کار",["قانون کار"]],
+ ["آرای وحدت رویه",["آرای وحدت رویه"]],
+ ["متون حقوقی",["متون حقوقی"]]
+];
+const CHECKS=["مطالعه نص قانون","شرح ماده","مرور روزانه","مرور هفتگی","تست‌زنی","مرور تست","مرور نهایی"];
+const UNITS={"آرای وحدت رویه":"رای"};
+const COUNTS={"قانون مدنی":1335,"قانون مسئولیت مدنی":17};
+const KEY="legalStudyPlanner";
+const uid=()=>Math.random().toString(36).slice(2,10);
+const fa=n=>String(n).replace(/\d/g,d=>"۰۱۲۳۴۵۶۷۸۹"[d]);
+let state=CLOUD?fresh():load();
+function fresh(){return {subjects:defaultSubjects.map((x,i)=>({id:"s"+i,name:x[0],laws:x[1].map(n=>({name:n,count:COUNTS[n]||0,unit:UNITS[n]||"ماده"}))})),days:[]}}
+function load(){try{let s=JSON.parse(localStorage.getItem(KEY));return s&&s.days?norm(s):fresh()}catch(e){return fresh()}}
+function norm(s){s.subjects.forEach(u=>u.laws=u.laws.map(l=>typeof l==="string"?{name:l,count:COUNTS[l]||0}:l));s.days.forEach(d=>d.blocks.forEach(b=>{if(b.checks.length<CHECKS.length)b.checks.splice(1,0,...Array(CHECKS.length-b.checks.length).fill(false));b.refs=b.refs||[];b.title=b.title||"";if(!b.items){b.spec=b.from===b.to?String(b.from):b.from+"-"+b.to;b.items=expand(b.spec)}}));s.subjects.forEach(u=>u.laws.forEach(l=>{if(l.topics)l.count=l.topics.length}));return s}
+function persist(){if(CLOUD){if(ready)cloudSave();return}try{localStorage.setItem(KEY,JSON.stringify(state))}catch(e){}}
+function save(){persist();render();toast("تغییرات ذخیره شد")}
+function toast(t){let e=document.getElementById("toast");e.textContent=t;e.classList.add("show");setTimeout(()=>e.classList.remove("show"),1800)}
+function allBlocks(){return state.days.flatMap(d=>d.blocks)}
+function percent(b){return b.checks.filter(Boolean).length/CHECKS.length*100}
+function status(d){let n=d.blocks.length,done=d.blocks.filter(b=>percent(b)===100).length;if(n&&done===n)return "تکمیل‌شده";if(d.blocks.some(b=>b.checks.some(Boolean)))return "نیمه‌تمام";return "شروع‌نشده"}
+function statusClass(d){return status(d)==="تکمیل‌شده"?"done":status(d)==="نیمه‌تمام"?"partial":""}
+function render(){
+ const blocks=allBlocks(),total=blocks.length*CHECKS.length,checked=blocks.reduce((a,b)=>a+b.checks.filter(Boolean).length,0),done=blocks.filter(b=>percent(b)===100).length,p=total?Math.round(checked/total*100):0;
+ document.getElementById("statDays").textContent=fa(state.days.length);document.getElementById("statBlocks").textContent=fa(blocks.length);document.getElementById("statChecks").textContent=fa(p)+"٪";document.getElementById("statDone").textContent=fa(done);
+ document.getElementById("statLeft").textContent=total?fa(100-p)+"٪ باقی مانده":"از کل چک‌لیست‌ها";
+ document.getElementById("overallText").textContent=fa(p)+"٪ انجام شده · "+fa(total?100-p:0)+"٪ مانده";document.getElementById("overallBar").style.width=p+"%";
+ document.getElementById("dashboardDays").innerHTML=state.days.length?state.days.filter(d=>!isDone(d)).slice(0,3).map(d=>dayHTML(d,true)).join(""):emptyHTML("هنوز روز مطالعاتی نساخته‌ای. برای شروع، روز اول را اضافه کن.");
+ document.getElementById("allDays").innerHTML=state.days.length?state.days.map(d=>dayHTML(d)).join(""):emptyHTML("هنوز برنامه‌ای تعریف نشده است.");
+ document.getElementById("subjectsList").innerHTML=state.subjects.map(subjProg).join("");document.getElementById("subjProg").innerHTML=state.subjects.filter(s=>subjTotal(s)||blocks.some(b=>b.subjectId===s.id)).map(subjProg).join("")||emptyHTML("هنوز درسی در برنامه نیست.");growAll();
+}
+function emptyHTML(t){return `<div class="empty">${t}</div>`}
+function dayHTML(d,dash){let open=dash||d.open,t=d.blocks.length*CHECKS.length,c=d.blocks.reduce((s,b)=>s+b.checks.filter(Boolean).length,0),pp=t?Math.round(c/t*100):0,sum=d.blocks.map(b=>{let s=state.subjects.find(x=>x.id===b.subjectId);return (s?s.name:"")+" "+(b.title||b.spec)}).join(" · ");
+ return `<article class="day-card" ${dash?"":`id="day-${d.id}"`} style="${dayStyle(d)}"><div class="day-top" ${dash?"":`onclick="toggleDay('${d.id}')" style="cursor:pointer"`}><div style="min-width:0"><div class="day-title">${dash?"":(open?"▾ ":"▸ ")}روز ${fa(d.number)}</div><div class="muted small ${open?"":"sumline"}">${open?dayInfo(d):esc(sum||"بدون واحد مطالعاتی")}</div></div><div class="row" onclick="event.stopPropagation()"><span class="pill ${statusClass(d)}">${status(d)} · ${fa(pp)}٪</span>${open?`<button class="btn" onclick="openBlockModal('${d.id}')">＋ واحد</button><button class="btn" onclick="editDay('${d.id}')">ویرایش روز</button><button class="btn danger" onclick="deleteDay('${d.id}')">حذف</button>`+(dash?"":`<button class="btn" onclick="toggleDay('${d.id}')">بستن ▴</button>`):""}</div></div>${open?(d.blocks.length?d.blocks.map(b=>blockHTML(d,b)).join(""):emptyHTML("برای این روز هنوز واحد مطالعاتی ثبت نشده است.")):`<div class="progress" style="margin-top:8px"><span style="width:${pp}%"></span></div>`}</article>`}
+function blockHTML(d,b){let s=state.subjects.find(x=>x.id===b.subjectId),p=Math.round(percent(b));return `<div class="block"><div class="block-head"><div><h3>${esc(s?.name||"درس حذف شده")} — ${esc(b.law)}${b.title?" — "+esc(b.title):""}</h3><div class="block-meta">${blockMeta(b,p)}</div></div><div class="row"><button class="btn" onclick="editBlock('${d.id}','${b.id}')">ویرایش</button><button class="btn danger" onclick="deleteBlock('${d.id}','${b.id}')">حذف</button></div></div><div class="progress" style="margin-top:10px"><span style="width:${p}%"></span></div><div class="checks">${CHECKS.map((c,i)=>`<label class="check"><input type="checkbox" ${b.checks[i]?"checked":""} onchange="toggleCheck('${d.id}','${b.id}',${i},this.checked)">${c}</label>`).join("")}</div><label class="note-label">ایرادات، اشکالات و نکات</label><textarea class="note" oninput="grow(this)" placeholder="ابهام‌ها، نکات دشوار و مواردی که باید دوباره بررسی شوند..." onchange="updateNote('${d.id}','${b.id}',this.value)">${esc(b.notes||"")}</textarea>${refsHTML(d,b)}<div class="block-foot"><span class="muted small">وضعیت تسلط</span><select class="select-small" onchange="updateMastery('${d.id}','${b.id}',this.value)"><option value="نامشخص" ${b.mastery==="نامشخص"?"selected":""}>هنوز ارزیابی نشده</option><option value="ضعیف" ${b.mastery==="ضعیف"?"selected":""}>ضعیف — نیازمند مطالعه مجدد</option><option value="متوسط" ${b.mastery==="متوسط"?"selected":""}>متوسط — نیازمند مرور</option><option value="خوب" ${b.mastery==="خوب"?"selected":""}>خوب — مسلط</option></select></div></div>`}
+function esc(s){return String(s??"").replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]))}
+function toggleCheck(did,bid,i,v){findBlock(did,bid).checks[i]=v;save()}
+function updateNote(did,bid,v){findBlock(did,bid).notes=v;persist()}
+function updateMastery(did,bid,v){findBlock(did,bid).mastery=v;save()}
+function findBlock(did,bid){return state.days.find(d=>d.id===did).blocks.find(b=>b.id===bid)}
+function showModal(content){document.getElementById("modal").innerHTML=content;document.getElementById("modalBack").classList.add("show")}
+function closeModal(){document.getElementById("modalBack").classList.remove("show")}
+document.getElementById("modalBack").addEventListener("click",e=>{if(e.target.id==="modalBack")closeModal()});
+function openDayModal(){showModal(`<h2>افزودن روز مطالعاتی</h2><div class="field"><label>شماره روز</label><input id="dayNum" type="number" min="1" value="${state.days.length?Math.max(...state.days.map(d=>d.number))+1:1}"></div><div class="modal-actions"><button class="btn" onclick="closeModal()">انصراف</button><button class="btn primary" onclick="addDay()">ساخت روز</button></div>`)}
+function addDay(){let n=+document.getElementById("dayNum").value;if(!n||n<1)return toast("شماره روز معتبر نیست");if(state.days.some(d=>d.number===n))return toast("این شماره روز قبلاً وجود دارد");state.days.push({id:uid(),number:n,blocks:[],open:true});state.days.sort((a,b)=>a.number-b.number);closeModal();save()}
+function editDay(id){let d=state.days.find(x=>x.id===id);showModal(`<h2>ویرایش روز مطالعاتی</h2><div class="field"><label>شماره روز</label><input id="dayNum" type="number" min="1" value="${d.number}"></div><div class="modal-actions"><button class="btn" onclick="closeModal()">انصراف</button><button class="btn primary" onclick="saveDay('${id}')">ذخیره</button></div>`)}
+function saveDay(id){let n=+document.getElementById("dayNum").value;if(!n||state.days.some(d=>d.number===n&&d.id!==id))return toast("شماره روز نامعتبر یا تکراری است");state.days.find(d=>d.id===id).number=n;state.days.sort((a,b)=>a.number-b.number);closeModal();save()}
+function deleteDay(id){if(confirm("این روز و تمام واحدهای مطالعاتی آن حذف شود؟")){state.days=state.days.filter(d=>d.id!==id);save()}}
+let editBlk={};
+function openBlockModal(dayId,bid=null){let d=state.days.find(x=>x.id===dayId),b=bid?findBlock(dayId,bid):{subjectId:state.subjects[0]?.id,law:"",spec:"",title:"",items:[]};editBlk=b;let sub=state.subjects.find(s=>s.id===b.subjectId)||state.subjects[0];showModal(`<h2>${bid?"ویرایش":"افزودن"} واحد مطالعاتی — روز ${fa(d.number)}</h2><div class="form-grid"><div class="field"><label>درس</label><select id="blockSubject" onchange="refreshLawOptions()">${state.subjects.map(s=>`<option value="${s.id}" ${s.id===b.subjectId?"selected":""}>${esc(s.name)}</option>`).join("")}</select></div><div class="field"><label>منبع</label><select id="blockLaw" onchange="lawHint()">${(sub?.laws||[]).map(l=>`<option ${l.name===b.law?"selected":""}>${esc(l.name)}</option>`).join("")}</select></div><div class="field" style="grid-column:1/-1"><label>عنوان (اختیاری، مثل «صلاحیت‌ها»)</label><input id="blockTitle" value="${esc(b.title||"")}"></div><div class="field" style="grid-column:1/-1" id="specBox"></div><div class="muted small" id="lawHint" style="grid-column:1/-1"></div></div><div class="modal-actions"><button class="btn" onclick="closeModal()">انصراف</button><button class="btn primary" onclick="saveBlock('${dayId}','${bid||""}')">ذخیره واحد</button></div>`);lawHint()}
+function refreshLawOptions(){setTimeout(lawHint,0);let s=state.subjects.find(x=>x.id===document.getElementById("blockSubject").value);document.getElementById("blockLaw").innerHTML=(s?.laws||[]).map(l=>`<option>${esc(l.name)}</option>`).join("");}
+function saveBlock(dayId,bid){let sid=document.getElementById("blockSubject").value,law=document.getElementById("blockLaw").value,title=document.getElementById("blockTitle").value.trim();if(!sid||!law)return toast("درس و منبع را انتخاب کن");let L=lawObj(sid,law),items,spec;
+ if(L&&L.topics){items=[...document.querySelectorAll("input[name=tp]:checked")].map(c=>L.topics[+c.value]);spec=items.join("، ")}else{spec=document.getElementById("blockSpec").value.trim();items=expand(spec)}
+ if(!items.length)return toast("حداقل یک شماره یا سرفصل وارد کن");let cn=L&&!L.topics?(+L.count||0):0;if(cn&&Math.max(...items.map(Number))>cn)return toast("شماره از تعداد کل منبع بیشتر است");
+ let d=state.days.find(x=>x.id===dayId);if(bid)Object.assign(findBlock(dayId,bid),{subjectId:sid,law,spec,title,items});else d.blocks.push({id:uid(),subjectId:sid,law,spec,title,items,checks:Array(CHECKS.length).fill(false),notes:"",mastery:"نامشخص",refs:[]});d.open=true;closeModal();save()}
+function editBlock(d,b){openBlockModal(d,b)}
+function deleteBlock(d,b){if(confirm("این واحد مطالعاتی حذف شود؟")){let day=state.days.find(x=>x.id===d);day.blocks=day.blocks.filter(x=>x.id!==b);save()}}
+function openSubjectModal(id=null){let s=id?state.subjects.find(x=>x.id===id):{name:"",laws:[]};showModal(`<h2>${id?"ویرایش درس و قوانین":"افزودن درس جدید"}</h2><div class="field"><label>عنوان درس</label><input id="subjectName" value="${esc(s.name)}" placeholder="مثلاً حقوق مدنی"></div><div class="field" style="margin-top:12px"><label>منابع — هر مورد در یک خط:<br>با تعداد ماده: قانون مدنی | 1335<br>با واحد دیگر: آرای وحدت رویه | | رای (تعداد اختیاری)<br>با سرفصل: اصول فقه: امر، نهی، عام و خاص</label><textarea id="subjectLaws" rows="5" placeholder="قانون مدنی | 1335">${esc(s.laws.map(lawLine).join("\n"))}</textarea></div><div class="modal-actions"><button class="btn" onclick="closeModal()">انصراف</button><button class="btn primary" onclick="saveSubject('${id||""}')">ذخیره</button></div>`)}
+function editSubject(id){openSubjectModal(id)}
+function deleteSubject(id){let s=state.subjects.find(x=>x.id===id),n=allBlocks().filter(b=>b.subjectId===id).length;showModal(`<h2>حذف درس «${esc(s.name)}»</h2><p>${n?`این درس در ${fa(n)} واحد مطالعاتی استفاده شده و آن واحدها هم از برنامه‌ی روزانه حذف می‌شوند.`:"این درس در هیچ روزی استفاده نشده است."} مطمئنی؟</p><div class="modal-actions"><button class="btn" onclick="closeModal()">انصراف</button><button class="btn danger" onclick="confirmDeleteSubject('${id}')">بله، حذف شود</button></div>`)}
+function confirmDeleteSubject(id){state.subjects=state.subjects.filter(x=>x.id!==id);state.days.forEach(d=>d.blocks=d.blocks.filter(b=>b.subjectId!==id));closeModal();save()}
+function saveSubject(id){let name=document.getElementById("subjectName").value.trim(),laws=document.getElementById("subjectLaws").value.split("\n").map(x=>x.trim()).filter(Boolean).map(parseLaw);if(!name)return toast("نام درس را وارد کن");if(id)Object.assign(state.subjects.find(x=>x.id===id),{name,laws});else state.subjects.push({id:uid(),name,laws});closeModal();save()}
+function openGenerator(){setTimeout(genFill,0);showModal(`<h2>ساخت خودکار روزهای مطالعاتی</h2><p class="muted small">یک درس و قانون انتخاب کن؛ بازه مواد به قطعه‌های مساوی تقسیم می‌شود و برای هر قطعه یک روز جدا ساخته می‌شود.</p><div class="form-grid"><div class="field"><label>درس</label><select id="genSubject" onchange="refreshGenLaws()">${state.subjects.map(s=>`<option value="${s.id}">${esc(s.name)}</option>`).join("")}</select></div><div class="field"><label>قانون / منبع</label><select id="genLaw" onchange="genFill()">${(state.subjects[0]?.laws||[]).map(l=>`<option>${esc(l.name)}</option>`).join("")}</select></div><div class="field"><label>از شماره</label><input id="genFrom" type="number" min="1" value="1"></div><div class="field"><label>تا شماره</label><input id="genTo" type="number" min="1" value="100"></div><div class="field"><label>تعداد در هر روز</label><input id="genChunk" type="number" min="1" value="10"></div><div class="field"><label>شروع از روز شماره</label><input id="genStart" type="number" min="1" value="${state.days.length?Math.max(...state.days.map(d=>d.number))+1:1}"></div></div><div class="modal-actions"><button class="btn" onclick="closeModal()">انصراف</button><button class="btn primary" onclick="generateDays()">تولید روزها</button></div>`)}
+function refreshGenLaws(){setTimeout(genFill,0);let s=state.subjects.find(x=>x.id===document.getElementById("genSubject").value);document.getElementById("genLaw").innerHTML=(s?.laws||[]).map(l=>`<option>${esc(l.name)}</option>`).join("");}
+function generateDays(){let g=id=>document.getElementById(id).value,sid=g("genSubject"),law=g("genLaw"),from=+g("genFrom"),to=+g("genTo"),chunk=+g("genChunk"),start=+g("genStart");if(from<1||to<from||chunk<1||start<1)return toast("مقادیر واردشده معتبر نیستند");let L=lawObj(sid,law),cn=lawCount(sid,law);if(cn&&to>cn)return toast("شماره از تعداد کل منبع بیشتر است");
+ let list=L&&L.topics?L.topics.slice(from-1,to):null,total=list?list.length:to-from+1,count=Math.ceil(total/chunk);if(state.days.some(d=>d.number>=start&&d.number<start+count))return toast("شماره بعضی از روزهای مقصد قبلاً استفاده شده است");
+ for(let i=0;i<count;i++){let items,spec;if(list){items=list.slice(i*chunk,(i+1)*chunk);spec=items.join("، ")}else{let a=from+i*chunk,z=Math.min(to,a+chunk-1);spec=a===z?String(a):a+"-"+z;items=expand(spec)}state.days.push({id:uid(),number:start+i,blocks:[{id:uid(),subjectId:sid,law,spec,title:"",items,checks:Array(CHECKS.length).fill(false),notes:"",mastery:"نامشخص",refs:[]}]})}
+ state.days.sort((a,b)=>a.number-b.number);closeModal();save();toast(fa(count)+" روز ساخته شد")}
+function copyFrom(id){let t=document.getElementById(id);t.select();try{navigator.clipboard.writeText(t.value);toast("کپی شد")}catch(e){try{document.execCommand("copy");toast("کپی شد")}catch(x){toast("متن را دستی کپی کن")}}}
+document.querySelectorAll(".nav button").forEach(btn=>btn.addEventListener("click",()=>{document.querySelectorAll(".nav button").forEach(x=>x.classList.remove("active"));btn.classList.add("active");["dashboard","days","subjects"].forEach(v=>document.getElementById(v+"View").classList.toggle("hidden",v!==btn.dataset.view));}));
+document.getElementById("quickAdd").onclick=()=>state.days.length?openBlockModal(state.days[state.days.length-1].id):openDayModal();
+document.getElementById("gnBtn").onclick=()=>{let out=[];state.days.forEach(d=>d.blocks.forEach(b=>{if((b.notes||"").trim()){let s=state.subjects.find(x=>x.id===b.subjectId);out.push(`# ${s?.name||""} — ${b.law} (${b.spec}، روز ${d.number})\n${b.notes.trim()}`)}}));showModal(`<h2>نکات برای گودنوت</h2><p class="muted small">متن را کپی کن و در گودنوت پیست کن.</p><textarea id="gnText" rows="12" readonly>${esc(out.join("\n\n")||"هنوز نکته‌ای ثبت نشده.")}</textarea><div class="modal-actions"><button class="btn" onclick="closeModal()">بستن</button><button class="btn primary" onclick="copyFrom('gnText')">کپی</button></div>`)};
+document.getElementById("exportBtn").onclick=()=>showModal(`<h2>پشتیبان</h2><p class="muted small">این متن را جایی ذخیره کن (مثلاً در یادداشت‌ها).</p><textarea id="bkText" rows="10" readonly>${esc(JSON.stringify(state))}</textarea><div class="modal-actions"><button class="btn" onclick="closeModal()">بستن</button><button class="btn primary" onclick="copyFrom('bkText')">کپی</button></div>`);
+document.getElementById("importBtn").onclick=()=>showModal(`<h2>بازیابی پشتیبان</h2><textarea id="rsText" rows="10" placeholder="متن پشتیبان را اینجا بچسبان"></textarea><div class="modal-actions"><button class="btn" onclick="closeModal()">انصراف</button><button class="btn primary" onclick="restoreBk()">بازیابی</button></div>`);
+function restoreBk(){try{let x=JSON.parse(document.getElementById("rsText").value);if(!Array.isArray(x.days)||!Array.isArray(x.subjects))throw Error();if(confirm("اطلاعات فعلی با پشتیبان جایگزین شود؟")){state=norm(x);closeModal();save()}}catch(e){alert("متن پشتیبان معتبر نیست")}}
+const DAYC=[["#2f6fed","#eaf1ff"],["#0e9f6e","#e5f7ef"],["#e0801f","#fff1e0"],["#8b5cf6","#f1ebff"],["#e0457b","#ffe9f1"],["#0f9aa8","#e1f6f8"],["#b88a0b","#fff6d6"]];
+function dayStyle(d){let c=DAYC[(d.number-1)%DAYC.length];return `--da:${c[0]};--dt:${c[1]}`}
+function lawObj(sid,name){let s=state.subjects.find(x=>x.id===sid);return s&&s.laws.find(l=>l.name===name)}
+function lawCount(sid,name){let l=lawObj(sid,name);return l?(l.topics?l.topics.length:(+l.count||0)):0}
+function lawUnit(sid,name){let l=lawObj(sid,name);return (l&&l.unit)||"ماده"}
+function subjTotal(s){return s.laws.reduce((a,l)=>a+(l.topics?l.topics.length:(+l.count||0)),0)}
+function blkLen(b){return b.items.length}
+function readOf(f){let s=new Set();allBlocks().filter(b=>b.checks[0]&&f(b)).forEach(b=>b.items.forEach(i=>s.add(i)));return s.size}
+function parseLaw(x){let m=x.match(/^([^:：|]+)[:：]\s*(.+)$/);if(m){let tp=m[2].split(/[،,;؛]/).map(s=>s.trim()).filter(Boolean);return {name:m[1].trim(),count:tp.length,unit:"سرفصل",topics:tp}}let a=x.split("|"),c=toEn(a[1]||"");return {name:a[0].trim(),count:parseInt(c.replace(/\D/g,""))||0,unit:(a[2]||"").trim()||"ماده"}}
+function subjProg(s){let rows=s.laws.map(l=>({l,r:readOf(b=>b.subjectId===s.id&&b.law===l.name)})),tot=0,read=0;rows.forEach(x=>{let c=x.l.topics?x.l.topics.length:(+x.l.count||0);if(c){tot+=c;read+=Math.min(c,x.r)}});
+ let bs=allBlocks().filter(b=>b.subjectId===s.id),t=bs.length*CHECKS.length,c2=bs.reduce((a,b)=>a+b.checks.filter(Boolean).length,0),p=tot?Math.round(read/tot*100):(t?Math.round(c2/t*100):0);
+ let info=tot?`${fa(read)} از ${fa(tot)} مورد خوانده شده · ${fa(tot-read)} مورد (${fa(100-p)}٪) مانده`:`تعداد کل ثبت نشده؛ با «ویرایش» وارد کن. پیشرفت چک‌لیست: ${fa(p)}٪`;
+ let laws=rows.map(x=>{let l=x.l,c=l.topics?l.topics.length:(+l.count||0),u=l.unit||"ماده";return c?`${esc(l.name)}: ${fa(c)} ${esc(u)} · خوانده ${fa(Math.min(c,x.r))} · مانده ${fa(c-Math.min(c,x.r))}`:`${esc(l.name)} (${fa(x.r)} ${esc(u)} خوانده شده؛ تعداد کل نامشخص)`});
+ return `<div class="subject"><div class="row between"><h3>${esc(s.name)}</h3><span class="row"><button class="btn" onclick="editSubject('${s.id}')">ویرایش</button><button class="btn danger" onclick="deleteSubject('${s.id}')">حذف</button></span></div><div class="progress"><span style="width:${p}%"></span></div><div class="sub" style="margin-top:6px"><b>${info}</b></div><div class="sub" style="margin-top:7px">${laws.join("<br>")}</div></div>`}
+function dayInfo(d){let a=d.blocks.reduce((s,b)=>s+blkLen(b),0),r=d.blocks.filter(b=>b.checks[0]).reduce((s,b)=>s+blkLen(b),0),t=d.blocks.length*CHECKS.length,c=d.blocks.reduce((s,b)=>s+b.checks.filter(Boolean).length,0),p=t?Math.round(c/t*100):0;return `${fa(d.blocks.length)} واحد · ${fa(a)} مورد · خوانده ${fa(r)} · مانده ${fa(a-r)} · ${fa(100-p)}٪ از کارهای این روز مانده`}
+function blockMeta(b,p){let cn=lawCount(b.subjectId,b.law),u=lawUnit(b.subjectId,b.law),L=lawObj(b.subjectId,b.law),r=Math.min(cn||1e9,readOf(x=>x.subjectId===b.subjectId&&x.law===b.law)),sp=L&&L.topics?`${fa(b.items.length)} ${esc(u)}: ${esc(b.spec)}`:`${u==="ماده"?"مواد":esc(u)} ${esc(fa(b.spec))} (${fa(b.items.length)} ${esc(u)})`,m=`${sp} · ${fa(p)}٪ انجام‌شده · ${fa(100-p)}٪ مانده`;if(cn)m+=`<br>کل «${esc(b.law)}»: ${fa(cn)} ${esc(u)} · خوانده‌شده ${fa(r)} · مانده ${fa(cn-r)}`;return m}
+function lawHint(){let a=document.getElementById("blockSubject"),n=document.getElementById("blockLaw"),h=document.getElementById("lawHint"),sb=document.getElementById("specBox");if(!a||!sb)return;let L=lawObj(a.value,n.value),old=document.getElementById("blockSpec"),sp=old?old.value:(editBlk.spec||"");
+ if(L&&L.topics){sb.innerHTML=`<label>سرفصل‌های این واحد</label><div class="checks">`+L.topics.map((tp,i)=>`<label class="check"><input type="checkbox" name="tp" value="${i}" ${(editBlk.items||[]).includes(tp)?"checked":""}>${esc(tp)}</label>`).join("")+`</div>`;h.textContent=`این منبع ${fa(L.topics.length)} سرفصل دارد.`}
+ else{let c=lawCount(a.value,n.value),u=lawUnit(a.value,n.value);sb.innerHTML=`<label>شماره‌ها — مثلاً: 2, 3, 4, 125 یا 1-20 یا 752, 800</label><input id="blockSpec" value="${esc(sp)}" placeholder="1-20">`;h.textContent=c?`این منبع ${fa(c)} ${u} دارد.`:"تعداد کل ثبت نشده (اختیاری؛ از بخش درس‌ها وارد کن)."}}
+function genFill(){let a=document.getElementById("genSubject"),n=document.getElementById("genLaw");if(!a||!n)return;let c=lawCount(a.value,n.value);if(c)document.getElementById("genTo").value=c}
+function grow(t){t.style.height="auto";t.style.height=t.scrollHeight+4+"px"}
+function growAll(){document.querySelectorAll("textarea.note").forEach(grow);loadThumbs()}
+function refLink(x){let tt=esc(x.title)+(x.page?` — صفحه ${fa(esc(x.page))}`:"");if(!x.url)return `<span>${tt}</span>`;let u=x.url+(x.page&&!/#/.test(x.url)&&/\.pdf(\?|$)/i.test(x.url)?"#page="+encodeURIComponent(x.page):"");return `<a href="${esc(u)}" target="_blank" rel="noopener">${tt}</a>`}
+function refsHTML(d,b){let r=(b.refs||[]).map((x,i)=>`<div class="ref"><span>📎 ${refLink(x)}</span><button class="btn danger" onclick="delRef('${d.id}','${b.id}',${i})">✕</button></div>`).join("");return `<div class="refs"><div class="row between"><span class="note-label" style="margin:0">فایل و ارجاع به جزوه</span><button class="btn" onclick="openRefModal('${d.id}','${b.id}')">＋ ارجاع</button><button class="btn" onclick="pickFile('${d.id}','${b.id}')">📎 فایل یا عکس</button></div>${r}${filesHTML(d,b)}</div>`}
+function openRefModal(did,bid){showModal(`<h2>افزودن فایل یا ارجاع به جزوه</h2><div class="form-grid"><div class="field"><label>عنوان (مثلاً جزوه مدنی ۱)</label><input id="refTitle"></div><div class="field"><label>شماره صفحه</label><input id="refPage"></div><div class="field" style="grid-column:1/-1"><label>لینک فایل (اختیاری؛ برای PDF با لینک مستقیم، صفحه هم باز می‌شود)</label><input id="refUrl" dir="ltr" placeholder="https://..."></div></div><div class="modal-actions"><button class="btn" onclick="closeModal()">انصراف</button><button class="btn primary" onclick="saveRef('${did}','${bid}')">افزودن</button></div>`)}
+function saveRef(did,bid){let g=id=>document.getElementById(id).value.trim(),tt=g("refTitle"),pg=g("refPage"),u=g("refUrl");if(!tt)return toast("عنوان را وارد کن");if(u&&!/^https?:\/\//i.test(u))u="https://"+u;let b=findBlock(did,bid);(b.refs=b.refs||[]).push({title:tt,page:pg,url:u});closeModal();save()}
+function delRef(did,bid,i){findBlock(did,bid).refs.splice(i,1);save()}
+const toEn=s=>String(s).replace(/[۰-۹]/g,d=>"۰۱۲۳۴۵۶۷۸۹".indexOf(d)).replace(/[٠-٩]/g,d=>"٠١٢٣٤٥٦٧٨٩".indexOf(d));
+function expand(spec){spec=toEn(spec);let out=[],seen={};spec=spec.replace(/(\d+)\s*(?:-|–|—|تا)\s*(\d+)/g,(m,a,b)=>{a=+a;b=+b;if(b<a||b-a>5000)return m;for(let i=a;i<=b;i++)if(!seen[i]){seen[i]=1;out.push(String(i))}return " "});(spec.match(/\d+/g)||[]).forEach(n=>{n=String(+n);if(!seen[n]){seen[n]=1;out.push(n)}});return out.sort((a,b)=>a-b)}
+function lawLine(l){if(l.topics)return l.name+": "+l.topics.join("، ");let u=l.unit&&l.unit!=="ماده"?l.unit:"";return l.name+(l.count||u?" | "+(l.count||""):"")+(u?" | "+u:"")}
+function isDone(d){return d.blocks.length>0&&d.blocks.every(b=>percent(b)===100)}
+function toggleDay(id){let d=state.days.find(x=>x.id===id);d.open=!d.open;persist();render()}
+function setAll(v){state.days.forEach(d=>d.open=v);persist();render()}
+function goFirst(){let d=state.days.find(x=>!isDone(x));if(!d)return toast("همه‌ی روزها تکمیل شده‌اند");d.open=true;persist();render();let e=document.getElementById("day-"+d.id);if(e)e.scrollIntoView({behavior:"smooth",block:"start"})}
+let sb=null,me=null,ready=false,saveT=null,fileCtx=null;const urlCache={};
+function authMsg(m){document.getElementById("authMsg").textContent=m}
+async function doAuth(kind){let e=document.getElementById("authEmail").value.trim(),p=document.getElementById("authPass").value;if(!e||p.length<6)return authMsg("ایمیل و رمز (حداقل ۶ کاراکتر) را وارد کن");authMsg("لطفاً صبر کن...");let r=kind==="up"?await sb.auth.signUp({email:e,password:p}):await sb.auth.signInWithPassword({email:e,password:p});if(r.error)return authMsg(r.error.message);if(!r.data.session)return authMsg("ثبت‌نام انجام شد. اگر تأیید ایمیل فعال است، ایمیلت را بررسی کن و بعد وارد شو.");onLogin(r.data.session.user)}
+async function onLogin(u){me=u;let r=await sb.from("planner").select("data").eq("user_id",u.id).maybeSingle();if(r.error){authMsg("خطا در دریافت اطلاعات: "+r.error.message);return}document.getElementById("authBack").classList.remove("show");document.getElementById("outBtn").classList.remove("hidden");state=r.data?norm(r.data.data):fresh();ready=true;if(!r.data)cloudSave();render()}
+function cloudSave(){clearTimeout(saveT);saveT=setTimeout(async()=>{let r=await sb.from("planner").upsert({user_id:me.id,data:state,updated_at:new Date().toISOString()});if(r.error)toast("ذخیره روی سرور ناموفق بود")},500)}
+async function logout(){await sb.auth.signOut();location.reload()}
+function initAuth(){if(!CLOUD)return;if(!window.supabase){alert("کتابخانه‌ی Supabase بارگذاری نشد؛ اینترنت را بررسی کن.");return}sb=supabase.createClient(SUPA_URL,SUPA_KEY);document.getElementById("authBack").classList.add("show");sb.auth.getSession().then(r=>{if(r.data.session)onLogin(r.data.session.user)})}
+function pickFile(did,bid){if(!sb||!me)return toast("برای افزودن فایل باید وارد حساب شده باشی");fileCtx={did,bid};let i=document.getElementById("filePick");if(!i){i=document.createElement("input");i.type="file";i.id="filePick";i.accept="application/pdf,image/*";i.multiple=true;i.className="hidden";i.onchange=upFiles;document.body.appendChild(i)}i.value="";i.click()}
+async function upFiles(e){let fs=[...e.target.files];if(!fs.length||!fileCtx)return;let b=findBlock(fileCtx.did,fileCtx.bid);b.files=b.files||[];toast("در حال آپلود...");for(let f of fs){if(f.size>20*1024*1024){toast("حجم "+f.name+" بیشتر از ۲۰ مگابایت است");continue}let ext=(f.name.match(/\.[A-Za-z0-9]+$/)||[""])[0],path=me.id+"/"+uid()+uid()+ext,r=await sb.storage.from("files").upload(path,f,{contentType:f.type});if(r.error)toast("آپلود "+f.name+" ناموفق بود");else b.files.push({path,name:f.name,type:f.type})}save()}
+async function signed(path){if(urlCache[path])return urlCache[path];let r=await sb.storage.from("files").createSignedUrl(path,3600);if(r.error)return null;urlCache[path]=r.data.signedUrl;return urlCache[path]}
+async function openFile(path){let w=window.open("","_blank"),u=await signed(path);if(u&&w)w.location=u;else if(w)w.close()}
+function loadThumbs(){if(!sb)return;document.querySelectorAll("img[data-p]").forEach(async im=>{let u=await signed(im.dataset.p);if(u)im.src=u})}
+function filesHTML(d,b){return (b.files||[]).map((f,i)=>`<div class="ref"><span>${/^image\//.test(f.type)?`<img data-p="${esc(f.path)}" alt="" onclick="openFile(this.dataset.p)" style="max-height:90px;max-width:160px;border-radius:8px;vertical-align:middle;cursor:pointer;background:#eef2fa;min-width:40px;min-height:40px"> `:"📄 "}<a href="#" onclick="openFile('${esc(f.path)}');return false">${esc(f.name)}</a></span><button class="btn danger" onclick="delFile('${d.id}','${b.id}',${i})">✕</button></div>`).join("")}
+function delFile(did,bid,i){let f=findBlock(did,bid).files.splice(i,1)[0];if(f&&sb)sb.storage.from("files").remove([f.path]);save()}
+initAuth();
+render();
+</script>
+</body>
+</html>
