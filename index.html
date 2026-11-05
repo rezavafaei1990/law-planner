@@ -36,6 +36,7 @@ textarea,input,select{background:#ffffff;color:var(--text);border:1px solid #cdd
 textarea.note{overflow:hidden;resize:none;min-height:80px}
 .refs{margin-top:12px}.ref{display:flex;justify-content:space-between;align-items:center;gap:8px;padding:6px 10px;margin-top:6px;border:1px solid #dfe5ef;border-radius:10px;background:#f7f9fd;font-size:13px}.ref a{color:#2f5fc4;word-break:break-all}
 .sumline{white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:58vw}.day-top{align-items:flex-start}
+.block.m-good{background:#e4f6ec;border-color:#66c093}.block.m-mid{background:#fff5d1;border-color:#e3bf4b}.block.m-bad{background:#ffe6e3;border-color:#e4857b}
 </style>
 </head>
 <body>
@@ -43,7 +44,7 @@ textarea.note{overflow:hidden;resize:none;min-height:80px}
 <header>
  <div class="brand"><div class="logo">⚖</div><div><h1>همراه مطالعه حقوق</h1><p>برنامه‌ریزی ماده‌محور، روزهای مطالعاتی و پیگیری مرورها</p></div></div>
  <div class="actions">
-  <button class="btn hidden" id="outBtn" onclick="logout()">خروج از حساب</button><button class="btn" id="gnBtn">کپی نکات برای گودنوت</button>
+  <button class="btn hidden" id="outBtn" onclick="logout()">خروج از حساب</button>
   <button class="btn" id="exportBtn">پشتیبان</button>
   <button class="btn" id="importBtn">بازیابی</button>
   <button class="btn primary" id="quickAdd">＋ افزودن برنامه</button>
@@ -78,7 +79,7 @@ textarea.note{overflow:hidden;resize:none;min-height:80px}
  </section>
  <section id="daysView" class="hidden">
   <div class="panel">
-   <div class="panel-head"><div><h2>روزهای مطالعاتی</h2><div class="muted small">روز اول، روز دوم و ... بدون وابستگی به تاریخ</div></div><div class="row"><button class="btn" onclick="goFirst()">اولین روز ناتمام</button><button class="btn" onclick="setAll(true)">باز کردن همه</button><button class="btn" onclick="setAll(false)">بستن همه</button><button class="btn" onclick="openGenerator()">ساخت خودکار روزها</button><button class="btn primary" onclick="openDayModal()">＋ افزودن روز</button></div></div>
+   <div class="panel-head"><div><h2>روزهای مطالعاتی</h2><div class="muted small">روز اول، روز دوم و ... بدون وابستگی به تاریخ</div></div><div class="row"><button class="btn" onclick="setAll(false)">بستن همه</button><button class="btn primary" onclick="openDayModal()">＋ افزودن روز</button></div></div>
    <div id="allDays" class="day-list"></div>
   </div>
  </section>
@@ -97,8 +98,8 @@ textarea.note{overflow:hidden;resize:none;min-height:80px}
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.110.9/dist/umd/supabase.js"></script>
 <script>
 // ===== این دو خط را با مقادیر پروژه‌ی Supabase خودت عوض کن =====
-const SUPA_URL="https://xfmdpeeuzhuvqwoalfea.supabase.co";
-const SUPA_KEY="sb_publishable_ndrrbpAGh5VfuiVfETIE8g_IS-jfJD4";
+const SUPA_URL="PASTE_URL_HERE";
+const SUPA_KEY="PASTE_KEY_HERE";
 const CLOUD=SUPA_URL.startsWith("https://");
 const defaultSubjects=[
  ["حقوق مدنی",["قانون مدنی","قانون مسئولیت مدنی"]],
@@ -146,7 +147,8 @@ function render(){
 function emptyHTML(t){return `<div class="empty">${t}</div>`}
 function dayHTML(d,dash){let open=dash||d.open,t=d.blocks.length*CHECKS.length,c=d.blocks.reduce((s,b)=>s+b.checks.filter(Boolean).length,0),pp=t?Math.round(c/t*100):0,sum=d.blocks.map(b=>{let s=state.subjects.find(x=>x.id===b.subjectId);return (s?s.name:"")+" "+(b.title||b.spec)}).join(" · ");
  return `<article class="day-card" ${dash?"":`id="day-${d.id}"`} style="${dayStyle(d)}"><div class="day-top" ${dash?"":`onclick="toggleDay('${d.id}')" style="cursor:pointer"`}><div style="min-width:0"><div class="day-title">${dash?"":(open?"▾ ":"▸ ")}روز ${fa(d.number)}</div><div class="muted small ${open?"":"sumline"}">${open?dayInfo(d):esc(sum||"بدون واحد مطالعاتی")}</div></div><div class="row" onclick="event.stopPropagation()"><span class="pill ${statusClass(d)}">${status(d)} · ${fa(pp)}٪</span>${open?`<button class="btn" onclick="openBlockModal('${d.id}')">＋ واحد</button><button class="btn" onclick="editDay('${d.id}')">ویرایش روز</button><button class="btn danger" onclick="deleteDay('${d.id}')">حذف</button>`+(dash?"":`<button class="btn" onclick="toggleDay('${d.id}')">بستن ▴</button>`):""}</div></div>${open?(d.blocks.length?d.blocks.map(b=>blockHTML(d,b)).join(""):emptyHTML("برای این روز هنوز واحد مطالعاتی ثبت نشده است.")):`<div class="progress" style="margin-top:8px"><span style="width:${pp}%"></span></div>`}</article>`}
-function blockHTML(d,b){let s=state.subjects.find(x=>x.id===b.subjectId),p=Math.round(percent(b));return `<div class="block"><div class="block-head"><div><h3>${esc(s?.name||"درس حذف شده")} — ${esc(b.law)}${b.title?" — "+esc(b.title):""}</h3><div class="block-meta">${blockMeta(b,p)}</div></div><div class="row"><button class="btn" onclick="editBlock('${d.id}','${b.id}')">ویرایش</button><button class="btn danger" onclick="deleteBlock('${d.id}','${b.id}')">حذف</button></div></div><div class="progress" style="margin-top:10px"><span style="width:${p}%"></span></div><div class="checks">${CHECKS.map((c,i)=>`<label class="check"><input type="checkbox" ${b.checks[i]?"checked":""} onchange="toggleCheck('${d.id}','${b.id}',${i},this.checked)">${c}</label>`).join("")}</div><label class="note-label">ایرادات، اشکالات و نکات</label><textarea class="note" oninput="grow(this)" placeholder="ابهام‌ها، نکات دشوار و مواردی که باید دوباره بررسی شوند..." onchange="updateNote('${d.id}','${b.id}',this.value)">${esc(b.notes||"")}</textarea>${refsHTML(d,b)}<div class="block-foot"><span class="muted small">وضعیت تسلط</span><select class="select-small" onchange="updateMastery('${d.id}','${b.id}',this.value)"><option value="نامشخص" ${b.mastery==="نامشخص"?"selected":""}>هنوز ارزیابی نشده</option><option value="ضعیف" ${b.mastery==="ضعیف"?"selected":""}>ضعیف — نیازمند مطالعه مجدد</option><option value="متوسط" ${b.mastery==="متوسط"?"selected":""}>متوسط — نیازمند مرور</option><option value="خوب" ${b.mastery==="خوب"?"selected":""}>خوب — مسلط</option></select></div></div>`}
+function blockHTML(d,b){let s=state.subjects.find(x=>x.id===b.subjectId),p=Math.round(percent(b)),open=b.open,ms=b.mastery&&b.mastery!=="نامشخص"?b.mastery:"";
+ return `<div class="block ${masteryCls(b.mastery)}"><div class="block-head" style="cursor:pointer" onclick="toggleBlock('${d.id}','${b.id}')"><div style="min-width:0"><h3>${open?"▾ ":"▸ "}${esc(s?.name||"درس حذف شده")} — ${esc(b.law)}${b.title?" — "+esc(b.title):""}</h3><div class="block-meta">${open?blockMeta(b,p):shortMeta(b,p)}</div></div><div class="row" onclick="event.stopPropagation()">${ms?`<span class="pill">تسلط: ${ms}</span>`:""}${open?`<button class="btn" onclick="editBlock('${d.id}','${b.id}')">ویرایش</button><button class="btn danger" onclick="deleteBlock('${d.id}','${b.id}')">حذف</button>`:""}</div></div><div class="progress" style="margin-top:10px"><span style="width:${p}%"></span></div>${open?`<div class="checks">${CHECKS.map((c,i)=>`<label class="check"><input type="checkbox" ${b.checks[i]?"checked":""} onchange="toggleCheck('${d.id}','${b.id}',${i},this.checked)">${c}</label>`).join("")}</div><label class="note-label">ایرادات، اشکالات و نکات</label><textarea class="note" oninput="grow(this)" placeholder="ابهام‌ها، نکات دشوار و مواردی که باید دوباره بررسی شوند..." onchange="updateNote('${d.id}','${b.id}',this.value)">${esc(b.notes||"")}</textarea>${refsHTML(d,b)}<div class="block-foot"><span class="muted small">وضعیت تسلط</span><select class="select-small" onchange="updateMastery('${d.id}','${b.id}',this.value)"><option value="نامشخص" ${b.mastery==="نامشخص"?"selected":""}>هنوز ارزیابی نشده</option><option value="ضعیف" ${b.mastery==="ضعیف"?"selected":""}>ضعیف — نیازمند مطالعه مجدد</option><option value="متوسط" ${b.mastery==="متوسط"?"selected":""}>متوسط — نیازمند مرور</option><option value="خوب" ${b.mastery==="خوب"?"selected":""}>خوب — مسلط</option></select></div>`:""}</div>`}
 function esc(s){return String(s??"").replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]))}
 function toggleCheck(did,bid,i,v){findBlock(did,bid).checks[i]=v;save()}
 function updateNote(did,bid,v){findBlock(did,bid).notes=v;persist()}
@@ -166,7 +168,7 @@ function refreshLawOptions(){setTimeout(lawHint,0);let s=state.subjects.find(x=>
 function saveBlock(dayId,bid){let sid=document.getElementById("blockSubject").value,law=document.getElementById("blockLaw").value,title=document.getElementById("blockTitle").value.trim();if(!sid||!law)return toast("درس و منبع را انتخاب کن");let L=lawObj(sid,law),items,spec;
  if(L&&L.topics){items=[...document.querySelectorAll("input[name=tp]:checked")].map(c=>L.topics[+c.value]);spec=items.join("، ")}else{spec=document.getElementById("blockSpec").value.trim();items=expand(spec)}
  if(!items.length)return toast("حداقل یک شماره یا سرفصل وارد کن");let cn=L&&!L.topics?(+L.count||0):0;if(cn&&Math.max(...items.map(Number))>cn)return toast("شماره از تعداد کل منبع بیشتر است");
- let d=state.days.find(x=>x.id===dayId);if(bid)Object.assign(findBlock(dayId,bid),{subjectId:sid,law,spec,title,items});else d.blocks.push({id:uid(),subjectId:sid,law,spec,title,items,checks:Array(CHECKS.length).fill(false),notes:"",mastery:"نامشخص",refs:[]});d.open=true;closeModal();save()}
+ let d=state.days.find(x=>x.id===dayId);if(bid)Object.assign(findBlock(dayId,bid),{subjectId:sid,law,spec,title,items});else d.blocks.push({id:uid(),subjectId:sid,law,spec,title,items,checks:Array(CHECKS.length).fill(false),notes:"",mastery:"نامشخص",refs:[],open:true});d.open=true;closeModal();save()}
 function editBlock(d,b){openBlockModal(d,b)}
 function deleteBlock(d,b){if(confirm("این واحد مطالعاتی حذف شود؟")){let day=state.days.find(x=>x.id===d);day.blocks=day.blocks.filter(x=>x.id!==b);save()}}
 function openSubjectModal(id=null){let s=id?state.subjects.find(x=>x.id===id):{name:"",laws:[]};showModal(`<h2>${id?"ویرایش درس و قوانین":"افزودن درس جدید"}</h2><div class="field"><label>عنوان درس</label><input id="subjectName" value="${esc(s.name)}" placeholder="مثلاً حقوق مدنی"></div><div class="field" style="margin-top:12px"><label>منابع — هر مورد در یک خط:<br>با تعداد ماده: قانون مدنی | 1335<br>با واحد دیگر: آرای وحدت رویه | | رای (تعداد اختیاری)<br>با سرفصل: اصول فقه: امر، نهی، عام و خاص</label><textarea id="subjectLaws" rows="5" placeholder="قانون مدنی | 1335">${esc(s.laws.map(lawLine).join("\n"))}</textarea></div><div class="modal-actions"><button class="btn" onclick="closeModal()">انصراف</button><button class="btn primary" onclick="saveSubject('${id||""}')">ذخیره</button></div>`)}
@@ -183,7 +185,6 @@ function generateDays(){let g=id=>document.getElementById(id).value,sid=g("genSu
 function copyFrom(id){let t=document.getElementById(id);t.select();try{navigator.clipboard.writeText(t.value);toast("کپی شد")}catch(e){try{document.execCommand("copy");toast("کپی شد")}catch(x){toast("متن را دستی کپی کن")}}}
 document.querySelectorAll(".nav button").forEach(btn=>btn.addEventListener("click",()=>{document.querySelectorAll(".nav button").forEach(x=>x.classList.remove("active"));btn.classList.add("active");["dashboard","days","subjects"].forEach(v=>document.getElementById(v+"View").classList.toggle("hidden",v!==btn.dataset.view));}));
 document.getElementById("quickAdd").onclick=()=>state.days.length?openBlockModal(state.days[state.days.length-1].id):openDayModal();
-document.getElementById("gnBtn").onclick=()=>{let out=[];state.days.forEach(d=>d.blocks.forEach(b=>{if((b.notes||"").trim()){let s=state.subjects.find(x=>x.id===b.subjectId);out.push(`# ${s?.name||""} — ${b.law} (${b.spec}، روز ${d.number})\n${b.notes.trim()}`)}}));showModal(`<h2>نکات برای گودنوت</h2><p class="muted small">متن را کپی کن و در گودنوت پیست کن.</p><textarea id="gnText" rows="12" readonly>${esc(out.join("\n\n")||"هنوز نکته‌ای ثبت نشده.")}</textarea><div class="modal-actions"><button class="btn" onclick="closeModal()">بستن</button><button class="btn primary" onclick="copyFrom('gnText')">کپی</button></div>`)};
 document.getElementById("exportBtn").onclick=()=>showModal(`<h2>پشتیبان</h2><p class="muted small">این متن را جایی ذخیره کن (مثلاً در یادداشت‌ها).</p><textarea id="bkText" rows="10" readonly>${esc(JSON.stringify(state))}</textarea><div class="modal-actions"><button class="btn" onclick="closeModal()">بستن</button><button class="btn primary" onclick="copyFrom('bkText')">کپی</button></div>`);
 document.getElementById("importBtn").onclick=()=>showModal(`<h2>بازیابی پشتیبان</h2><textarea id="rsText" rows="10" placeholder="متن پشتیبان را اینجا بچسبان"></textarea><div class="modal-actions"><button class="btn" onclick="closeModal()">انصراف</button><button class="btn primary" onclick="restoreBk()">بازیابی</button></div>`);
 function restoreBk(){try{let x=JSON.parse(document.getElementById("rsText").value);if(!Array.isArray(x.days)||!Array.isArray(x.subjects))throw Error();if(confirm("اطلاعات فعلی با پشتیبان جایگزین شود؟")){state=norm(x);closeModal();save()}}catch(e){alert("متن پشتیبان معتبر نیست")}}
@@ -236,6 +237,10 @@ function loadThumbs(){if(!sb)return;document.querySelectorAll("img[data-p]").for
 function filesHTML(d,b){return (b.files||[]).map((f,i)=>`<div class="ref"><span>${/^image\//.test(f.type)?`<img data-p="${esc(f.path)}" alt="" onclick="openFile(this.dataset.p)" style="max-height:90px;max-width:160px;border-radius:8px;vertical-align:middle;cursor:pointer;background:#eef2fa;min-width:40px;min-height:40px"> `:"📄 "}<a href="#" onclick="openFile('${esc(f.path)}');return false">${esc(f.name)}</a></span><button class="btn danger" onclick="delFile('${d.id}','${b.id}',${i})">✕</button></div>`).join("")}
 function delFile(did,bid,i){let f=findBlock(did,bid).files.splice(i,1)[0];if(f&&sb)sb.storage.from("files").remove([f.path]);save()}
 initAuth();
+function masteryCls(m){return m==="خوب"?"m-good":m==="متوسط"?"m-mid":m==="ضعیف"?"m-bad":""}
+function specText(b){let u=lawUnit(b.subjectId,b.law),L=lawObj(b.subjectId,b.law);return L&&L.topics?`${fa(b.items.length)} ${esc(u)}: ${esc(b.spec)}`:`${u==="ماده"?"مواد":esc(u)} ${esc(fa(b.spec))} (${fa(b.items.length)} ${esc(u)})`}
+function shortMeta(b,p){return `${specText(b)} · ${fa(p)}٪ انجام‌شده`}
+function toggleBlock(did,bid){let b=findBlock(did,bid);b.open=!b.open;persist();render()}
 render();
 </script>
 </body>
