@@ -79,7 +79,7 @@ textarea.note{overflow:hidden;resize:none;min-height:80px}
  </section>
  <section id="daysView" class="hidden">
   <div class="panel">
-   <div class="panel-head"><div><h2>روزهای مطالعاتی</h2><div class="muted small">روز اول، روز دوم و ... بدون وابستگی به تاریخ</div></div><div class="row"><button class="btn" onclick="setAll(false)">بستن همه</button><button class="btn primary" onclick="openDayModal()">＋ افزودن روز</button></div></div>
+   <div class="panel-head"><div><h2>روزهای مطالعاتی</h2><div class="muted small">روز اول، روز دوم و ... بدون وابستگی به تاریخ</div></div><div class="row"><button class="btn" onclick="setAll(false)">بستن همه</button><button class="btn primary" onclick="openPlan2Modal()">افزودن برنامه‌ی تجارت</button><button class="btn danger" onclick="openClearModal()">حذف همه‌ی روزها</button><button class="btn danger" onclick="openResetModal()">بازنشانی کامل</button><button class="btn" onclick="openPlanModal()">بارگذاری برنامه‌ی مدنی</button><button class="btn primary" onclick="openDayModal()">＋ افزودن روز</button></div></div>
    <div id="allDays" class="day-list"></div>
   </div>
  </section>
@@ -118,14 +118,231 @@ const defaultSubjects=[
  ["آرای وحدت رویه",["آرای وحدت رویه"]],
  ["متون حقوقی",["متون حقوقی"]]
 ];
-const CHECKS=["مطالعه نص قانون","شرح ماده","مرور روزانه","مرور هفتگی","تست‌زنی","مرور تست","مرور نهایی"];
+const CHECKS=["مطالعه نص قانون","شرح ماده","مرور اول (روز بعد)","مرور دوم (۷ روز بعد)","تست‌زنی","مرور تست","مرور سوم (۲۱ روز بعد)"];
 const UNITS={"آرای وحدت رویه":"رای"};
 const COUNTS={"قانون مدنی":1335,"قانون مسئولیت مدنی":17};
+const PLAN_LAWS=["قانون مدنی","قانون مسئولیت مدنی","قانون حمایت خانواده ۱۳۹۱","قانون حمایت از خانواده و جوانی جمعیت ۱۴۰۰","قانون امور حسبی","قانون روابط موجر و مستأجر ۱۳۵۶","قانون روابط موجر و مستأجر ۱۳۷۶","قانون بیمه اجباری شخص ثالث ۱۳۹۵","قانون پیش‌فروش ساختمان","قانون حمایت حقوق مؤلفان، مصنفان و هنرمندان","مرور و آزمون"];
+const PLAN_GROUPS=["مرحله اول · هفته اول — کلیات، اموال و مالکیت","مرحله اول · هفته دوم — قواعد عمومی قراردادها","مرحله اول · هفته سوم — شروط، سقوط تعهدات و ضمان","مرحله اول · هفته چهارم — عقد بیع","مرحله اول · هفته پنجم — سایر عقود معین","مرحله اول · هفته ششم — شفعه، وصیت و ارث","مرحله اول · هفته هفتم — اشخاص و حقوق خانواده","مرحله دوم — تکمیل خانواده و قوانین خاص","مرحله سوم — مرور عمیق و تست موضوعی","مرحله چهارم — جمع‌بندی و شبیه‌سازی آزمون"];
+const PLAN_TXT=`1|0|0|1-10|انتشار، اجرای قوانین و قواعد کلی|بررسی قلمرو اجرای قانون
+2|0|0|11-28|اموال منقول و غیرمنقول|تفکیک انواع مال و آثار حقوقی
+3|0|0|29-54|حقوق عینی و مالکیت|حق انتفاع، ارتفاق و مالکیت
+4|0|0|55-94|وقف و اموال عمومی|وقف، حبس و شرایط آن
+5|0|0|95-137|حق ارتفاق و احکام املاک|حق عبور، مجری و شرب
+6|0|0|138-182|اسباب تملک و حیازت|حیازت، تصرف و مالکیت
+7|0|0|11-182|جمع‌بندی مواد ۱۱ تا ۱۸۲|۳۰ تست و تحلیل اشتباهات
+8|1|0|183-190|مفهوم عقد و شرایط اساسی صحت معامله|تفکیک عقد، ایقاع و شرایط صحت
+9|1|0|191-199|قصد و رضا|قصد انشا، اشتباه و اکراه
+10|1|0|200-217|اهلیت، موضوع و جهت معامله|شرایط و ضمانت اجرا
+11|1|0|218|ماده ۲۱۸ و مقررات مرتبط؛ معاملات صوری و به قصد فرار از دین|تحلیل تفاوت بطلان و عدم نفوذ
+12|1|0|219-230|آثار قراردادها|اصل لزوم، نسبی بودن قراردادها، وجه التزام
+13|1|0|231-246|آثار عقد نسبت به اشخاص و شروط|شرط صفت، فعل و نتیجه
+14|1|0|247-263|معامله فضولی|عدم نفوذ، اجازه و رد
+15|2|0|264-282|سقوط تعهدات|وفای به عهد، اقاله و ابراء
+16|2|0|283-300|تهاتر و مالکیت مافی‌الذمه|مقایسه اسباب سقوط تعهد
+17|2|0|301-306|دارا شدن بلاجهت و ایفای ناروا|ضمان و استرداد
+18|2|0|307-327|ضمان قهری|اتلاف، تسبیب و غصب
+19|2|0|328-337|مسئولیت و استیفا|مسئولیت ناشی از تلف و انتفاع
+20|2|0|183-337|مرور مواد ۱۸۳ تا ۳۳۷|۴۰ تست ترکیبی
+21|3|0|338-355|تعریف بیع و شرایط مبیع|مبیع، ثمن و اوصاف
+22|3|0|356-375|تسلیم و آثار بیع|تسلیم، قبض و ضمان
+23|3|0|376-396|تأخیر در تسلیم و خیارات|آثار تخلف از تعهد
+24|3|0|396-417|انواع خیارات|شناخت و مقایسه خیارات
+25|3|0|418-444|خیارات غبن، عیب، تدلیس و تبعض صفقه|شرایط اعمال و آثار
+26|3|0|445-463|احکام خیارات و بیع شرط|سقوط خیار و آثار فسخ
+27|3|0|338-463|جمع‌بندی بیع|۵۰ تست از بیع و خیارات
+28|4|0|464-517|معاوضه و اجاره|تفاوت بیع و معاوضه، اجاره اشخاص و اشیا
+29|4|0|518-560|مزارعه، مساقات و مضاربه|شرایط و آثار عقود
+30|4|0|561-606|جعاله و شرکت|جعاله، شرکت مدنی و اداره مال مشترک
+31|4|0|607-652|ودیعه و عاریه و قرض|مسئولیت امین و مستعیر
+32|4|0|653-683|وکالت|حدود اختیار، عزل، استعفا و انفساخ
+33|4|0|684-733|ضمان، حواله و کفالت|انتقال دین و آثار آن
+34|4|0|734-807|صلح، رهن و هبه|مقایسه عقود و شرایط صحت
+35|4|0|464-807|مرور عقود معین|۵۰ تست ترکیبی از عقود
+36|5|0|808-824|اخذ به شفعه|شرایط ایجاد و اعمال حق شفعه
+37|5|0|825-860|وصیت|وصیت تملیکی، عهدی و ثلث
+38|5|0|861-881|موجبات و موانع ارث|نسب، سبب و موانع ارث
+39|5|0|882-900|طبقات و درجات ارث|حجب و قواعد توارث
+40|5|0|901-955|سهم‌الارث|محاسبات ارث و فروض
+41|5|0|825-955|مرور وصیت و ارث|۴۰ تست و حل مسائل ارث
+42|6|0|956-991|اشخاص و اقامتگاه|شخصیت، اهلیت و اقامتگاه
+43|6|0|992-1033|اسناد سجلی و اقامتگاه|بررسی مقررات مرتبط
+44|6|0|1034-1077|نکاح|موانع نکاح و شرایط صحت
+45|6|0|1078-1101|مهر|انواع مهر، مالکیت و آثار طلاق
+46|7|0|1102-1119|آثار نکاح|حقوق و تکالیف زوجین و شروط ضمن عقد
+47|7|0|1120-1157|انحلال نکاح و طلاق|فسخ، طلاق، رجوع و عده
+48|7|0|1158-1206|نسب، حضانت و نفقه اقارب|نسب، ولایت و نفقه
+49|7|0|1207-1249|مباحث پایانی قانون مدنی (بخش ۱)|مطالعه نص و شرح مواد
+50|7|0|1250-1292|مباحث پایانی قانون مدنی (بخش ۲)|مطالعه نص و شرح مواد
+51|7|0|1293-1335|مباحث پایانی قانون مدنی (بخش ۳)|مطالعه نص و شرح مواد
+52|7|2|||مواد مربوط به صلاحیت‌ها، ازدواج، طلاق و حقوق مالی
+53|7|3|||احکام مرتبط با خانواده و نکاح
+54|7|4|||حجر، قیمومت، امور غایب مفقودالاثر و ترکه
+55|7|1|1-16|ارکان و انواع مسئولیت|
+56|7|1|17|مسئولیت‌های خاص (ماده ۱۷ تا پایان)|
+57|7|5|||قلمرو اجرا، حق کسب و پیشه و تخلیه
+58|7|6|||اجاره، تخلیه و شرایط قرارداد
+59|7|7|||مسئولیت، خسارت و تعهدات بیمه‌گر
+60|7|8|||قرارداد، الزامات و ضمانت اجرا
+61|7|9|||حقوق مادی و معنوی و ضمانت اجرا
+62|7|10|مرور قوانین خاص کانون و مرکز||تطبیق منابع مشترک و اختصاصی
+63|7|10|آزمون جامع مرحله اول||۶۰ تست زمان‌دار و تحلیل
+64|8|0|183-263|قواعد عمومی قراردادها|۴۰ تست
+65|8|0|264-337|سقوط تعهدات و ضمان قهری|۴۰ تست
+66|8|0|338-396|بیع|۴۰ تست
+67|8|0|396-463|خیارات|۴۰ تست
+68|8|0|464-517|اجاره و معاوضه|۳۵ تست
+69|8|0|518-606|عقود مشارکتی|۳۵ تست
+70|8|0|607-683|ودیعه، عاریه، قرض و وکالت|۴۰ تست
+71|8|0|684-807|ضمان، حواله، کفالت، صلح و رهن|۴۰ تست
+72|8|0|808-860|شفعه و وصیت|۳۵ تست
+73|8|0|861-955|ارث|۴۰ تست و حل مسائل محاسباتی
+74|8|0|956-1034|اشخاص و اهلیت|۳۵ تست
+75|8|0|1034-1101|نکاح و مهر|۴۰ تست
+76|8|0|1102-1157|آثار نکاح و طلاق|۴۰ تست
+77|8|0|1158-1206|نسب، حضانت و نفقه|۳۵ تست
+77|8|0|1207-1335|مباحث پایانی قانون مدنی|۳۵ تست
+78|8|10|تست قوانین خاص||۵۰ تست ترکیبی از قوانین خاص
+79|9|10|قواعد عمومی معاملات||مرور مواد مهم و ۵۰ تست
+80|9|10|عقود معین||مرور تطبیقی و ۵۰ تست
+81|9|10|خیارات و ضمانت اجراها||مرور نموداری و ۵۰ تست
+82|9|10|مالکیت و حقوق عینی||مرور و ۴۰ تست
+83|9|10|ارث و وصیت||مرور و ۴۰ تست
+84|9|10|خانواده||مرور و ۴۰ تست
+85|9|10|مسئولیت مدنی و قوانین خاص||۵۰ تست ترکیبی
+86|9|10|آزمون شبیه‌سازی اول||۲۰ تست مدنی در زمان استاندارد
+87|9|10|تحلیل آزمون اول||بررسی تمام گزینه‌ها و استخراج نقاط ضعف
+88|9|10|آزمون شبیه‌سازی دوم||۲۰ تست مدنی در زمان استاندارد
+89|9|10|تحلیل آزمون دوم||اصلاح اشتباهات و مراجعه به مواد قانونی
+90|9|10|آزمون شبیه‌سازی سوم||۲۰ تست مدنی در زمان استاندارد
+91|9|10|تحلیل آزمون سوم||مرور نکات پرتکرار و دام‌های تستی
+92|9|10|مرور نهایی قانون مدنی||مواد علامت‌دار، استثنائات و مواد مشابه
+93|9|10|آزمون جامع نهایی||۲۰ تست زمان‌دار و ارزیابی نهایی`;
+function applyPlan(s){
+ let sub=s.subjects.find(x=>x.name==="حقوق مدنی");if(!sub){sub={id:uid(),name:"حقوق مدنی",laws:[]};s.subjects.unshift(sub)}
+ PLAN_LAWS.forEach((n,i)=>{let l=sub.laws.find(x=>x.name===n);if(!l){l={name:n,count:i===0?1335:i===1?17:0,unit:"ماده"};sub.laws.push(l)}if(i>=2&&!l.topics){l.topics=[];l.unit="سرفصل";l.count=0}});
+ let days=[];
+ PLAN_TXT.trim().split("\n").forEach(r=>{let a=r.split("|"),li=+a[2],L=sub.laws.find(x=>x.name===PLAN_LAWS[li]),items,spec;
+  if(li<2){spec=a[3];items=expand(spec)}else{let tp=li===10?a[3]:"مطالعه‌ی کامل قانون";if(!L.topics.includes(tp))L.topics.push(tp);L.count=L.topics.length;items=[tp];spec=tp}
+  let d=days.find(x=>x.number===+a[0]);if(!d){d={id:uid(),number:+a[0],group:PLAN_GROUPS[+a[1]],blocks:[]};days.push(d)}
+  d.blocks.push({id:uid(),subjectId:sub.id,law:PLAN_LAWS[li],spec,title:a[4]||"",task:a[5]||"",items,checks:Array(CHECKS.length).fill(false),notes:"",mastery:"نامشخص",refs:[],open:false})});
+ s.days=days;return s}
+function openPlanModal(){showModal(`<h2>بارگذاری برنامه‌ی ۹۰ روزه‌ی مدنی</h2><p>همه‌ی روزهای فعلی با برنامه‌ی آماده‌ی مدنی جایگزین می‌شوند و واحدها و نکات روزهای فعلی پاک می‌شود. فایل پشتیبان گرفته‌ای؟</p><div class="modal-actions"><button class="btn" onclick="closeModal()">انصراف</button><button class="btn primary" onclick="loadPlan()">بله، بارگذاری شود</button></div>`)}
+function loadPlan(){applyPlan(state);closeModal();save()}
+function openClearModal(){showModal(`<h2>حذف همه‌ی روزها</h2><p>همه‌ی روزها و واحدهای مطالعاتی (همراه نکات و تیک‌ها) پاک می‌شود. درس‌ها و منابع می‌مانند. مطمئنی؟</p><div class="modal-actions"><button class="btn" onclick="closeModal()">انصراف</button><button class="btn danger" onclick="clearDays()">بله، پاک شود</button></div>`)}
+function clearDays(){state.days=[];closeModal();save()}
+function openResetModal(){showModal(`<h2>بازنشانی کامل</h2><p>همه‌چیز (روزها، درس‌ها، نکات و تیک‌ها) پاک می‌شود و برنامه‌ی آماده‌ی مدنی از اول برمی‌گردد. مطمئنی؟</p><div class="modal-actions"><button class="btn" onclick="closeModal()">انصراف</button><button class="btn danger" onclick="resetAll()">بله، بازنشانی شود</button></div>`)}
+function resetAll(){state=fresh();closeModal();save()}
+
+const PLAN2_LAWS=["قانون تجارت","لایحه اصلاحی قانون تجارت","قانون صدور چک","قانون بخش تعاونی","مباحث کلی، مرور و آزمون"];
+const PLAN2_TXT=`1|0|1-5|مفهوم تاجر و اعمال تجارتی|مفهوم تاجر، معاملات تجارتی ذاتی و تبعی، ملاک تجاری بودن · ۲۰ تست مفهومی
+2|0|2,3|اعمال تجارتی ذاتی و تبعی|معاملات تجارتی ذاتی، تبعی و معاملات غیرتجارتی · ۲۰ تست
+3|0|6-15|دفاتر تجارتی|انواع دفاتر، الزامات تنظیم و نگهداری، آثار عدم رعایت · ۲۰ تست
+4|0|6-15|ارزش اثباتی دفاتر تجارتی|ارزش اثباتی دفاتر در دعاوی تجارتی و ضمانت اجراها · ۱۵ تست
+5|0|16-19|ثبت تجارتی و تکالیف تاجر|تکالیف ثبت، آثار ثبت و ضمانت اجراها · ۱۵ تست
+6|0|335-356|دلالی: مفهوم و شرایط|تعریف دلال، ماهیت قرارداد، حق‌الزحمه و وظایف · ۲۰ تست
+7|0|335-356|دلالی: مسئولیت و پایان رابطه|مسئولیت دلال، مخارج، موارد استحقاق اجرت · ۱۵ تست
+8|0|357-376|حق‌العمل‌کاری: مفهوم و آثار|رابطه حق‌العمل‌کار و آمر، معامله به نام خود و به حساب آمر · ۲۰ تست
+9|0|357-376|حق‌العمل‌کاری: تعهدات و مسئولیت|مخارج، تضمین، مسئولیت و حق‌الزحمه · ۲۰ تست
+10|0|377-394|قرارداد حمل‌ونقل|متصدی حمل‌ونقل، ارسال‌کننده و گیرنده · ۲۰ تست
+11|0|377-394|حمل‌ونقل: مسئولیت و آثار|تعهدات متصدی، مسئولیت خسارت و موارد معافیت · ۲۰ تست
+12|0|395-401|قائم‌مقام تجارتی و نمایندگان تجارتی|حدود اختیار، نمایندگی، آثار اعمال نماینده و عزل · ۱۵ تست
+13|0|402-411|ضمانت در قانون تجارت|ضمان تجارتی، مسئولیت ضامن و تفاوت آن با ضمان مدنی · ۲۰ تست
+14|0|20|شرکت‌های تجارتی: کلیات|ماده ۲۰ و مقررات مرتبط؛ انواع شرکت، شخصیت حقوقی و تفاوت شرکت مدنی و تجارتی · ۲۰ تست
+15|0|116-123|شرکت تضامنی: تشکیل|شرایط تشکیل، نام شرکت، سهم‌الشرکه و مسئولیت شرکا · ۲۰ تست
+16|0|124-140|شرکت تضامنی: اداره و انحلال|انتقال سهم‌الشرکه، اداره شرکت، طلبکاران و انحلال · ۲۰ تست
+17|0|183-189|شرکت نسبی|تشکیل، مسئولیت شرکا، اداره و انحلال · ۱۵ تست
+18|0|141-161|شرکت مختلط غیرسهامی|شریک ضامن و شریک با مسئولیت محدود، اداره و مسئولیت · ۲۰ تست
+19|0|162-182|شرکت مختلط سهامی|ارکان، مسئولیت شرکا و تفاوت با شرکت مختلط غیرسهامی · ۲۰ تست
+20|0|94-106|شرکت با مسئولیت محدود: تشکیل|سرمایه، سهم‌الشرکه، نام و شرایط تشکیل · ۲۰ تست
+21|0|107-115|شرکت با مسئولیت محدود: اداره|مدیران، تصمیمات شرکا و انتقال سهم‌الشرکه · ۲۰ تست
+22|1|1-17|شرکت سهامی: کلیات و تشکیل|شرکت سهامی عام و خاص، مؤسسین و سرمایه · ۲۰ تست
+23|1|18-41|شرکت سهامی: پذیره‌نویسی|تشکیل، تعهد سرمایه و مجمع عمومی مؤسس · ۲۰ تست
+24|1|24-55|سهام و حقوق سهامداران|انواع سهام، ورقه سهم، انتقال و حقوق سهامدار · ۲۰ تست
+25|1|72-90|مجمع عمومی عادی|صلاحیت، دعوت، حد نصاب و تصمیمات · ۲۰ تست
+26|1|83-94|مجمع عمومی فوق‌العاده|تغییر اساسنامه، تغییر سرمایه و انحلال · ۲۰ تست
+27|1|107-143|هیئت‌مدیره و مدیرعامل|انتخاب، اختیارات، محدودیت‌ها و مسئولیت مدیران · ۲۵ تست
+28|1|144-156|بازرسان شرکت سهامی|انتخاب، وظایف، گزارش و مسئولیت بازرس · ۲۰ تست
+29|1|157-180|حساب‌ها و سود شرکت|افزایش و کاهش سرمایه، اندوخته و تقسیم سود · ۲۰ تست
+30|1|157-198|تغییرات سرمایه|افزایش و کاهش سرمایه، حق تقدم و تشریفات · ۲۰ تست
+31|1|199-231|انحلال و تصفیه شرکت سهامی|موجبات انحلال، مدیر تصفیه و تقسیم دارایی · ۲۰ تست
+32|1|232-269|مسئولیت کیفری و مدنی مدیران|مقررات کیفری و مسئولیت ارکان شرکت · ۲۰ تست
+33|3|شرکت تعاونی||اصول، ارکان و مسئولیت‌ها در حد سرفصل آزمون · ۱۵ تست
+34|4|مقایسه انواع شرکت‌ها||مسئولیت شرکا، انتقال سهم، اداره و انحلال · ۳۰ تست ترکیبی
+35|4|اسناد تجارتی: کلیات||برات، سفته و چک؛ ویژگی‌ها، استقلال امضاها و وصف تجریدی · ۲۰ تست
+36|0|223-236|برات: صدور و شرایط|مندرجات، شرایط شکلی و آثار فقدان مندرجات · ۲۰ تست
+37|0|237-249|برات: قبول و نکول|قبولی، نکول، ضمانت و آثار آن · ۲۰ تست
+38|0|245-262|برات: ظهرنویسی|ظهرنویسی انتقالی، وکالتی و وثیقه‌ای · ۲۵ تست
+39|0|243-272|برات: سررسید و پرداخت|سررسید، تأدیه، اعتراض و واخواست · ۲۵ تست
+40|0|249,286-292|مسئولیت براتی و حق رجوع|مسئولیت تضامنی، مهلت‌ها و سقوط حق رجوع · ۲۵ تست
+41|0|307-309|سفته|شرایط سفته، ارجاع به مقررات برات و آثار حقوقی · ۲۰ تست
+42|0|310-317|چک در قانون تجارت|ماهیت، انواع و قواعد تجاری چک · ۲۰ تست
+43|2|قانون صدور چک||تعریف، انواع چک و تکالیف بانک · ۲۰ تست
+44|2|چک صیادی و ثبت||ثبت، تأیید، انتقال و استعلام در سامانه صیاد · ۲۰ تست
+45|2|اجرای چک و اجرائیه||گواهی عدم پرداخت، اجرائیه و شرایط آن · ۲۰ تست
+46|2|مسئولیت صادرکننده و ظهرنویس چک||مسئولیت مدنی، کیفری و تضامنی · ۲۵ تست
+47|2|جرایم چک و موانع کیفری||موارد عدم تعقیب، مهلت‌ها و دفاعیات · ۲۵ تست
+48|4|مرور اسناد تجارتی||جدول تطبیقی مواعد، مسئولیت‌ها و واخواست · ۳۰ تست ترکیبی
+49|0|412-416|ورشکستگی: مفهوم و شرایط|توقف، تاجر، حکم ورشکستگی و آثار ابتدایی · ۲۰ تست
+50|0|412-423|اعلام ورشکستگی و تاریخ توقف|مرجع، تاریخ توقف و معاملات قبل از توقف · ۲۰ تست
+51|0|418-425|آثار حکم ورشکستگی نسبت به تاجر|ممنوعیت مداخله، حال‌شدن دیون و معاملات · ۲۰ تست
+52|0|425-440|آثار ورشکستگی نسبت به طلبکاران|بطلان یا عدم نفوذ معاملات و وضعیت طلبکاران · ۲۰ تست
+53|0|427-457|مدیر تصفیه و عضو ناظر|اختیارات، وظایف و اداره تصفیه · ۲۰ تست
+54|0|462-475|تشخیص مطالبات|اعلام و رسیدگی به مطالبات، اعتراض و تصدیق · ۲۰ تست
+55|0|476-480|قرارداد ارفاقی: شرایط|دعوت، رأی طلبکاران و شرایط انعقاد · ۲۰ تست
+56|0|481-491|قرارداد ارفاقی: آثار و فسخ|آثار، ابطال، فسخ و ضمانت اجراها · ۲۰ تست
+57|0|491-503|تصفیه و تقسیم دارایی|فروش اموال، تقسیم وجوه و ختم ورشکستگی · ۲۰ تست
+58|0|541-560|ورشکستگی به تقصیر و تقلب|مصادیق، ارکان و آثار کیفری · ۲۵ تست
+59|0|561-575|اعاده اعتبار|شرایط اعاده اعتبار حقیقی و قانونی · ۱۵ تست
+60|0|412-575|مرور جامع ورشکستگی|نقشه فرایند از توقف تا اعاده اعتبار · ۳۰ تست ترکیبی
+61|4|قانون اداره تصفیه امور ورشکستگی||صلاحیت و تشریفات مهم · ۲۰ تست
+62|0|576-591|اسم تجارتی و شخصیت حقوقی|اسم تجارتی، شخصیت حقوقی، اقامتگاه و تابعیت · ۱۵ تست
+63|0|1-19|مرور تاجر و معاملات تجارتی|تاجر، اعمال تجارتی، دفاتر و ثبت · ۳۰ تست
+64|0|335-376|مرور دلالی و حق‌العمل‌کاری|مقایسه قراردادها و مسئولیت‌ها · ۳۰ تست
+65|0|377-401|مرور حمل‌ونقل و نمایندگی|تعهدات و مسئولیت‌ها · ۲۵ تست
+66|0|116-189|مرور شرکت‌های اشخاص|تضامنی، نسبی و مختلط · ۳۰ تست
+67|0|94-115|مرور شرکت با مسئولیت محدود|تشکیل، اداره، انتقال و انحلال · ۲۵ تست
+68|1|1-71|مرور شرکت سهامی: تشکیل و سهام|تشکیل، سرمایه و سهام · ۳۰ تست
+69|1|72-156|مرور مجامع و مدیران|مجامع، هیئت‌مدیره و بازرسان · ۳۰ تست
+70|1|157-269|مرور سرمایه و انحلال|سرمایه، تصفیه و مسئولیت · ۳۰ تست
+71|0|223-309|مرور برات و سفته|شرایط، ظهرنویسی، ضمانت و واخواست · ۳۰ تست
+72|0|310-317|مرور چک و اصلاحات|مواد ۳۱۰ تا ۳۱۷ و قانون صدور چک؛ صیاد، اجرائیه و مسئولیت · ۳۰ تست
+73|0|412-461|مرور ورشکستگی: توقف و آثار|توقف، حکم و آثار · ۳۰ تست
+74|0|462-575|مرور ورشکستگی: تصفیه و اعتبار|مطالبات، قرارداد ارفاقی، جرایم و اعاده اعتبار · ۳۰ تست
+75|4|آزمون جامع اول||آزمون زمان‌دار از تمام مباحث تجارت · ۴۰ تست · تحلیل تک‌تک گزینه‌ها و استخراج نقاط ضعف
+76|4|تحلیل آزمون اول و رفع اشکال||دسته‌بندی اشتباهات: بی‌دقتی، فراموشی ماده، اشتباه مفهومی و تعارض قوانین · ۲۰ تست هدفمند
+77|4|شرکت‌ها: تست ترکیبی دشوار||مسائل ترکیبی انواع شرکت، حدود اختیار مدیر و مسئولیت شرکا · ۳۵ تست
+78|4|اسناد تجارتی: تست ترکیبی دشوار||ظهرنویسی، واخواست، مواعد و مسئولیت امضاکنندگان · ۳۵ تست
+79|4|ورشکستگی: تست ترکیبی دشوار||تاریخ توقف، معاملات، طلبکاران و قرارداد ارفاقی · ۳۵ تست
+80|4|قوانین خاص و اصلاحات||مرور آخرین متن قانون صدور چک، لایحه اصلاحی، قانون اداره تصفیه و مقررات خاص منبع آزمون · ۲۰ تست
+81|4|مرور مواد پرتکرار||مرور مواد علامت‌دار و مواد دارای استثنا، مهلت، نصاب یا ضمانت اجرا · ۳۰ تست
+82|4|آزمون جامع دوم||آزمون زمان‌دار با ترکیب همه سرفصل‌ها · ۴۰ تست · تحلیل مستند با متن قانون
+83|4|تحلیل آزمون دوم||بازخوانی مواد غلط و ساخت فهرست نهایی نقاط ضعف · ۲۰ تست هدفمند
+84|4|مرور نهایی شرکت‌ها||جدول نهایی انواع شرکت، سرمایه، مسئولیت، اداره، انتقال و انحلال · ۲۵ تست
+85|4|مرور نهایی اسناد تجارتی||جدول نهایی برات، سفته و چک؛ مواعد و آثار عدم اقدام · ۲۵ تست
+86|4|مرور نهایی ورشکستگی||نمودار فرایند ورشکستگی و مرور مواد کلیدی · ۲۵ تست
+87|4|آزمون جامع سوم||شبیه‌سازی آزمون با زمان‌بندی واقعی و بدون مراجعه به کتاب · ۴۰ تست
+88|4|تحلیل آزمون سوم||تحلیل کامل و مرور فقط خطاها و نکات فرّار · ۱۵ تست هدفمند
+89|4|جمع‌بندی شرکت‌ها و اسناد تجارتی||مرور جداول مقایسه‌ای، مواعد، مسئولیت‌ها و مواد پرتکرار · ۲۵ تست
+90|4|جمع‌بندی نهایی||مرور خلاصه‌ها، جداول مقایسه‌ای، مواد پرتکرار و استثناها · مطالعه سبک و تثبیت مطالب`;
+function mergePlan2(s){
+ let sub=s.subjects.find(x=>x.name==="حقوق تجارت");if(!sub){sub={id:uid(),name:"حقوق تجارت",laws:[]};s.subjects.push(sub)}
+ let names=PLAN2_LAWS.map((n,i)=>{let l=sub.laws.find(x=>x.name===n),nm=n;
+  if(i>=2&&l&&!l.topics){if(s.days.some(d=>d.blocks.some(b=>b.subjectId===sub.id&&b.law===n))){nm=n+" — سرفصل‌ها";l=sub.laws.find(x=>x.name===nm)}else{l.topics=[];l.unit="سرفصل";l.count=0}}
+  if(!l){l=i<2?{name:nm,count:0,unit:"ماده"}:{name:nm,count:0,unit:"سرفصل",topics:[]};sub.laws.push(l)}
+  return nm});
+ PLAN2_TXT.trim().split("\n").forEach(r=>{let a=r.split("|"),li=+a[1],nm=names[li],L=sub.laws.find(x=>x.name===nm),items,spec=a[2];
+  let d=s.days.find(x=>x.number===+a[0]);if(!d){d={id:uid(),number:+a[0],group:"",blocks:[],open:false};s.days.push(d)}
+  if(d.blocks.some(b=>b.src==="tej"))return;
+  if(li<2)items=expand(spec);else{if(!L.topics.includes(spec))L.topics.push(spec);L.count=L.topics.length;items=[spec]}
+  d.blocks.push({id:uid(),subjectId:sub.id,law:nm,spec,title:a[3]||"",task:a[4]||"",items,checks:Array(CHECKS.length).fill(false),notes:"",mastery:"نامشخص",refs:[],open:false,src:"tej"})});
+ s.days.sort((x,y)=>x.number-y.number);return s}
+function openPlan2Modal(){showModal(`<h2>افزودن برنامه‌ی ۹۰ روزه‌ی تجارت</h2><p>درس تجارت هر روز کنار درس‌های همان روز اضافه می‌شود. هیچ‌چیز از روزها، تیک‌ها، نکات و تغییرات فعلی‌ات پاک یا عوض نمی‌شود. اگر قبلاً اضافه شده باشد، دوباره تکرار نمی‌شود.</p><div class="modal-actions"><button class="btn" onclick="closeModal()">انصراف</button><button class="btn primary" onclick="addPlan2()">افزودن</button></div>`)}
+function addPlan2(){mergePlan2(state);closeModal();save()}
 const KEY="legalStudyPlanner";
 const uid=()=>Math.random().toString(36).slice(2,10);
 const fa=n=>String(n).replace(/\d/g,d=>"۰۱۲۳۴۵۶۷۸۹"[d]);
 let state=CLOUD?fresh():load();
-function fresh(){return {subjects:defaultSubjects.map((x,i)=>({id:"s"+i,name:x[0],laws:x[1].map(n=>({name:n,count:COUNTS[n]||0,unit:UNITS[n]||"ماده"}))})),days:[]}}
+function fresh(){return mergePlan2(applyPlan({subjects:defaultSubjects.map((x,i)=>({id:"s"+i,name:x[0],laws:x[1].map(n=>({name:n,count:COUNTS[n]||0,unit:UNITS[n]||"ماده"}))})),days:[]}))}
 function load(){try{let s=JSON.parse(localStorage.getItem(KEY));return s&&s.days?norm(s):fresh()}catch(e){return fresh()}}
 function norm(s){s.subjects.forEach(u=>u.laws=u.laws.map(l=>typeof l==="string"?{name:l,count:COUNTS[l]||0}:l));s.days.forEach(d=>d.blocks.forEach(b=>{if(b.checks.length<CHECKS.length)b.checks.splice(1,0,...Array(CHECKS.length-b.checks.length).fill(false));b.refs=b.refs||[];b.title=b.title||"";if(!b.items){b.spec=b.from===b.to?String(b.from):b.from+"-"+b.to;b.items=expand(b.spec)}}));s.subjects.forEach(u=>u.laws.forEach(l=>{if(l.topics)l.count=l.topics.length}));return s}
 function persist(){if(CLOUD){if(ready)cloudSave();return}try{localStorage.setItem(KEY,JSON.stringify(state))}catch(e){}}
@@ -146,9 +363,9 @@ function render(){
 }
 function emptyHTML(t){return `<div class="empty">${t}</div>`}
 function dayHTML(d,dash){let open=dash||d.open,t=d.blocks.length*CHECKS.length,c=d.blocks.reduce((s,b)=>s+b.checks.filter(Boolean).length,0),pp=t?Math.round(c/t*100):0,sum=d.blocks.map(b=>{let s=state.subjects.find(x=>x.id===b.subjectId);return (s?s.name:"")+" "+(b.title||b.spec)}).join(" · ");
- return `<article class="day-card" ${dash?"":`id="day-${d.id}"`} style="${dayStyle(d)}"><div class="day-top" ${dash?"":`onclick="toggleDay('${d.id}')" style="cursor:pointer"`}><div style="min-width:0"><div class="day-title">${dash?"":(open?"▾ ":"▸ ")}روز ${fa(d.number)}</div><div class="muted small ${open?"":"sumline"}">${open?dayInfo(d):esc(sum||"بدون واحد مطالعاتی")}</div></div><div class="row" onclick="event.stopPropagation()"><span class="pill ${statusClass(d)}">${status(d)} · ${fa(pp)}٪</span>${open?`<button class="btn" onclick="openBlockModal('${d.id}')">＋ واحد</button><button class="btn" onclick="editDay('${d.id}')">ویرایش روز</button><button class="btn danger" onclick="deleteDay('${d.id}')">حذف</button>`+(dash?"":`<button class="btn" onclick="toggleDay('${d.id}')">بستن ▴</button>`):""}</div></div>${open?(d.blocks.length?d.blocks.map(b=>blockHTML(d,b)).join(""):emptyHTML("برای این روز هنوز واحد مطالعاتی ثبت نشده است.")):`<div class="progress" style="margin-top:8px"><span style="width:${pp}%"></span></div>`}</article>`}
+ return `<article class="day-card" ${dash?"":`id="day-${d.id}"`} style="${dayStyle(d)}"><div class="day-top" ${dash?"":`onclick="toggleDay('${d.id}')" style="cursor:pointer"`}><div style="min-width:0"><div class="day-title">${dash?"":(open?"▾ ":"▸ ")}روز ${fa(d.number)}</div>${d.group?`<div class="small" style="color:var(--muted)">${esc(d.group)}</div>`:""}<div class="muted small ${open?"":"sumline"}">${open?dayInfo(d):esc(sum||"بدون واحد مطالعاتی")}</div></div><div class="row" onclick="event.stopPropagation()"><span class="pill ${statusClass(d)}">${status(d)} · ${fa(pp)}٪</span>${open?`<button class="btn" onclick="openBlockModal('${d.id}')">＋ واحد</button><button class="btn" onclick="editDay('${d.id}')">ویرایش روز</button><button class="btn danger" onclick="deleteDay('${d.id}')">حذف</button>`+(dash?"":`<button class="btn" onclick="toggleDay('${d.id}')">بستن ▴</button>`):""}</div></div>${open?(d.blocks.length?d.blocks.map(b=>blockHTML(d,b)).join(""):emptyHTML("برای این روز هنوز واحد مطالعاتی ثبت نشده است.")):`<div class="progress" style="margin-top:8px"><span style="width:${pp}%"></span></div>`}</article>`}
 function blockHTML(d,b){let s=state.subjects.find(x=>x.id===b.subjectId),p=Math.round(percent(b)),open=b.open,ms=b.mastery&&b.mastery!=="نامشخص"?b.mastery:"";
- return `<div class="block ${masteryCls(b.mastery)}"><div class="block-head" style="cursor:pointer" onclick="toggleBlock('${d.id}','${b.id}')"><div style="min-width:0"><h3>${open?"▾ ":"▸ "}${esc(s?.name||"درس حذف شده")} — ${esc(b.law)}${b.title?" — "+esc(b.title):""}</h3><div class="block-meta">${open?blockMeta(b,p):shortMeta(b,p)}</div></div><div class="row" onclick="event.stopPropagation()">${ms?`<span class="pill">تسلط: ${ms}</span>`:""}${open?`<button class="btn" onclick="editBlock('${d.id}','${b.id}')">ویرایش</button><button class="btn danger" onclick="deleteBlock('${d.id}','${b.id}')">حذف</button>`:""}</div></div><div class="progress" style="margin-top:10px"><span style="width:${p}%"></span></div>${open?`<div class="checks">${CHECKS.map((c,i)=>`<label class="check"><input type="checkbox" ${b.checks[i]?"checked":""} onchange="toggleCheck('${d.id}','${b.id}',${i},this.checked)">${c}</label>`).join("")}</div><label class="note-label">ایرادات، اشکالات و نکات</label><textarea class="note" oninput="grow(this)" placeholder="ابهام‌ها، نکات دشوار و مواردی که باید دوباره بررسی شوند..." onchange="updateNote('${d.id}','${b.id}',this.value)">${esc(b.notes||"")}</textarea>${refsHTML(d,b)}<div class="block-foot"><span class="muted small">وضعیت تسلط</span><select class="select-small" onchange="updateMastery('${d.id}','${b.id}',this.value)"><option value="نامشخص" ${b.mastery==="نامشخص"?"selected":""}>هنوز ارزیابی نشده</option><option value="ضعیف" ${b.mastery==="ضعیف"?"selected":""}>ضعیف — نیازمند مطالعه مجدد</option><option value="متوسط" ${b.mastery==="متوسط"?"selected":""}>متوسط — نیازمند مرور</option><option value="خوب" ${b.mastery==="خوب"?"selected":""}>خوب — مسلط</option></select></div>`:""}</div>`}
+ return `<div class="block ${masteryCls(b.mastery)}"><div class="block-head" style="cursor:pointer" onclick="toggleBlock('${d.id}','${b.id}')"><div style="min-width:0"><h3>${open?"▾ ":"▸ "}${esc(s?.name||"درس حذف شده")} — ${esc(b.law)}${b.title?" — "+esc(b.title):""}</h3><div class="block-meta">${open?blockMeta(b,p):shortMeta(b,p)}</div>${b.task?`<div class="small" style="margin-top:3px">تکلیف: ${esc(b.task)}</div>`:""}</div><div class="row" onclick="event.stopPropagation()">${ms?`<span class="pill">تسلط: ${ms}</span>`:""}${open?`<button class="btn" onclick="editBlock('${d.id}','${b.id}')">ویرایش</button><button class="btn danger" onclick="deleteBlock('${d.id}','${b.id}')">حذف</button>`:""}</div></div><div class="progress" style="margin-top:10px"><span style="width:${p}%"></span></div>${open?`<div class="checks">${CHECKS.map((c,i)=>`<label class="check"><input type="checkbox" ${b.checks[i]?"checked":""} onchange="toggleCheck('${d.id}','${b.id}',${i},this.checked)">${c}</label>`).join("")}</div><label class="note-label">ایرادات، اشکالات و نکات</label><textarea class="note" oninput="grow(this)" placeholder="ابهام‌ها، نکات دشوار و مواردی که باید دوباره بررسی شوند..." onchange="updateNote('${d.id}','${b.id}',this.value)">${esc(b.notes||"")}</textarea>${refsHTML(d,b)}<div class="block-foot"><span class="muted small">وضعیت تسلط</span><select class="select-small" onchange="updateMastery('${d.id}','${b.id}',this.value)"><option value="نامشخص" ${b.mastery==="نامشخص"?"selected":""}>هنوز ارزیابی نشده</option><option value="ضعیف" ${b.mastery==="ضعیف"?"selected":""}>ضعیف — نیازمند مطالعه مجدد</option><option value="متوسط" ${b.mastery==="متوسط"?"selected":""}>متوسط — نیازمند مرور</option><option value="خوب" ${b.mastery==="خوب"?"selected":""}>خوب — مسلط</option></select></div>`:""}</div>`}
 function esc(s){return String(s??"").replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]))}
 function toggleCheck(did,bid,i,v){findBlock(did,bid).checks[i]=v;save()}
 function updateNote(did,bid,v){findBlock(did,bid).notes=v;persist()}
@@ -163,12 +380,12 @@ function editDay(id){let d=state.days.find(x=>x.id===id);showModal(`<h2>ویرا
 function saveDay(id){let n=+document.getElementById("dayNum").value;if(!n||state.days.some(d=>d.number===n&&d.id!==id))return toast("شماره روز نامعتبر یا تکراری است");state.days.find(d=>d.id===id).number=n;state.days.sort((a,b)=>a.number-b.number);closeModal();save()}
 function deleteDay(id){if(confirm("این روز و تمام واحدهای مطالعاتی آن حذف شود؟")){state.days=state.days.filter(d=>d.id!==id);save()}}
 let editBlk={};
-function openBlockModal(dayId,bid=null){let d=state.days.find(x=>x.id===dayId),b=bid?findBlock(dayId,bid):{subjectId:state.subjects[0]?.id,law:"",spec:"",title:"",items:[]};editBlk=b;let sub=state.subjects.find(s=>s.id===b.subjectId)||state.subjects[0];showModal(`<h2>${bid?"ویرایش":"افزودن"} واحد مطالعاتی — روز ${fa(d.number)}</h2><div class="form-grid"><div class="field"><label>درس</label><select id="blockSubject" onchange="refreshLawOptions()">${state.subjects.map(s=>`<option value="${s.id}" ${s.id===b.subjectId?"selected":""}>${esc(s.name)}</option>`).join("")}</select></div><div class="field"><label>منبع</label><select id="blockLaw" onchange="lawHint()">${(sub?.laws||[]).map(l=>`<option ${l.name===b.law?"selected":""}>${esc(l.name)}</option>`).join("")}</select></div><div class="field" style="grid-column:1/-1"><label>عنوان (اختیاری، مثل «صلاحیت‌ها»)</label><input id="blockTitle" value="${esc(b.title||"")}"></div><div class="field" style="grid-column:1/-1" id="specBox"></div><div class="muted small" id="lawHint" style="grid-column:1/-1"></div></div><div class="modal-actions"><button class="btn" onclick="closeModal()">انصراف</button><button class="btn primary" onclick="saveBlock('${dayId}','${bid||""}')">ذخیره واحد</button></div>`);lawHint()}
+function openBlockModal(dayId,bid=null){let d=state.days.find(x=>x.id===dayId),b=bid?findBlock(dayId,bid):{subjectId:state.subjects[0]?.id,law:"",spec:"",title:"",items:[]};editBlk=b;let sub=state.subjects.find(s=>s.id===b.subjectId)||state.subjects[0];showModal(`<h2>${bid?"ویرایش":"افزودن"} واحد مطالعاتی — روز ${fa(d.number)}</h2><div class="form-grid"><div class="field"><label>درس</label><select id="blockSubject" onchange="refreshLawOptions()">${state.subjects.map(s=>`<option value="${s.id}" ${s.id===b.subjectId?"selected":""}>${esc(s.name)}</option>`).join("")}</select></div><div class="field"><label>منبع</label><select id="blockLaw" onchange="lawHint()">${(sub?.laws||[]).map(l=>`<option ${l.name===b.law?"selected":""}>${esc(l.name)}</option>`).join("")}</select></div><div class="field" style="grid-column:1/-1"><label>عنوان (اختیاری، مثل «صلاحیت‌ها»)</label><input id="blockTitle" value="${esc(b.title||"")}"></div><div class="field" style="grid-column:1/-1"><label>تکلیف مطالعاتی (اختیاری)</label><input id="blockTask" value="${esc(b.task||"")}"></div><div class="field" style="grid-column:1/-1" id="specBox"></div><div class="muted small" id="lawHint" style="grid-column:1/-1"></div></div><div class="modal-actions"><button class="btn" onclick="closeModal()">انصراف</button><button class="btn primary" onclick="saveBlock('${dayId}','${bid||""}')">ذخیره واحد</button></div>`);lawHint()}
 function refreshLawOptions(){setTimeout(lawHint,0);let s=state.subjects.find(x=>x.id===document.getElementById("blockSubject").value);document.getElementById("blockLaw").innerHTML=(s?.laws||[]).map(l=>`<option>${esc(l.name)}</option>`).join("");}
-function saveBlock(dayId,bid){let sid=document.getElementById("blockSubject").value,law=document.getElementById("blockLaw").value,title=document.getElementById("blockTitle").value.trim();if(!sid||!law)return toast("درس و منبع را انتخاب کن");let L=lawObj(sid,law),items,spec;
+function saveBlock(dayId,bid){let sid=document.getElementById("blockSubject").value,law=document.getElementById("blockLaw").value,title=document.getElementById("blockTitle").value.trim(),task=document.getElementById("blockTask").value.trim();if(!sid||!law)return toast("درس و منبع را انتخاب کن");let L=lawObj(sid,law),items,spec;
  if(L&&L.topics){items=[...document.querySelectorAll("input[name=tp]:checked")].map(c=>L.topics[+c.value]);spec=items.join("، ")}else{spec=document.getElementById("blockSpec").value.trim();items=expand(spec)}
  if(!items.length)return toast("حداقل یک شماره یا سرفصل وارد کن");let cn=L&&!L.topics?(+L.count||0):0;if(cn&&Math.max(...items.map(Number))>cn)return toast("شماره از تعداد کل منبع بیشتر است");
- let d=state.days.find(x=>x.id===dayId);if(bid)Object.assign(findBlock(dayId,bid),{subjectId:sid,law,spec,title,items});else d.blocks.push({id:uid(),subjectId:sid,law,spec,title,items,checks:Array(CHECKS.length).fill(false),notes:"",mastery:"نامشخص",refs:[],open:true});d.open=true;closeModal();save()}
+ let d=state.days.find(x=>x.id===dayId);if(bid)Object.assign(findBlock(dayId,bid),{subjectId:sid,law,spec,title,task,items});else d.blocks.push({id:uid(),subjectId:sid,law,spec,title,task,items,checks:Array(CHECKS.length).fill(false),notes:"",mastery:"نامشخص",refs:[],open:true});d.open=true;closeModal();save()}
 function editBlock(d,b){openBlockModal(d,b)}
 function deleteBlock(d,b){if(confirm("این واحد مطالعاتی حذف شود؟")){let day=state.days.find(x=>x.id===d);day.blocks=day.blocks.filter(x=>x.id!==b);save()}}
 function openSubjectModal(id=null){let s=id?state.subjects.find(x=>x.id===id):{name:"",laws:[]};showModal(`<h2>${id?"ویرایش درس و قوانین":"افزودن درس جدید"}</h2><div class="field"><label>عنوان درس</label><input id="subjectName" value="${esc(s.name)}" placeholder="مثلاً حقوق مدنی"></div><div class="field" style="margin-top:12px"><label>منابع — هر مورد در یک خط:<br>با تعداد ماده: قانون مدنی | 1335<br>با واحد دیگر: آرای وحدت رویه | | رای (تعداد اختیاری)<br>با سرفصل: اصول فقه: امر، نهی، عام و خاص</label><textarea id="subjectLaws" rows="5" placeholder="قانون مدنی | 1335">${esc(s.laws.map(lawLine).join("\n"))}</textarea></div><div class="modal-actions"><button class="btn" onclick="closeModal()">انصراف</button><button class="btn primary" onclick="saveSubject('${id||""}')">ذخیره</button></div>`)}
@@ -215,7 +432,7 @@ function refsHTML(d,b){let r=(b.refs||[]).map((x,i)=>`<div class="ref"><span>�
 function openRefModal(did,bid){showModal(`<h2>افزودن فایل یا ارجاع به جزوه</h2><div class="form-grid"><div class="field"><label>عنوان (مثلاً جزوه مدنی ۱)</label><input id="refTitle"></div><div class="field"><label>شماره صفحه</label><input id="refPage"></div><div class="field" style="grid-column:1/-1"><label>لینک فایل (اختیاری؛ برای PDF با لینک مستقیم، صفحه هم باز می‌شود)</label><input id="refUrl" dir="ltr" placeholder="https://..."></div></div><div class="modal-actions"><button class="btn" onclick="closeModal()">انصراف</button><button class="btn primary" onclick="saveRef('${did}','${bid}')">افزودن</button></div>`)}
 function saveRef(did,bid){let g=id=>document.getElementById(id).value.trim(),tt=g("refTitle"),pg=g("refPage"),u=g("refUrl");if(!tt)return toast("عنوان را وارد کن");if(u&&!/^https?:\/\//i.test(u))u="https://"+u;let b=findBlock(did,bid);(b.refs=b.refs||[]).push({title:tt,page:pg,url:u});closeModal();save()}
 function delRef(did,bid,i){findBlock(did,bid).refs.splice(i,1);save()}
-const toEn=s=>String(s).replace(/[۰-۹]/g,d=>"۰۱۲۳۴۵۶۷۸۹".indexOf(d)).replace(/[٠-٩]/g,d=>"٠١٢٣٤٥٦٧٨٩".indexOf(d));
+function toEn(s){return String(s).replace(/[۰-۹]/g,d=>"۰۱۲۳۴۵۶۷۸۹".indexOf(d)).replace(/[٠-٩]/g,d=>"٠١٢٣٤٥٦٧٨٩".indexOf(d))}
 function expand(spec){spec=toEn(spec);let out=[],seen={};spec=spec.replace(/(\d+)\s*(?:-|–|—|تا)\s*(\d+)/g,(m,a,b)=>{a=+a;b=+b;if(b<a||b-a>5000)return m;for(let i=a;i<=b;i++)if(!seen[i]){seen[i]=1;out.push(String(i))}return " "});(spec.match(/\d+/g)||[]).forEach(n=>{n=String(+n);if(!seen[n]){seen[n]=1;out.push(n)}});return out.sort((a,b)=>a-b)}
 function lawLine(l){if(l.topics)return l.name+": "+l.topics.join("، ");let u=l.unit&&l.unit!=="ماده"?l.unit:"";return l.name+(l.count||u?" | "+(l.count||""):"")+(u?" | "+u:"")}
 function isDone(d){return d.blocks.length>0&&d.blocks.every(b=>percent(b)===100)}
