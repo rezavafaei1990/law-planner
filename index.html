@@ -37,70 +37,233 @@ textarea.note{overflow:hidden;resize:none;min-height:80px}
 .refs{margin-top:12px}.ref{display:flex;justify-content:space-between;align-items:center;gap:8px;padding:6px 10px;margin-top:6px;border:1px solid #dfe5ef;border-radius:10px;background:#f7f9fd;font-size:13px}.ref a{color:#2f5fc4;word-break:break-all}
 .sumline{white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:58vw}.day-top{align-items:flex-start}
 .block.m-good{background:#e4f6ec;border-color:#66c093}.block.m-mid{background:#fff5d1;border-color:#e3bf4b}.block.m-bad{background:#ffe6e3;border-color:#e4857b}
+.law-ui{--bg:#f3f6f7;--card:#fff;--ink:#14262b;--mute:#5d7076;--line:#d5dee1;--main:#0f4c5c;--hl:#ffe08a;--soft:#e4eef0}
+.law-ui .search{top:env(safe-area-inset-top,0px)!important}
+.law-ui{margin:0;background:var(--bg);color:var(--ink);font-family:Vazirmatn,Tahoma,sans-serif;line-height:1.9}
+.law-ui .wrap{max-width:860px;margin:0 auto;padding:20px 16px 60px}
+.law-ui h1{font-size:1.5rem;font-weight:800;margin:8px 0 4px;color:var(--main)}
+.law-ui .sub{color:var(--mute);margin:0 0 18px;font-size:.92rem}
+.law-ui .search{display:flex;gap:8px;position:sticky;top:0;background:var(--bg);padding:10px 0;z-index:5}
+.law-ui .search input{flex:1;font:inherit;font-size:1.05rem;padding:12px 16px;border:2px solid var(--line);border-radius:10px;background:var(--card);color:var(--ink)}
+.law-ui .search input:focus{outline:none;border-color:var(--main)}
+.law-ui .bar{display:flex;flex-wrap:wrap;gap:8px;align-items:center;margin:6px 0 14px}
+.law-ui select,.law-ui button,.law-ui .file{font:inherit;font-size:.9rem;padding:7px 14px;border-radius:8px;border:1px solid var(--line);background:var(--card);color:var(--ink);cursor:pointer}
+.law-ui button:hover,.law-ui .file:hover{border-color:var(--main)}
+.law-ui .file input{display:none}
+.law-ui .chips{display:flex;flex-wrap:wrap;gap:6px;margin-bottom:10px}
+.law-ui .chip{background:var(--soft);border-radius:20px;padding:2px 12px;font-size:.82rem}
+.law-ui .chip b{color:var(--main)}
+.law-ui .chip .viewall{font:inherit;font-size:.78rem;padding:0 10px;margin-right:8px;border-radius:12px}
+.law-ui .chip i{cursor:pointer;font-style:normal;margin-right:8px;color:var(--mute)}
+.law-ui .count{color:var(--mute);font-size:.9rem;margin:4px 0 10px}
+.law-ui .res{background:var(--card);border:1px solid var(--line);border-right:5px solid var(--main);border-radius:10px;padding:14px 18px;margin-bottom:12px}
+.law-ui .head{display:flex;flex-wrap:wrap;gap:8px;align-items:baseline;margin-bottom:4px}
+.law-ui .law{background:var(--main);color:var(--card);border-radius:6px;padding:0 10px;font-size:.8rem}
+.law-ui .num{font-weight:800;font-size:1.1rem}
+.law-ui .path{color:var(--mute);font-size:.82rem}
+.law-ui .txt{white-space:pre-wrap;margin:6px 0}
+.law-ui .sec{margin-top:8px;padding-top:8px;border-top:1px dashed var(--line)}
+.law-ui .sec h4{margin:0 0 2px;font-size:.88rem;color:var(--main)}
+.law-ui mark{background:var(--hl);color:inherit;border-radius:3px;padding:0 2px}
+.law-ui .empty{text-align:center;color:var(--mute);padding:40px 10px;border:2px dashed var(--line);border-radius:12px}
+.law-ui .modes{display:flex;flex-wrap:wrap;gap:6px 16px;align-items:center;font-size:.9rem;margin:2px 0 8px}
+.law-ui .modes label{cursor:pointer}
+.law-ui .grp{margin:22px 0 8px;padding:8px 14px;background:var(--soft);border-radius:8px;font-weight:600}
+.law-ui .grp small{color:var(--mute);font-weight:400}
+.law-ui .topic{display:block;width:100%;text-align:right;margin-bottom:6px}
+.law-ui .topic small{color:var(--mute)}
+.law-ui .path a{cursor:pointer;text-decoration:underline dotted}
+.law-ui .copy{margin-right:auto;font-size:.78rem;padding:1px 10px}
+.law-ui .precedent-list{display:flex;flex-direction:column;align-items:flex-start;gap:3px}
+.law-ui .precedent-link{border:0;background:transparent;color:var(--main);padding:0;text-decoration:underline;text-decoration-style:dotted;text-align:right;font:inherit;cursor:pointer}
+.law-ui .precedent-link:hover{background:var(--soft)}
+.law-ui .modal-backdrop{position:fixed;inset:0;background:#0008;z-index:20;display:flex;align-items:center;justify-content:center;padding:14px}
+.law-ui .modal{width:min(760px,100%);max-height:90dvh;overflow:auto;background:var(--card);color:var(--ink);border:1px solid var(--line);border-radius:14px;padding:18px;box-shadow:0 12px 50px #0004}
+.law-ui .modal-head{display:flex;align-items:flex-start;gap:12px;justify-content:space-between;border-bottom:1px solid var(--line);padding-bottom:10px;margin-bottom:12px}
+.law-ui .modal-head h2{font-size:1.1rem;margin:0;color:var(--main)}
+.law-ui .modal-body{white-space:pre-wrap;line-height:2}
+.law-ui .modal-meta{color:var(--mute);font-size:.88rem;margin:4px 0 10px}
+.law-ui .decision-inline{flex-basis:100%;width:100%;background:var(--soft);border:1px solid var(--line);border-radius:9px;padding:12px 14px;margin:6px 0 10px;white-space:normal}
+.law-ui .decision-inline-head{display:flex;align-items:flex-start;justify-content:space-between;gap:12px;border-bottom:1px solid var(--line);padding-bottom:8px;margin-bottom:8px}
+.law-ui .decision-inline h3{font-size:1rem;color:var(--main);margin:0}
+.law-ui .decision-inline-body{white-space:pre-wrap;line-height:2}
+.law-ui .decision-search-result{border:1px solid var(--line);border-right:4px solid var(--main);background:var(--card);border-radius:10px;padding:12px 16px;margin:10px 0}
+.law-ui .decision-search-result .decision-inline{margin-top:10px}
+body:not(.admin) .law-ui .adm{display:none!important}
+.law-ui .foot{text-align:center;color:var(--mute);font-size:.8rem;margin-top:30px}
+.law-ui .law{background:hsl(var(--h,190) 50% 30%);color:#fff}
+.law-ui .res{border-right-color:hsl(var(--h,190) 50% 36%)}
+.law-ui .dot{display:inline-block;width:.75em;height:.75em;border-radius:50%;background:hsl(var(--h,190) 50% 40%);margin-left:6px;vertical-align:baseline}
+.law-ui .decision-search-result .law{background:#6b5b95}
+.law-ui .nav{margin-right:auto;display:flex;gap:6px}
+.law-ui .nav button{font-size:.78rem;padding:1px 10px;margin:0}
+.law-ui button:disabled{opacity:.35;cursor:default}
+.law-ui .rel-art{padding:8px 0;border-top:1px dashed var(--line)}
+.law-ui .rel-art:first-child{border-top:0}
+.law-ui{--glass:rgba(255,255,255,.58);--glass-b:rgba(255,255,255,.75);--shadow:0 8px 30px rgba(15,76,92,.10);--shadow-h:0 14px 38px rgba(15,76,92,.18)}
+.law-ui{background:
+ radial-gradient(800px 480px at 88% -8%,hsl(190 75% 78%/.55),transparent 62%),
+ radial-gradient(700px 460px at -8% 22%,hsl(265 70% 84%/.45),transparent 62%),
+ radial-gradient(820px 520px at 52% 112%,hsl(150 60% 80%/.40),transparent 62%),var(--bg);background-attachment:fixed}
+.law-ui .wrap{padding-top:34px}
+.law-ui h1{font-size:1.9rem;letter-spacing:-.3px;background:linear-gradient(90deg,var(--main),hsl(265 60% 55%));-webkit-background-clip:text;background-clip:text;color:transparent;display:inline-block;animation:rise .5s ease both}
+.law-ui .sub{animation:rise .5s .08s ease both}
+.law-ui .search{background:var(--glass)!important;-webkit-backdrop-filter:blur(18px) saturate(1.5);backdrop-filter:blur(18px) saturate(1.5);border:1px solid var(--glass-b);border-radius:20px;padding:8px!important;box-shadow:var(--shadow);margin-bottom:14px;transition:box-shadow .3s,transform .3s}
+.law-ui .search:focus-within{box-shadow:0 0 0 3px color-mix(in srgb,var(--main) 28%,transparent),var(--shadow-h);transform:translateY(-1px)}
+.law-ui .search input{border:0!important;background:transparent!important;font-size:1.12rem;padding:14px 52px 14px 16px;-webkit-appearance:none;appearance:none;
+ background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='22' height='22' viewBox='0 0 24 24' fill='none' stroke='%23788' stroke-width='2.2' stroke-linecap='round'%3E%3Ccircle cx='11' cy='11' r='7'/%3E%3Cpath d='M20 20l-3.5-3.5'/%3E%3C/svg%3E")!important;background-repeat:no-repeat!important;background-position:right 16px center!important}
+.law-ui .search input:focus{outline:none}
+.law-ui .modes{gap:8px;margin:4px 0 14px}
+.law-ui .modes b{margin-left:4px;color:var(--mute);font-weight:600}
+.law-ui .modes label{padding:6px 14px;border-radius:999px;background:var(--glass);border:1px solid var(--glass-b);-webkit-backdrop-filter:blur(10px);backdrop-filter:blur(10px);transition:all .2s}
+.law-ui .modes label:hover{transform:translateY(-1px);box-shadow:var(--shadow)}
+.law-ui .modes label:has(input:checked){background:var(--main);color:var(--card);border-color:transparent;box-shadow:var(--shadow)}
+.law-ui .modes input{display:none}
+.law-ui select,.law-ui button,.law-ui .file{border-radius:12px;background:var(--glass);border:1px solid var(--glass-b);transition:transform .15s,box-shadow .2s,border-color .2s}
+.law-ui button:not(:disabled):hover,.law-ui .file:hover{transform:translateY(-1px);box-shadow:var(--shadow)}
+.law-ui button:not(:disabled):active{transform:scale(.97)}
+.law-ui .count{margin:6px 4px 14px}
+.law-ui .res,.law-ui .decision-search-result{background:var(--glass);-webkit-backdrop-filter:blur(8px);backdrop-filter:blur(8px);border-color:var(--glass-b);border-radius:18px;padding:18px 24px;margin-bottom:20px;box-shadow:var(--shadow);
+ animation:rise .45s var(--d,0ms) cubic-bezier(.2,.8,.2,1) both;transition:transform .25s,box-shadow .25s}
+.law-ui .res:hover,.law-ui .decision-search-result:hover{transform:translateY(-3px);box-shadow:var(--shadow-h)}
+.law-ui .head{margin-bottom:8px;gap:10px}
+.law-ui .num{font-size:1.15rem}
+.law-ui .txt{line-height:2.1;margin:10px 0}
+.law-ui .sec{margin-top:14px;padding-top:12px}
+.law-ui .grp{border-radius:14px;margin:30px 0 14px;animation:rise .45s var(--d,0ms) ease both;box-shadow:var(--shadow)}
+.law-ui .law{border-radius:999px;padding:1px 12px;box-shadow:0 2px 8px hsl(var(--h,190) 50% 30%/.35)}
+.law-ui mark{background:linear-gradient(transparent 20%,var(--hl) 20%);border-radius:4px;padding:0 3px}
+.law-ui .chip{background:var(--glass);border:1px solid var(--glass-b);padding:3px 14px}
+.law-ui .empty{background:var(--glass);border-radius:18px;border-style:solid;border-color:var(--glass-b);padding:46px 16px;animation:rise .5s ease both}
+.law-ui .empty:first-child:only-child{animation:rise .5s ease both,pulse 2.2s 1s ease-in-out infinite}
+.law-ui .decision-inline{border-radius:12px;animation:pop .28s cubic-bezier(.2,.9,.3,1.2) both}
+.law-ui .foot{opacity:.8}
+.law-ui details.adm{margin:6px 0 12px;font-size:.88rem}
+.law-ui details.adm summary{cursor:pointer;color:var(--mute)}
+.law-ui .colbox{background:var(--glass);border-radius:12px;padding:8px 14px;margin:6px 0;line-height:1.8}
+@keyframes rise{from{opacity:0;transform:translateY(14px)}to{opacity:1;transform:none}}
+@keyframes pop{from{opacity:0;transform:scale(.96) translateY(-6px)}to{opacity:1;transform:none}}
+@keyframes pulse{50%{opacity:.65}}
+@media(prefers-reduced-motion:reduce){}
+.law-ui{--bg:#f4f6fb;background:transparent}
+.law-ui input[type=radio]{width:auto;padding:0;margin:0 0 0 4px;accent-color:#548de8}
+.law-ui select{width:auto}.law-ui .search input{width:auto}
+.law-ui textarea{min-height:60px;resize:none;overflow:hidden;width:100%}
+.law-ui .mk,.law-ui .aedit,.law-ui .adel{font-size:1.05rem;padding:2px 10px;line-height:1.4}
+.law-ui .nav{display:flex;overflow:visible;gap:6px}.law-ui .nav button{width:auto;margin:0;text-align:center;padding:4px 12px}
+.noterefs.law-ui{background:transparent;line-height:1.7;margin-top:6px}.refrow{display:block}.refrow .precedent-link{margin:2px 0 2px 4px}
+.pchip{padding:2px 10px;margin:2px 0 2px 4px;border-radius:99px;background:#eaf1ff;color:#2f5fc4;border:1px solid #c9dbff;font-size:.8rem;cursor:pointer}
+.plan-chips{margin-top:8px;padding-top:6px;border-top:1px dashed var(--line)}
+.arttxt{margin-top:8px;display:grid;gap:8px}.art{background:#f7f9fd;border:1px solid #dfe5ef;border-radius:10px;padding:10px 12px}.atxt{white-space:pre-wrap;margin-top:4px}
+.tabs{display:flex;gap:8px;margin:0 0 16px;overflow-x:auto}.tabs button{padding:10px 18px;border-radius:12px;background:#fff;border:1px solid var(--line);color:var(--muted);white-space:nowrap}
+.tabs button.active{background:linear-gradient(135deg,#548de8,#8b79e9);color:#fff;border-color:transparent}
+.warn{background:#fff3cd;border:1px solid #e6c45a;color:#6b4e00;padding:12px 16px;border-radius:12px;margin-bottom:14px}
+#admLog{white-space:pre-wrap;max-height:260px;overflow:auto;background:#f7f9fd;border:1px solid #dfe5ef;border-radius:10px;padding:10px;font-size:12px;margin:0}
 </style>
 </head>
 <body>
 <div class="app">
 <header>
- <div class="brand"><div class="logo">⚖</div><div><h1>همراه مطالعه حقوق</h1><p>برنامه‌ریزی ماده‌محور، روزهای مطالعاتی و پیگیری مرورها</p></div></div>
+ <div class="brand"><div class="logo">⚖</div><div><h1>همراه مطالعه حقوق</h1><p>جستجوی مواد قانونی برای همه · برنامه‌ی مطالعاتی شخصی با ورود</p></div></div>
  <div class="actions">
-  <button class="btn hidden" id="outBtn" onclick="logout()">خروج از حساب</button>
-  <button class="btn" id="exportBtn">پشتیبان</button>
-  <button class="btn" id="importBtn">بازیابی</button>
-  <button class="btn primary" id="quickAdd">＋ افزودن برنامه</button>
+  <button class="btn primary" id="authBtn" onclick="openAuthModal()">ورود / ثبت‌نام</button>
+  <button class="btn hidden" id="outBtn" onclick="logout()">خروج</button>
  </div>
 </header>
-<div class="layout">
-<aside class="sidebar">
- <div class="nav-title">فضای مطالعاتی</div>
- <nav class="nav">
-  <button class="active" data-view="dashboard">▦　داشبورد</button>
-  <button data-view="days">☷　روزهای مطالعاتی</button>
-  <button data-view="subjects">§　درس‌ها و قوانین</button>
- </nav>
- <div class="side-note">پس از ورود به حساب، اطلاعات روی سرور ذخیره می‌شود و از هر دستگاهی در دسترس است.</div>
-</aside>
-<main>
- <section id="dashboardView">
-  <div class="stats">
-   <div class="stat"><div class="label">روزهای تعریف‌شده</div><strong id="statDays">۰</strong><small>روز مطالعاتی</small></div>
-   <div class="stat"><div class="label">واحدهای مطالعاتی</div><strong id="statBlocks">۰</strong><small>بازه‌های درس و ماده</small></div>
-   <div class="stat"><div class="label">مراحل انجام‌شده</div><strong id="statChecks">۰٪</strong><small id="statLeft">از کل چک‌لیست‌ها</small></div>
-   <div class="stat"><div class="label">واحدهای تکمیل‌شده</div><strong id="statDone">۰</strong><small>تمام مراحل هر واحد</small></div>
+<div class="warn hidden" id="cfgWarn">تنظیمات Supabase کامل نیست: دو مقدار <b>SUPA_URL</b> و <b>SUPA_KEY</b> را اول فایل برنامه عوض کن.</div>
+<nav class="tabs">
+ <button class="active" data-tab="search">🔎 جستجوی مواد</button>
+ <button data-tab="planner">📅 برنامه مطالعاتی</button>
+ <button class="hidden" id="adminTab" data-tab="admin">🛠 مدیریت قوانین</button>
+</nav>
+
+<section id="tab-search" class="law-ui">
+  <h2 style="margin:0 0 4px;font-size:1.3rem">🔎 جستجوی مواد قانونی</h2>
+  <p class="sub">شماره ماده (مثلاً «ماده ۴») یا یک کلمه را جستجو کنید. برای این بخش نیازی به ورود نیست.</p>
+  <div class="bar"><select id="lawSel"><option value="">همه قوانین</option></select></div>
+  <div class="search"><input id="q" type="search" placeholder="مثلاً: ماده 4 &nbsp;یا&nbsp; وصیت &nbsp;یا&nbsp; ماده 10 اراده"></div>
+  <div class="modes"><b>جستجو در:</b>
+    <label><input type="radio" name="mode" value="all" checked> همه (متن و موضوع)</label>
+    <label><input type="radio" name="mode" value="text"> فقط متن ماده</label>
+    <label><input type="radio" name="mode" value="topic"> فقط موضوع (باب / فصل / مبحث)</label>
+    <label><input type="radio" name="mode" value="decision"> آرای وحدت رویه</label>
+    <label><input type="radio" name="mode" value="marks"> ★ نشان‌شده‌ها</label>
   </div>
-  <div class="panel">
-   <div class="panel-head"><h2>پیشرفت کلی برنامه</h2><span class="muted small" id="overallText">۰٪</span></div>
-   <div class="progress"><span id="overallBar" style="width:0%"></span></div></div><div class="panel"><div class="panel-head"><h2>پیشرفت هر درس (بر اساس تعداد مواد)</h2></div><div id="subjProg" class="subject-grid"></div>
+  <div class="chips" id="pathchip"></div>
+  <div class="count" id="count"></div>
+  <div id="out"><div class="empty">در حال بارگذاری…</div></div>
+  <div class="foot">این برنامه مشاوره حقوقی نیست؛ برای اطمینان، متون را با منابع رسمی تطبیق دهید.</div>
+</section>
+
+<section id="tab-planner" class="hidden">
+ <div id="plannerGate" class="panel"><h2>برنامه مطالعاتی شخصی</h2><p class="muted">برای ساخت و ذخیره‌ی برنامه‌ی مطالعاتی خودت وارد حساب شو. اطلاعات هر نفر جداست و از هر دستگاهی در دسترس است.</p><button class="btn primary" onclick="openAuthModal()">ورود / ثبت‌نام</button></div>
+ <div id="plannerApp" class="hidden">
+  <div class="actions" style="margin-bottom:14px">
+   <button class="btn primary" onclick="openAddPlanModal()">＋ افزودن برنامه</button>
+   <button class="btn" id="quickAdd">＋ افزودن واحد</button>
+   <button class="btn" id="exportBtn">پشتیبان</button>
+   <button class="btn" id="importBtn">بازیابی</button>
   </div>
-  <div class="panel">
-   <div class="panel-head"><h2>ادامه برنامه مطالعاتی</h2><button class="btn primary" onclick="openDayModal()">＋ روز جدید</button></div>
-   <div id="dashboardDays" class="day-list"></div>
+  <div class="layout">
+  <aside class="sidebar">
+   <div class="nav-title">فضای مطالعاتی</div>
+   <nav class="nav">
+    <button class="active" data-view="dashboard">▦　داشبورد</button>
+    <button data-view="days">☷　روزهای مطالعاتی</button>
+    <button data-view="subjects">§　درس‌ها و قوانین</button>
+   </nav>
+   <div class="side-note">اطلاعات روی سرور و در حساب خودت ذخیره می‌شود.</div>
+  </aside>
+  <main>
+   <section id="dashboardView">
+    <div class="stats">
+     <div class="stat"><div class="label">روزهای تعریف‌شده</div><strong id="statDays">۰</strong><small>روز مطالعاتی</small></div>
+     <div class="stat"><div class="label">واحدهای مطالعاتی</div><strong id="statBlocks">۰</strong><small>بازه‌های درس و ماده</small></div>
+     <div class="stat"><div class="label">مراحل انجام‌شده</div><strong id="statChecks">۰٪</strong><small id="statLeft">از کل چک‌لیست‌ها</small></div>
+     <div class="stat"><div class="label">واحدهای تکمیل‌شده</div><strong id="statDone">۰</strong><small>تمام مراحل هر واحد</small></div>
+    </div>
+    <div class="panel"><div class="panel-head"><h2>پیشرفت کلی برنامه</h2><span class="muted small" id="overallText">۰٪</span></div><div class="progress"><span id="overallBar" style="width:0%"></span></div></div>
+    <div class="panel"><div class="panel-head"><h2>پیشرفت هر درس (بر اساس تعداد مواد)</h2></div><div id="subjProg" class="subject-grid"></div></div>
+    <div class="panel"><div class="panel-head"><h2>ادامه برنامه مطالعاتی</h2><button class="btn primary" onclick="openDayModal()">＋ روز جدید</button></div><div id="dashboardDays" class="day-list"></div></div>
+   </section>
+   <section id="daysView" class="hidden">
+    <div class="panel">
+     <div class="panel-head"><div><h2>روزهای مطالعاتی</h2><div class="muted small">روز اول، روز دوم و ... بدون وابستگی به تاریخ</div></div>
+      <div class="row"><button class="btn" onclick="setAll(false)">بستن همه</button><button class="btn primary" onclick="openAddPlanModal()">＋ افزودن برنامه</button><button class="btn primary" onclick="openDayModal()">＋ افزودن روز</button><button class="btn danger" onclick="openClearModal()">حذف همه‌ی روزها</button><button class="btn danger" onclick="openResetModal()">بازنشانی کامل</button></div></div>
+     <div id="allDays" class="day-list"></div>
+    </div>
+   </section>
+   <section id="subjectsView" class="hidden">
+    <div class="panel"><div class="panel-head"><div><h2>درس‌ها و قوانین</h2><div class="muted small">درس و قانون جدید اضافه کن یا فهرست را ویرایش کن.</div></div><button class="btn primary" onclick="openSubjectModal()">＋ افزودن درس</button></div><div id="subjectsList" class="subject-grid"></div></div>
+   </section>
+  </main>
   </div>
- </section>
- <section id="daysView" class="hidden">
-  <div class="panel">
-   <div class="panel-head"><div><h2>روزهای مطالعاتی</h2><div class="muted small">روز اول، روز دوم و ... بدون وابستگی به تاریخ</div></div><div class="row"><button class="btn" onclick="setAll(false)">بستن همه</button><button class="btn primary" onclick="openPlan2Modal()">افزودن برنامه‌ی تجارت</button><button class="btn primary" onclick="openPlan3Modal()">افزودن برنامه‌ی جزا</button><button class="btn primary" onclick="openPlan4Modal()">افزودن برنامه‌ی آیین دادرسی مدنی</button><button class="btn danger" onclick="openClearModal()">حذف همه‌ی روزها</button><button class="btn danger" onclick="openResetModal()">بازنشانی کامل</button><button class="btn" onclick="openPlanModal()">بارگذاری برنامه‌ی مدنی</button><button class="btn primary" onclick="openDayModal()">＋ افزودن روز</button></div></div>
-   <div id="allDays" class="day-list"></div>
-  </div>
- </section>
- <section id="subjectsView" class="hidden">
-  <div class="panel">
-   <div class="panel-head"><div><h2>درس‌ها و قوانین</h2><div class="muted small">درس و قانون جدید اضافه کن یا فهرست را ویرایش کن.</div></div><button class="btn primary" onclick="openSubjectModal()">＋ افزودن درس</button></div>
-   <div id="subjectsList" class="subject-grid"></div>
-  </div>
- </section>
-</main>
+ </div>
+</section>
+
+<section id="tab-admin" class="hidden">
+ <div class="panel"><div class="panel-head"><h2>🛠 قوانین موجود در پایگاه</h2></div><div id="admLaws"></div></div>
+ <div class="panel"><h2>افزودن یا جایگزینی قانون (اکسل)</h2><p class="muted small">هر فایل یک قانون است و نام قانون از نام فایل گرفته می‌شود. ستون‌ها خودکار تشخیص داده می‌شوند و نتیجه‌ی تشخیص در «گزارش» پایین نوشته می‌شود.</p>
+  <div class="row"><input type="file" id="admFiles" accept=".xlsx,.xls,.csv" multiple><label class="small"><input type="checkbox" id="admReplace" checked style="width:auto"> اگر قانونی با همین نام هست، جایگزین شود (وگرنه موادش به آخر اضافه می‌شود)</label></div></div>
+ <div class="panel"><h2>آرای وحدت رویه (اکسل)</h2><input type="file" id="admDec" accept=".xlsx,.xls,.csv" multiple></div>
+ <div class="panel"><h2>ایمپورت فایل JSON</h2><p class="muted small">برای انتقال یک‌باره‌ی داده‌های قبلی (فایل <b>laws-export.json</b>).</p><input type="file" id="admJson" accept=".json"></div>
+ <div class="panel"><h2>افزودن یک ماده</h2>
+  <div class="form-grid"><div class="field"><label>قانون</label><select id="admAddLaw"></select></div><div class="field"><label>نام قانون جدید</label><input id="admNewLaw" class="hidden"></div>
+  <div class="field"><label>شماره ماده</label><input id="admNum"></div><div class="field"><label>عنوان ماده (اختیاری، مثل «ماده ۵ مکرر»)</label><input id="admNumText"></div>
+  <div class="field" style="grid-column:1/-1"><label>مسیر (باب › فصل › مبحث)</label><input id="admPath"></div></div>
+  <div class="field" style="margin-top:10px"><label>متن ماده</label><textarea id="admText" rows="4"></textarea></div><div class="modal-actions"><button class="btn primary" id="admAddBtn">افزودن ماده</button></div></div>
+ <div class="panel"><h2>گزارش</h2><pre id="admLog"></pre></div>
+</section>
 </div>
-</div>
-<div class="modal-back" id="authBack"><div class="modal"><h2>ورود به همراه مطالعه حقوق</h2><div class="field"><label>ایمیل</label><input id="authEmail" type="email" dir="ltr"></div><div class="field" style="margin-top:10px"><label>رمز عبور (حداقل ۶ کاراکتر)</label><input id="authPass" type="password" dir="ltr"></div><p class="muted small" id="authMsg"></p><div class="modal-actions"><button class="btn" onclick="doAuth('up')">ثبت‌نام</button><button class="btn primary" onclick="doAuth('in')">ورود</button></div></div></div>
+<div class="modal-back" id="authBack"><div class="modal"><h2>ورود / ثبت‌نام</h2><div class="field"><label>ایمیل</label><input id="authEmail" type="email" dir="ltr"></div><div class="field" style="margin-top:10px"><label>رمز عبور (حداقل ۶ کاراکتر)</label><input id="authPass" type="password" dir="ltr"></div><p class="muted small" id="authMsg"></p><div class="modal-actions"><button class="btn" onclick="document.getElementById('authBack').classList.remove('show')">بستن</button><button class="btn" onclick="doAuth('up')">ثبت‌نام</button><button class="btn primary" onclick="doAuth('in')">ورود</button></div></div></div>
 <div class="modal-back" id="modalBack"><div class="modal" id="modal"></div></div>
 <div class="toast" id="toast">ذخیره شد</div>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.110.9/dist/umd/supabase.js"></script>
 <script>
-// ===== این دو خط را با مقادیر پروژه‌ی Supabase خودت عوض کن =====
-const SUPA_URL="PASTE_URL_HERE";
-const SUPA_KEY="PASTE_KEY_HERE";
+const SUPA_URL="https://xfmdpeeuzhuvqwoalfea.supabase.co";
+const SUPA_KEY="sb_publishable_ndrrbpAGh5VfuiVfETIE8g_IS-jfJD4";
 const CLOUD=SUPA_URL.startsWith("https://");
+let isAdmin=false;
 const defaultSubjects=[
  ["حقوق مدنی",["قانون مدنی","قانون مسئولیت مدنی"]],
  ["آیین دادرسی مدنی",["قانون آیین دادرسی دادگاه‌های عمومی و انقلاب در امور مدنی","قانون اجرای احکام مدنی"]],
@@ -217,17 +380,7 @@ const PLAN_TXT=`1|0|0|1-10|انتشار، اجرای قوانین و قواعد 
 91|9|10|تحلیل آزمون سوم||مرور نکات پرتکرار و دام‌های تستی
 92|9|10|مرور نهایی قانون مدنی||مواد علامت‌دار، استثنائات و مواد مشابه
 93|9|10|آزمون جامع نهایی||۲۰ تست زمان‌دار و ارزیابی نهایی`;
-function applyPlan(s){
- let sub=s.subjects.find(x=>x.name==="حقوق مدنی");if(!sub){sub={id:uid(),name:"حقوق مدنی",laws:[]};s.subjects.unshift(sub)}
- PLAN_LAWS.forEach((n,i)=>{let l=sub.laws.find(x=>x.name===n);if(!l){l={name:n,count:i===0?1335:i===1?17:0,unit:"ماده"};sub.laws.push(l)}if(i>=2&&!l.topics){l.topics=[];l.unit="سرفصل";l.count=0}});
- let days=[];
- PLAN_TXT.trim().split("\n").forEach(r=>{let a=r.split("|"),li=+a[2],L=sub.laws.find(x=>x.name===PLAN_LAWS[li]),items,spec;
-  if(li<2){spec=a[3];items=expand(spec)}else{let tp=li===10?a[3]:"مطالعه‌ی کامل قانون";if(!L.topics.includes(tp))L.topics.push(tp);L.count=L.topics.length;items=[tp];spec=tp}
-  let d=days.find(x=>x.number===+a[0]);if(!d){d={id:uid(),number:+a[0],group:PLAN_GROUPS[+a[1]],blocks:[]};days.push(d)}
-  d.blocks.push({id:uid(),subjectId:sub.id,law:PLAN_LAWS[li],spec,title:a[4]||"",task:a[5]||"",items,checks:Array(CHECKS.length).fill(false),notes:"",mastery:"نامشخص",refs:[],open:false})});
- s.days=days;return s}
-function openPlanModal(){showModal(`<h2>بارگذاری برنامه‌ی ۹۰ روزه‌ی مدنی</h2><p>همه‌ی روزهای فعلی با برنامه‌ی آماده‌ی مدنی جایگزین می‌شوند و واحدها و نکات روزهای فعلی پاک می‌شود. فایل پشتیبان گرفته‌ای؟</p><div class="modal-actions"><button class="btn" onclick="closeModal()">انصراف</button><button class="btn primary" onclick="loadPlan()">بله، بارگذاری شود</button></div>`)}
-function loadPlan(){applyPlan(state);closeModal();save()}
+
 function openClearModal(){showModal(`<h2>حذف همه‌ی روزها</h2><p>همه‌ی روزها و واحدهای مطالعاتی (همراه نکات و تیک‌ها) پاک می‌شود. درس‌ها و منابع می‌مانند. مطمئنی؟</p><div class="modal-actions"><button class="btn" onclick="closeModal()">انصراف</button><button class="btn danger" onclick="clearDays()">بله، پاک شود</button></div>`)}
 function clearDays(){state.days=[];closeModal();save()}
 function openResetModal(){showModal(`<h2>بازنشانی کامل</h2><p>همه‌چیز (روزها، درس‌ها، نکات و تیک‌ها) پاک می‌شود و برنامه‌ی آماده‌ی مدنی از اول برمی‌گردد. مطمئنی؟</p><div class="modal-actions"><button class="btn" onclick="closeModal()">انصراف</button><button class="btn danger" onclick="resetAll()">بله، بازنشانی شود</button></div>`)}
@@ -336,8 +489,6 @@ function mergePlan2(s){
   if(li<2)items=expand(spec);else{if(!L.topics.includes(spec))L.topics.push(spec);L.count=L.topics.length;items=[spec]}
   d.blocks.push({id:uid(),subjectId:sub.id,law:nm,spec,title:a[3]||"",task:a[4]||"",items,checks:Array(CHECKS.length).fill(false),notes:"",mastery:"نامشخص",refs:[],open:false,src:"tej"})});
  s.days.sort((x,y)=>x.number-y.number);return s}
-function openPlan2Modal(){showModal(`<h2>افزودن برنامه‌ی ۹۰ روزه‌ی تجارت</h2><p>درس تجارت هر روز کنار درس‌های همان روز اضافه می‌شود. هیچ‌چیز از روزها، تیک‌ها، نکات و تغییرات فعلی‌ات پاک یا عوض نمی‌شود. اگر قبلاً اضافه شده باشد، دوباره تکرار نمی‌شود.</p><div class="modal-actions"><button class="btn" onclick="closeModal()">انصراف</button><button class="btn primary" onclick="addPlan2()">افزودن</button></div>`)}
-function addPlan2(){mergePlan2(state);closeModal();save()}
 const PLAN3_DEFS=[
  {sub:"حقوق جزای عمومی",key:"بخش عمومی",name:"قانون مجازات اسلامی ـ بخش عمومی",num:1,count:216},
  {sub:"حقوق جزای عمومی",name:"مرور و آزمون ـ جزای عمومی"},
@@ -448,8 +599,6 @@ function mergePlan3(s){
   if(PLAN3_DEFS[li].num)items=expand(spec);else{if(!l.topics.includes(spec))l.topics.push(spec);l.count=l.topics.length;items=[spec]}
   d.blocks.push({id:uid(),subjectId:sb.id,law:l.name,spec,title:a[3]||"",task:a[4]||"",items,checks:Array(CHECKS.length).fill(false),notes:"",mastery:"نامشخص",refs:[],open:false,src:"jaza"})});
  s.days.sort((x,y)=>x.number-y.number);return s}
-function openPlan3Modal(){showModal(`<h2>افزودن برنامه‌ی ۹۰ روزه‌ی جزا</h2><p>جزای عمومی و اختصاصی هر روز کنار درس‌های همان روز اضافه می‌شود. هیچ‌چیز از روزها، تیک‌ها، نکات و تغییرات فعلی‌ات پاک یا عوض نمی‌شود. اگر قبلاً اضافه شده باشد، دوباره تکرار نمی‌شود.</p><div class="modal-actions"><button class="btn" onclick="closeModal()">انصراف</button><button class="btn primary" onclick="addPlan3()">افزودن</button></div>`)}
-function addPlan3(){mergePlan3(state);closeModal();save()}
 const PLAN4_DEFS=[{key:"آیین دادرسی دادگاه",name:"قانون آیین دادرسی دادگاه‌های عمومی و انقلاب در امور مدنی",num:1},{key:"اجرای احکام مدنی",name:"قانون اجرای احکام مدنی",num:1},{name:"سرفصل‌ها و قوانین خاص آیین دادرسی مدنی"},{name:"مرور و آزمون ـ آیین دادرسی مدنی"}];
 const PLAN4_TXT=`1|0|1-4|کلیات آیین دادرسی مدنی|مفهوم آیین دادرسی مدنی و اصول حاکم بر دادرسی · ۲۰ تست
 2|0|2,3,51|شرایط اقامه دعوا|نفع، سمت و اهلیت؛ شرایط قانونی طرح دعوا (و مقررات مرتبط) · ۲۰ تست
@@ -554,16 +703,12 @@ function mergeGen(s,sname,defs,txt,tag){
   d.blocks.push({id:uid(),subjectId:sb.id,law:l.name,spec,title:a[3]||"",task:a[4]||"",items,checks:Array(CHECKS.length).fill(false),notes:"",mastery:"نامشخص",refs:[],open:false,src:tag})});
  s.days.sort((x,y)=>x.number-y.number);return s}
 function mergePlan4(s){return mergeGen(s,"آیین دادرسی مدنی",PLAN4_DEFS,PLAN4_TXT,"adm")}
-function openPlan4Modal(){showModal(`<h2>افزودن برنامه‌ی ۹۰ روزه‌ی آیین دادرسی مدنی</h2><p>درس آیین دادرسی مدنی هر روز کنار درس‌های همان روز اضافه می‌شود. هیچ‌چیز از روزها، تیک‌ها، نکات و تغییرات فعلی‌ات پاک یا عوض نمی‌شود. اگر قبلاً اضافه شده باشد، دوباره تکرار نمی‌شود.</p><div class="modal-actions"><button class="btn" onclick="closeModal()">انصراف</button><button class="btn primary" onclick="addPlan4()">افزودن</button></div>`)}
-function addPlan4(){mergePlan4(state);closeModal();save()}
-const KEY="legalStudyPlanner";
 const uid=()=>Math.random().toString(36).slice(2,10);
 const fa=n=>String(n).replace(/\d/g,d=>"۰۱۲۳۴۵۶۷۸۹"[d]);
-let state=CLOUD?fresh():load();
-function fresh(){return mergePlan4(mergePlan3(mergePlan2(applyPlan({subjects:defaultSubjects.map((x,i)=>({id:"s"+i,name:x[0],laws:x[1].map(n=>({name:n,count:COUNTS[n]||0,unit:UNITS[n]||"ماده"}))})),days:[]}))))}
-function load(){try{let s=JSON.parse(localStorage.getItem(KEY));return s&&s.days?norm(s):fresh()}catch(e){return fresh()}}
-function norm(s){s.subjects.forEach(u=>u.laws=u.laws.map(l=>typeof l==="string"?{name:l,count:COUNTS[l]||0}:l));s.days.forEach(d=>d.blocks.forEach(b=>{if(b.checks.length<CHECKS.length)b.checks.splice(1,0,...Array(CHECKS.length-b.checks.length).fill(false));b.refs=b.refs||[];b.title=b.title||"";if(!b.items){b.spec=b.from===b.to?String(b.from):b.from+"-"+b.to;b.items=expand(b.spec)}}));s.subjects.forEach(u=>u.laws.forEach(l=>{if(l.topics)l.count=l.topics.length}));return s}
-function persist(){if(CLOUD){if(ready)cloudSave();return}try{localStorage.setItem(KEY,JSON.stringify(state))}catch(e){}}
+let state=fresh();
+function fresh(){return {subjects:defaultSubjects.map((x,i)=>({id:"s"+i,name:x[0],laws:x[1].map(n=>({name:n,count:COUNTS[n]||0,unit:UNITS[n]||"ماده"}))})),days:[],marks:{},imports:[]}}
+function norm(s){s.subjects.forEach(u=>u.laws=u.laws.map(l=>typeof l==="string"?{name:l,count:COUNTS[l]||0}:l));s.days.forEach(d=>d.blocks.forEach(b=>{if(b.checks.length<CHECKS.length)b.checks.splice(1,0,...Array(CHECKS.length-b.checks.length).fill(false));b.refs=b.refs||[];b.title=b.title||"";if(!b.items){b.spec=b.from===b.to?String(b.from):b.from+"-"+b.to;b.items=expand(b.spec)}}));s.subjects.forEach(u=>u.laws.forEach(l=>{if(l.topics)l.count=l.topics.length}));s.marks=s.marks||{};s.imports=s.imports||[];return s}
+function persist(){if(ready)cloudSave()}
 function save(){persist();render();toast("تغییرات ذخیره شد")}
 function toast(t){let e=document.getElementById("toast");e.textContent=t;e.classList.add("show");setTimeout(()=>e.classList.remove("show"),1800)}
 function allBlocks(){return state.days.flatMap(d=>d.blocks)}
@@ -583,10 +728,10 @@ function emptyHTML(t){return `<div class="empty">${t}</div>`}
 function dayHTML(d,dash){let open=dash||d.open,t=d.blocks.length*CHECKS.length,c=d.blocks.reduce((s,b)=>s+b.checks.filter(Boolean).length,0),pp=t?Math.round(c/t*100):0,sum=d.blocks.map(b=>{let s=state.subjects.find(x=>x.id===b.subjectId);return (s?s.name:"")+" "+(b.title||b.spec)}).join(" · ");
  return `<article class="day-card" ${dash?"":`id="day-${d.id}"`} style="${dayStyle(d)}"><div class="day-top" ${dash?"":`onclick="toggleDay('${d.id}')" style="cursor:pointer"`}><div style="min-width:0"><div class="day-title">${dash?"":(open?"▾ ":"▸ ")}روز ${fa(d.number)}</div>${d.group?`<div class="small" style="color:var(--muted)">${esc(d.group)}</div>`:""}<div class="muted small ${open?"":"sumline"}">${open?dayInfo(d):esc(sum||"بدون واحد مطالعاتی")}</div></div><div class="row" onclick="event.stopPropagation()"><span class="pill ${statusClass(d)}">${status(d)} · ${fa(pp)}٪</span>${open?`<button class="btn" onclick="openBlockModal('${d.id}')">＋ واحد</button><button class="btn" onclick="editDay('${d.id}')">ویرایش روز</button><button class="btn danger" onclick="deleteDay('${d.id}')">حذف</button>`+(dash?"":`<button class="btn" onclick="toggleDay('${d.id}')">بستن ▴</button>`):""}</div></div>${open?(d.blocks.length?d.blocks.map(b=>blockHTML(d,b)).join(""):emptyHTML("برای این روز هنوز واحد مطالعاتی ثبت نشده است.")):`<div class="progress" style="margin-top:8px"><span style="width:${pp}%"></span></div>`}</article>`}
 function blockHTML(d,b){let s=state.subjects.find(x=>x.id===b.subjectId),p=Math.round(percent(b)),open=b.open,ms=b.mastery&&b.mastery!=="نامشخص"?b.mastery:"";
- return `<div class="block ${masteryCls(b.mastery)}"><div class="block-head" style="cursor:pointer" onclick="toggleBlock('${d.id}','${b.id}')"><div style="min-width:0"><h3>${open?"▾ ":"▸ "}${esc(s?.name||"درس حذف شده")} — ${esc(b.law)}${b.title?" — "+esc(b.title):""}</h3><div class="block-meta">${open?blockMeta(b,p):shortMeta(b,p)}</div>${b.task?`<div class="small" style="margin-top:3px">تکلیف: ${esc(b.task)}</div>`:""}</div><div class="row" onclick="event.stopPropagation()">${ms?`<span class="pill">تسلط: ${ms}</span>`:""}${open?`<button class="btn" onclick="editBlock('${d.id}','${b.id}')">ویرایش</button><button class="btn danger" onclick="deleteBlock('${d.id}','${b.id}')">حذف</button>`:""}</div></div><div class="progress" style="margin-top:10px"><span style="width:${p}%"></span></div>${open?`<div class="checks">${CHECKS.map((c,i)=>`<label class="check"><input type="checkbox" ${b.checks[i]?"checked":""} onchange="toggleCheck('${d.id}','${b.id}',${i},this.checked)">${c}</label>`).join("")}</div><label class="note-label">ایرادات، اشکالات و نکات</label><textarea class="note" oninput="grow(this)" placeholder="ابهام‌ها، نکات دشوار و مواردی که باید دوباره بررسی شوند..." onchange="updateNote('${d.id}','${b.id}',this.value)">${esc(b.notes||"")}</textarea>${refsHTML(d,b)}<div class="block-foot"><span class="muted small">وضعیت تسلط</span><select class="select-small" onchange="updateMastery('${d.id}','${b.id}',this.value)"><option value="نامشخص" ${b.mastery==="نامشخص"?"selected":""}>هنوز ارزیابی نشده</option><option value="ضعیف" ${b.mastery==="ضعیف"?"selected":""}>ضعیف — نیازمند مطالعه مجدد</option><option value="متوسط" ${b.mastery==="متوسط"?"selected":""}>متوسط — نیازمند مرور</option><option value="خوب" ${b.mastery==="خوب"?"selected":""}>خوب — مسلط</option></select></div>`:""}</div>`}
+ return `<div class="block ${masteryCls(b.mastery)}"><div class="block-head" style="cursor:pointer" onclick="toggleBlock('${d.id}','${b.id}')"><div style="min-width:0"><h3>${open?"▾ ":"▸ "}${esc(s?.name||"درس حذف شده")} — ${esc(b.law)}${b.title?" — "+esc(b.title):""}</h3><div class="block-meta">${open?blockMeta(b,p):shortMeta(b,p)}</div>${b.task?`<div class="small" style="margin-top:3px">تکلیف: ${esc(b.task)}</div>`:""}</div><div class="row" onclick="event.stopPropagation()">${ms?`<span class="pill">تسلط: ${ms}</span>`:""}${open?`<button class="btn" onclick="editBlock('${d.id}','${b.id}')">ویرایش</button><button class="btn danger" onclick="deleteBlock('${d.id}','${b.id}')">حذف</button>`:""}</div></div><div class="progress" style="margin-top:10px"><span style="width:${p}%"></span></div>${open?`<div class="checks">${CHECKS.map((c,i)=>`<label class="check"><input type="checkbox" ${b.checks[i]?"checked":""} onchange="toggleCheck('${d.id}','${b.id}',${i},this.checked)">${c}</label>`).join("")}</div><label class="note-label">ایرادات، اشکالات و نکات</label><textarea class="note" oninput="grow(this)" placeholder="ابهام‌ها، نکات دشوار و مواردی که باید دوباره بررسی شوند..." onchange="updateNote('${d.id}','${b.id}',this.value)">${esc(b.notes||"")}</textarea><div class="noterefs law-ui" id="nr-${b.id}">${window.LAWDB?LAWDB.noteRefs(b):""}</div>${window.LAWDB?LAWDB.textHtml(d,b):""}${refsHTML(d,b)}<div class="block-foot"><span class="muted small">وضعیت تسلط</span><select class="select-small" onchange="updateMastery('${d.id}','${b.id}',this.value)"><option value="نامشخص" ${b.mastery==="نامشخص"?"selected":""}>هنوز ارزیابی نشده</option><option value="ضعیف" ${b.mastery==="ضعیف"?"selected":""}>ضعیف — نیازمند مطالعه مجدد</option><option value="متوسط" ${b.mastery==="متوسط"?"selected":""}>متوسط — نیازمند مرور</option><option value="خوب" ${b.mastery==="خوب"?"selected":""}>خوب — مسلط</option></select></div>`:""}</div>`}
 function esc(s){return String(s??"").replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]))}
 function toggleCheck(did,bid,i,v){findBlock(did,bid).checks[i]=v;save()}
-function updateNote(did,bid,v){findBlock(did,bid).notes=v;persist()}
+function updateNote(did,bid,v){const b=findBlock(did,bid);b.notes=v;persist();const e=document.getElementById("nr-"+bid);if(e&&window.LAWDB)e.innerHTML=LAWDB.noteRefs(b)}
 function updateMastery(did,bid,v){findBlock(did,bid).mastery=v;save()}
 function findBlock(did,bid){return state.days.find(d=>d.id===did).blocks.find(b=>b.id===bid)}
 function showModal(content){document.getElementById("modal").innerHTML=content;document.getElementById("modalBack").classList.add("show")}
@@ -610,7 +755,7 @@ function openSubjectModal(id=null){let s=id?state.subjects.find(x=>x.id===id):{n
 function editSubject(id){openSubjectModal(id)}
 function deleteSubject(id){let s=state.subjects.find(x=>x.id===id),n=allBlocks().filter(b=>b.subjectId===id).length;showModal(`<h2>حذف درس «${esc(s.name)}»</h2><p>${n?`این درس در ${fa(n)} واحد مطالعاتی استفاده شده و آن واحدها هم از برنامه‌ی روزانه حذف می‌شوند.`:"این درس در هیچ روزی استفاده نشده است."} مطمئنی؟</p><div class="modal-actions"><button class="btn" onclick="closeModal()">انصراف</button><button class="btn danger" onclick="confirmDeleteSubject('${id}')">بله، حذف شود</button></div>`)}
 function confirmDeleteSubject(id){state.subjects=state.subjects.filter(x=>x.id!==id);state.days.forEach(d=>d.blocks=d.blocks.filter(b=>b.subjectId!==id));closeModal();save()}
-function saveSubject(id){let name=document.getElementById("subjectName").value.trim(),laws=document.getElementById("subjectLaws").value.split("\n").map(x=>x.trim()).filter(Boolean).map(parseLaw);if(!name)return toast("نام درس را وارد کن");if(id)Object.assign(state.subjects.find(x=>x.id===id),{name,laws});else state.subjects.push({id:uid(),name,laws});closeModal();save()}
+function saveSubject(id){let name=document.getElementById("subjectName").value.trim(),laws=document.getElementById("subjectLaws").value.split("\n").map(x=>x.trim()).filter(Boolean).map(parseLaw).map(l=>keepLink(id,l));if(!name)return toast("نام درس را وارد کن");if(id)Object.assign(state.subjects.find(x=>x.id===id),{name,laws});else state.subjects.push({id:uid(),name,laws});closeModal();save()}
 function openGenerator(){setTimeout(genFill,0);showModal(`<h2>ساخت خودکار روزهای مطالعاتی</h2><p class="muted small">یک درس و قانون انتخاب کن؛ بازه مواد به قطعه‌های مساوی تقسیم می‌شود و برای هر قطعه یک روز جدا ساخته می‌شود.</p><div class="form-grid"><div class="field"><label>درس</label><select id="genSubject" onchange="refreshGenLaws()">${state.subjects.map(s=>`<option value="${s.id}">${esc(s.name)}</option>`).join("")}</select></div><div class="field"><label>قانون / منبع</label><select id="genLaw" onchange="genFill()">${(state.subjects[0]?.laws||[]).map(l=>`<option>${esc(l.name)}</option>`).join("")}</select></div><div class="field"><label>از شماره</label><input id="genFrom" type="number" min="1" value="1"></div><div class="field"><label>تا شماره</label><input id="genTo" type="number" min="1" value="100"></div><div class="field"><label>تعداد در هر روز</label><input id="genChunk" type="number" min="1" value="10"></div><div class="field"><label>شروع از روز شماره</label><input id="genStart" type="number" min="1" value="${state.days.length?Math.max(...state.days.map(d=>d.number))+1:1}"></div></div><div class="modal-actions"><button class="btn" onclick="closeModal()">انصراف</button><button class="btn primary" onclick="generateDays()">تولید روزها</button></div>`)}
 function refreshGenLaws(){setTimeout(genFill,0);let s=state.subjects.find(x=>x.id===document.getElementById("genSubject").value);document.getElementById("genLaw").innerHTML=(s?.laws||[]).map(l=>`<option>${esc(l.name)}</option>`).join("");}
 function generateDays(){let g=id=>document.getElementById(id).value,sid=g("genSubject"),law=g("genLaw"),from=+g("genFrom"),to=+g("genTo"),chunk=+g("genChunk"),start=+g("genStart");if(from<1||to<from||chunk<1||start<1)return toast("مقادیر واردشده معتبر نیستند");let L=lawObj(sid,law),cn=lawCount(sid,law);if(cn&&to>cn)return toast("شماره از تعداد کل منبع بیشتر است");
@@ -618,7 +763,8 @@ function generateDays(){let g=id=>document.getElementById(id).value,sid=g("genSu
  for(let i=0;i<count;i++){let items,spec;if(list){items=list.slice(i*chunk,(i+1)*chunk);spec=items.join("، ")}else{let a=from+i*chunk,z=Math.min(to,a+chunk-1);spec=a===z?String(a):a+"-"+z;items=expand(spec)}state.days.push({id:uid(),number:start+i,blocks:[{id:uid(),subjectId:sid,law,spec,title:"",items,checks:Array(CHECKS.length).fill(false),notes:"",mastery:"نامشخص",refs:[]}]})}
  state.days.sort((a,b)=>a.number-b.number);closeModal();save();toast(fa(count)+" روز ساخته شد")}
 function copyFrom(id){let t=document.getElementById(id);t.select();try{navigator.clipboard.writeText(t.value);toast("کپی شد")}catch(e){try{document.execCommand("copy");toast("کپی شد")}catch(x){toast("متن را دستی کپی کن")}}}
-document.querySelectorAll(".nav button").forEach(btn=>btn.addEventListener("click",()=>{document.querySelectorAll(".nav button").forEach(x=>x.classList.remove("active"));btn.classList.add("active");["dashboard","days","subjects"].forEach(v=>document.getElementById(v+"View").classList.toggle("hidden",v!==btn.dataset.view));}));
+function showView(v){document.querySelectorAll(".nav button").forEach(x=>x.classList.toggle("active",x.dataset.view===v));["dashboard","days","subjects"].forEach(n=>document.getElementById(n+"View").classList.toggle("hidden",n!==v))}
+document.querySelectorAll(".nav button").forEach(btn=>btn.addEventListener("click",()=>showView(btn.dataset.view)));
 document.getElementById("quickAdd").onclick=()=>state.days.length?openBlockModal(state.days[state.days.length-1].id):openDayModal();
 document.getElementById("exportBtn").onclick=()=>showModal(`<h2>پشتیبان</h2><p class="muted small">این متن را جایی ذخیره کن (مثلاً در یادداشت‌ها).</p><textarea id="bkText" rows="10" readonly>${esc(JSON.stringify(state))}</textarea><div class="modal-actions"><button class="btn" onclick="closeModal()">بستن</button><button class="btn primary" onclick="copyFrom('bkText')">کپی</button></div>`);
 document.getElementById("importBtn").onclick=()=>showModal(`<h2>بازیابی پشتیبان</h2><textarea id="rsText" rows="10" placeholder="متن پشتیبان را اینجا بچسبان"></textarea><div class="modal-actions"><button class="btn" onclick="closeModal()">انصراف</button><button class="btn primary" onclick="restoreBk()">بازیابی</button></div>`);
@@ -658,12 +804,6 @@ function toggleDay(id){let d=state.days.find(x=>x.id===id);d.open=!d.open;persis
 function setAll(v){state.days.forEach(d=>d.open=v);persist();render()}
 function goFirst(){let d=state.days.find(x=>!isDone(x));if(!d)return toast("همه‌ی روزها تکمیل شده‌اند");d.open=true;persist();render();let e=document.getElementById("day-"+d.id);if(e)e.scrollIntoView({behavior:"smooth",block:"start"})}
 let sb=null,me=null,ready=false,saveT=null,fileCtx=null;const urlCache={};
-function authMsg(m){document.getElementById("authMsg").textContent=m}
-async function doAuth(kind){let e=document.getElementById("authEmail").value.trim(),p=document.getElementById("authPass").value;if(!e||p.length<6)return authMsg("ایمیل و رمز (حداقل ۶ کاراکتر) را وارد کن");authMsg("لطفاً صبر کن...");let r=kind==="up"?await sb.auth.signUp({email:e,password:p}):await sb.auth.signInWithPassword({email:e,password:p});if(r.error)return authMsg(r.error.message);if(!r.data.session)return authMsg("ثبت‌نام انجام شد. اگر تأیید ایمیل فعال است، ایمیلت را بررسی کن و بعد وارد شو.");onLogin(r.data.session.user)}
-async function onLogin(u){me=u;let r=await sb.from("planner").select("data").eq("user_id",u.id).maybeSingle();if(r.error){authMsg("خطا در دریافت اطلاعات: "+r.error.message);return}document.getElementById("authBack").classList.remove("show");document.getElementById("outBtn").classList.remove("hidden");state=r.data?norm(r.data.data):fresh();ready=true;if(!r.data)cloudSave();render()}
-function cloudSave(){clearTimeout(saveT);saveT=setTimeout(async()=>{let r=await sb.from("planner").upsert({user_id:me.id,data:state,updated_at:new Date().toISOString()});if(r.error)toast("ذخیره روی سرور ناموفق بود")},500)}
-async function logout(){await sb.auth.signOut();location.reload()}
-function initAuth(){if(!CLOUD)return;if(!window.supabase){alert("کتابخانه‌ی Supabase بارگذاری نشد؛ اینترنت را بررسی کن.");return}sb=supabase.createClient(SUPA_URL,SUPA_KEY);document.getElementById("authBack").classList.add("show");sb.auth.getSession().then(r=>{if(r.data.session)onLogin(r.data.session.user)})}
 function pickFile(did,bid){if(!sb||!me)return toast("برای افزودن فایل باید وارد حساب شده باشی");fileCtx={did,bid};let i=document.getElementById("filePick");if(!i){i=document.createElement("input");i.type="file";i.id="filePick";i.accept="application/pdf,image/*";i.multiple=true;i.className="hidden";i.onchange=upFiles;document.body.appendChild(i)}i.value="";i.click()}
 async function upFiles(e){let fs=[...e.target.files];if(!fs.length||!fileCtx)return;let b=findBlock(fileCtx.did,fileCtx.bid);b.files=b.files||[];toast("در حال آپلود...");for(let f of fs){if(f.size>20*1024*1024){toast("حجم "+f.name+" بیشتر از ۲۰ مگابایت است");continue}let ext=(f.name.match(/\.[A-Za-z0-9]+$/)||[""])[0],path=me.id+"/"+uid()+uid()+ext,r=await sb.storage.from("files").upload(path,f,{contentType:f.type});if(r.error)toast("آپلود "+f.name+" ناموفق بود");else b.files.push({path,name:f.name,type:f.type})}save()}
 async function signed(path){if(urlCache[path])return urlCache[path];let r=await sb.storage.from("files").createSignedUrl(path,3600);if(r.error)return null;urlCache[path]=r.data.signedUrl;return urlCache[path]}
@@ -671,12 +811,644 @@ async function openFile(path){let w=window.open("","_blank"),u=await signed(path
 function loadThumbs(){if(!sb)return;document.querySelectorAll("img[data-p]").forEach(async im=>{let u=await signed(im.dataset.p);if(u)im.src=u})}
 function filesHTML(d,b){return (b.files||[]).map((f,i)=>`<div class="ref"><span>${/^image\//.test(f.type)?`<img data-p="${esc(f.path)}" alt="" onclick="openFile(this.dataset.p)" style="max-height:90px;max-width:160px;border-radius:8px;vertical-align:middle;cursor:pointer;background:#eef2fa;min-width:40px;min-height:40px"> `:"📄 "}<a href="#" onclick="openFile('${esc(f.path)}');return false">${esc(f.name)}</a></span><button class="btn danger" onclick="delFile('${d.id}','${b.id}',${i})">✕</button></div>`).join("")}
 function delFile(did,bid,i){let f=findBlock(did,bid).files.splice(i,1)[0];if(f&&sb)sb.storage.from("files").remove([f.path]);save()}
-initAuth();
 function masteryCls(m){return m==="خوب"?"m-good":m==="متوسط"?"m-mid":m==="ضعیف"?"m-bad":""}
 function specText(b){let u=lawUnit(b.subjectId,b.law),L=lawObj(b.subjectId,b.law);return L&&L.topics?`${fa(b.items.length)} ${esc(u)}: ${esc(b.spec)}`:`${u==="ماده"?"مواد":esc(u)} ${esc(fa(b.spec))} (${fa(b.items.length)} ${esc(u)})`}
 function shortMeta(b,p){return `${specText(b)} · ${fa(p)}٪ انجام‌شده`}
 function toggleBlock(did,bid){let b=findBlock(did,bid);b.open=!b.open;persist();render()}
-render();
+
+/* =====================================================================
+   ابزارهای مشترک: خواندن ارجاع به مواد (ماده ۲۶۰ / مواد (۲۶۰) . (۲۷۰) / مواد ۱۰ تا ۲۰)
+   ===================================================================== */
+function d2e(s){return String(s==null?"":s).replace(/[۰-۹]/g,d=>"۰۱۲۳۴۵۶۷۸۹".indexOf(d)).replace(/[٠-٩]/g,d=>"٠١٢٣٤٥٦٧٨٩".indexOf(d))}
+function scanRefs(text){
+ const src=String(text),re=/(ماده|مواد|مفاد)\s*(?:شماره\s*)?/g,tok=/(?:\(\s*)?([0-9۰-۹٠-٩]+)(\s*مکرر)?(?:\s*\))?/y,sep=/(?:\s*(?:،|,|;|؛|-|–|—|و|تا|الی)\s*|\s*\.\s*(?=\s*\()|\s+)/y,out=[];let m;
+ while((m=re.exec(src))){
+  const kwEnd=re.lastIndex;let pos=kwEnd;const items=[];
+  for(;;){tok.lastIndex=pos;const tm=tok.exec(src);if(!tm)break;
+   const it={n:d2e(tm[1]).replace(/\D/g,""),mk:!!tm[2],start:pos,end:pos+tm[0].length,sep:""};items.push(it);pos=it.end;
+   sep.lastIndex=pos;const sm=sep.exec(src);if(!sm||!sm[0])break;
+   if(/^\s+$/.test(sm[0])&&m[1]==="ماده")break;
+   tok.lastIndex=pos+sm[0].length;if(!tok.exec(src))break;
+   it.sep=sm[0];pos+=sm[0].length;}
+  if(!items.length)continue;
+  const units=[];
+  for(let i=0;i<items.length;i++){const a=items[i],b=items[i+1];
+   if(b&&/(تا|الی|-|–|—)/.test(a.sep)&&+b.n>=+a.n&&+b.n-+a.n<=300){const nums=[];for(let k=+a.n;k<=+b.n;k++)nums.push({n:String(k),mk:false});units.push({start:a.start,end:b.end,label:src.slice(a.start,b.end).trim(),nums});i++}
+   else units.push({start:a.start,end:a.end,label:src.slice(a.start,a.end).trim(),nums:[{n:a.n,mk:a.mk}]})}
+  const end=items[items.length-1].end;out.push({start:m.index,kwEnd,end,units});re.lastIndex=end}
+ return out}
+function compressNums(arr){const a=[...new Set(arr.map(Number))].sort((x,y)=>x-y),out=[];for(let i=0;i<a.length;){let j=i;while(j+1<a.length&&a[j+1]===a[j]+1)j++;out.push(j>i?a[i]+"-"+a[j]:String(a[i]));i=j+1}return out.join(",")}
+function keepLink(sid,l){const s=state.subjects.find(x=>x.id===sid),o=s&&s.laws.find(x=>x.name===l.name);return o&&o.db?Object.assign({},l,{db:o.db,min:o.min,max:o.max}):l}
+
+/* =====================================================================
+   کتابخانه‌ی برنامه‌ها و افزودن برنامه برای درس جدید (بدون دست‌زدن به بقیه‌ی روزها)
+   ===================================================================== */
+function mergePlan1(s){
+ let sub=s.subjects.find(x=>x.name==="حقوق مدنی");if(!sub){sub={id:uid(),name:"حقوق مدنی",laws:[]};s.subjects.unshift(sub)}
+ PLAN_LAWS.forEach((n,i)=>{let l=sub.laws.find(x=>x.name===n);if(!l){l={name:n,count:i===0?1335:i===1?17:0,unit:"ماده"};sub.laws.push(l)}if(i>=2&&!l.topics){l.topics=[];l.unit="سرفصل";l.count=0}});
+ PLAN_TXT.trim().split("\n").forEach(r=>{const a=r.split("|"),li=+a[2],L=sub.laws.find(x=>x.name===PLAN_LAWS[li]);let items,spec;
+  if(li<2){spec=a[3];items=expand(spec)}else{const tp=li===10?a[3]:"مطالعه‌ی کامل قانون";if(!L.topics.includes(tp))L.topics.push(tp);L.count=L.topics.length;items=[tp];spec=tp}
+  let d=s.days.find(x=>x.number===+a[0]);if(!d){d={id:uid(),number:+a[0],group:PLAN_GROUPS[+a[1]],blocks:[],open:false};s.days.push(d)}else if(!d.group)d.group=PLAN_GROUPS[+a[1]];
+  if(d.blocks.some(b=>b.src==="mdn"&&b.spec===spec&&b.title===(a[4]||"")))return;
+  d.blocks.push({id:uid(),subjectId:sub.id,law:PLAN_LAWS[li],spec,title:a[4]||"",task:a[5]||"",items,checks:Array(CHECKS.length).fill(false),notes:"",mastery:"نامشخص",refs:[],open:false,src:"mdn"})});
+ s.days.sort((x,y)=>x.number-y.number);return s}
+const LIB=[{id:"mdn",name:"حقوق مدنی (۹۳ روز)",fn:mergePlan1},{id:"tej",name:"حقوق تجارت (۹۰ روز)",fn:mergePlan2},{id:"jaza",name:"جزای عمومی و اختصاصی (۹۰ روز)",fn:mergePlan3},{id:"adm",name:"آیین دادرسی مدنی (۹۰ روز)",fn:mergePlan4}];
+const hasSrc=t=>state.days.some(d=>d.blocks.some(b=>b.src===t));
+function removeSrc(tag){state.days.forEach(d=>{const had=d.blocks.some(b=>b.src===tag);d.blocks=d.blocks.filter(b=>b.src!==tag);d._rm=had&&!d.blocks.length});state.days=state.days.filter(d=>!d._rm);state.imports=state.imports.filter(x=>x.id!==tag);save()}
+function addLib(id){const p=LIB.find(x=>x.id===id);p.fn(state);if(window.LAWDB)LAWDB.autoLink();closeModal();save();toast("برنامه اضافه شد")}
+function parsePlanText(text){
+ const lines=String(text).replace(/\r/g,"").split("\n"),days=[],dayRe=/^\s*روز\s*([0-9۰-۹٠-٩]+)\s*[ـ\-–—:.]+\s*(.*?)\s*$/,grpRe=/^\s*(مرحله|بخش|هفته|فصل|گام)(\s|:|$)/;let cur=null,group="";
+ lines.forEach(raw=>{const l=raw.trim();if(!l)return;const m=l.match(dayRe);
+  if(m){cur={num:+d2e(m[1]),title:m[2],group,bullets:[]};days.push(cur);return}
+  if(/^[-•*●▪]/.test(l)){if(cur)cur.bullets.push(l.replace(/^[-•*●▪]\s*/,""));return}
+  if(grpRe.test(l)){group=l.replace(/\s*\(.*?\)\s*$/,"");cur=null}});
+ return days.filter(d=>d.num>0).map(d=>{const review=/مرور|آزمون|جمع.?بندی|تحلیل|ترکیبی/.test(d.title);const nums=[],task=[];
+  d.bullets.forEach(b=>{const refs=review?[]:scanRefs(b);if(refs.length){refs.forEach(r=>r.units.forEach(u=>u.nums.forEach(x=>nums.push(x.n))));if(!/^\s*(مواد|ماده|مفاد)/.test(b))task.push(b)}else task.push(b)});
+  return {num:d.num,group:d.group,title:d.title,nums:[...new Set(nums)].sort((a,b)=>a-b),task:task.join(" · ")}})}
+function ipPrompt(){return "برای درس «"+(document.getElementById("ipSub").selectedOptions[0]?.text||"…")+"» یک برنامه‌ی مطالعاتی ۹۰ روزه بنویس. فقط با همین قالب و بدون هیچ توضیح اضافه:\n\nمرحله اول: عنوان مرحله\nروز ۱ ـ عنوان موضوع روز\n- مواد ۱ تا ۱۰ (فقط اگر قانون شماره‌ی ماده دارد؛ چند ماده‌ی جدا را با «و» بنویس)\n- توضیح کوتاه موضوعات آن روز\n- ۲۰ تست\nروز ۲ ـ ...\n\nبرای روزهای مرور و آزمون شماره‌ی ماده ننویس و عنوان روز را با «مرور» یا «آزمون» شروع کن."}
+function openAddPlanModal(){
+ const lib=LIB.map(p=>`<div class="row between" style="margin:6px 0"><span>${esc(p.name)}</span>${hasSrc(p.id)?`<button class="btn danger" onclick="removeSrc('${p.id}')">حذف از برنامه</button>`:`<button class="btn primary" onclick="addLib('${p.id}')">افزودن</button>`}</div>`).join("");
+ const imps=(state.imports||[]).filter(x=>!LIB.some(p=>p.id===x.id)).map(x=>`<div class="row between" style="margin:6px 0"><span>${esc(x.name)}</span><button class="btn danger" onclick="removeSrc('${x.id}')">حذف از برنامه</button></div>`).join("");
+ const names=window.LAWDB?LAWDB.names():[];
+ showModal(`<h2>افزودن برنامه</h2><p class="muted small">افزودن برنامه فقط روزها و درس‌های جدید اضافه می‌کند و چیزی از برنامه‌ی فعلی‌ات را عوض یا پاک نمی‌کند.</p>
+ <h3 style="font-size:15px">کتابخانه‌ی برنامه‌ها</h3>${lib}${imps?`<h3 style="font-size:15px;margin-top:14px">برنامه‌هایی که خودت اضافه کردی</h3>${imps}`:""}
+ <h3 style="font-size:15px;margin-top:16px">برنامه برای یک درس جدید</h3>
+ <p class="muted small">برنامه را (از هوش مصنوعی یا هر جای دیگر) به این قالب بچسبان: «روز ۱ ـ عنوان» و زیرش چند خط که با «-» شروع می‌شود. اگر خطی «مواد ۱ تا ۱۰» داشته باشد، شماره‌ی مواد خودکار تشخیص داده می‌شود.</p>
+ <div class="form-grid"><div class="field"><label>درس</label><select id="ipSub">${state.subjects.map(s=>`<option value="${s.id}">${esc(s.name)}</option>`).join("")}<option value="__new">درس جدید…</option></select></div>
+ <div class="field"><label>نام درس جدید (فقط اگر «درس جدید» را زدی)</label><input id="ipSubNew"></div>
+ <div class="field"><label>قانون در پایگاه (برای دیدن متن مواد و شمارش)</label><select id="ipLaw"><option value="">— بدون پایگاه —</option>${names.map(n=>`<option>${esc(n)}</option>`).join("")}</select></div>
+ <div class="field"><label>نام منبع (اگر از پایگاه انتخاب نکردی)</label><input id="ipLawName" placeholder="مثلاً قانون ثبت"></div></div>
+ <div class="field" style="margin-top:10px"><label>متن برنامه</label><textarea id="ipText" rows="8" placeholder="روز ۱ ـ کلیات&#10;- مواد ۱ تا ۱۰&#10;- ۲۰ تست"></textarea></div>
+ <div id="ipPrev" class="muted small" style="margin-top:8px"></div>
+ <details style="margin-top:8px"><summary class="small">دستور آماده برای هوش مصنوعی</summary><textarea id="ipPrompt" rows="6" readonly></textarea><button class="btn" onclick="document.getElementById('ipPrompt').value=ipPrompt();copyFrom('ipPrompt')">کپی دستور</button></details>
+ <div class="modal-actions"><button class="btn" onclick="closeModal()">بستن</button><button class="btn" onclick="ipPreview()">پیش‌نمایش</button><button class="btn primary" onclick="ipImport()">افزودن به برنامه</button></div>`)}
+function ipPreview(){const days=parsePlanText(document.getElementById("ipText").value),n=days.filter(d=>d.nums.length).length;
+ document.getElementById("ipPrev").innerHTML=days.length?`${fa(days.length)} روز پیدا شد؛ ${fa(n)} روز با شماره‌ی ماده و ${fa(days.length-n)} روز بدون ماده (سرفصل). نمونه: «روز ${fa(days[0].num)} ـ ${esc(days[0].title)}»${days[0].nums.length?" ← مواد "+esc(fa(compressNums(days[0].nums))):""}`:"روزی پیدا نشد. هر روز باید با «روز ۱ ـ عنوان» شروع شود.";return days}
+function ipImport(){
+ const days=ipPreview();if(!days.length)return;
+ const g=id=>document.getElementById(id).value.trim();let sub;
+ if(g("ipSub")==="__new"){const nm=g("ipSubNew");if(!nm)return toast("نام درس جدید را بنویس");sub={id:uid(),name:nm,laws:[]};state.subjects.push(sub)}else sub=state.subjects.find(x=>x.id===g("ipSub"));
+ const dbLaw=g("ipLaw"),lname=dbLaw||g("ipLawName")||sub.name;
+ let L=sub.laws.find(x=>x.name===lname&&!x.topics);if(!L){L={name:lname,count:0,unit:"ماده"};sub.laws.push(L)}if(dbLaw&&!L.db)L.db=dbLaw;
+ const tname="مرور و سرفصل‌ها — "+lname;let T=sub.laws.find(x=>x.name===tname);if(!T){T={name:tname,count:0,unit:"سرفصل",topics:[]};sub.laws.push(T)}
+ const id="imp"+Date.now().toString(36);
+ days.forEach(p=>{let d=state.days.find(x=>x.number===p.num);if(!d){d={id:uid(),number:p.num,group:p.group,blocks:[],open:false};state.days.push(d)}else if(!d.group&&p.group)d.group=p.group;
+  let law,spec,title,items;
+  if(p.nums.length){law=lname;spec=compressNums(p.nums);title=p.title;items=p.nums}
+  else{const tp=p.title||("روز "+p.num);if(!T.topics.includes(tp))T.topics.push(tp);T.count=T.topics.length;law=tname;spec=tp;title="";items=[tp]}
+  d.blocks.push({id:uid(),subjectId:sub.id,law,spec,title,task:p.task,items,checks:Array(CHECKS.length).fill(false),notes:"",mastery:"نامشخص",refs:[],open:false,src:id})});
+ state.days.sort((a,b)=>a.number-b.number);state.imports.push({id,name:sub.name+" — "+lname+" ("+days.length+" روز)"});
+ if(window.LAWDB)LAWDB.autoLink();closeModal();save();toast(fa(days.length)+" روز اضافه شد")}
+
+/* =====================================================================
+   ورود، ثبت‌نام و ذخیره‌ی برنامه‌ی هر کاربر روی Supabase
+   ===================================================================== */
+function authMsg(m){document.getElementById("authMsg").textContent=m}
+function openAuthModal(){authMsg("");document.getElementById("authBack").classList.add("show")}
+async function doAuth(kind){if(!sb)return authMsg("تنظیمات Supabase کامل نیست");const e=document.getElementById("authEmail").value.trim(),p=document.getElementById("authPass").value;if(!e||p.length<6)return authMsg("ایمیل و رمز (حداقل ۶ کاراکتر) را وارد کن");authMsg("لطفاً صبر کن...");
+ const r=kind==="up"?await sb.auth.signUp({email:e,password:p}):await sb.auth.signInWithPassword({email:e,password:p});
+ if(r.error)return authMsg(r.error.message);if(!r.data.session)return authMsg("ثبت‌نام انجام شد. اگر تأیید ایمیل فعال است، ایمیلت را بررسی کن و بعد وارد شو.");
+ document.getElementById("authBack").classList.remove("show");await afterAuth(r.data.session.user)}
+function updateAuthUI(){document.getElementById("authBtn").classList.toggle("hidden",!!me);const o=document.getElementById("outBtn");o.classList.toggle("hidden",!me);if(me)o.textContent="خروج ("+(me.email||"").split("@")[0]+")";document.getElementById("adminTab").classList.toggle("hidden",!isAdmin)}
+async function afterAuth(user){me=user;try{const r=await sb.from("admins").select("user_id").eq("user_id",user.id).maybeSingle();isAdmin=!!r.data}catch(e){isAdmin=false}
+ updateAuthUI();if(window.LAWDB)LAWDB.onAdmin();if(!document.getElementById("tab-planner").classList.contains("hidden"))enterPlanner()}
+async function loadPlanner(){const r=await sb.from("planner").select("data").eq("user_id",me.id).maybeSingle();
+ if(r.error){document.getElementById("plannerApp").innerHTML='<div class="panel">خطا در دریافت برنامه: '+esc(r.error.message)+"</div>";return}
+ state=r.data?norm(r.data.data):fresh();ready=true;if(window.LAWDB)LAWDB.autoLink();showView("dashboard");render()}
+function cloudSave(){clearTimeout(saveT);saveT=setTimeout(async()=>{const r=await sb.from("planner").upsert({user_id:me.id,data:state,updated_at:new Date().toISOString()});if(r.error)toast("ذخیره روی سرور ناموفق بود")},500)}
+async function logout(){await sb.auth.signOut();location.reload()}
+function initAuth(){sb.auth.getSession().then(async r=>{if(r.data&&r.data.session)await afterAuth(r.data.session.user)})}
+function enterPlanner(){const ok=!!me;document.getElementById("plannerGate").classList.toggle("hidden",ok);document.getElementById("plannerApp").classList.toggle("hidden",!ok);if(ok&&!ready)loadPlanner()}
+function go(tab){if(!["search","planner","admin"].includes(tab)||(tab==="admin"&&!isAdmin))tab="search";
+ ["search","planner","admin"].forEach(n=>document.getElementById("tab-"+n).classList.toggle("hidden",n!==tab));
+ document.querySelectorAll(".tabs button").forEach(b=>b.classList.toggle("active",b.dataset.tab===tab));
+ try{history.replaceState(null,"","#"+tab)}catch(e){}
+ if(tab==="planner")enterPlanner();if(tab==="admin"&&window.LAWDB)LAWDB.admRefresh()}
+
+</script>
+<script>
+(function(){
+const $=id=>document.getElementById(id);
+let DB=[]; let DECISIONS=[]; // آرای وحدت رویه بارگذاری‌شده
+let shown=100,mode='all',exactPath='',showAll=false;const INFO={};const COLS={};let TOPICS=[];
+
+/* ---------- نرمال‌سازی ---------- */
+function norm(s){
+  return String(s==null?'':s)
+    .replace(/[۰-۹]/g,d=>'۰۱۲۳۴۵۶۷۸۹'.indexOf(d))
+    .replace(/[٠-٩]/g,d=>'٠١٢٣٤٥٦٧٨٩'.indexOf(d))
+    .replace(/[يى]/g,'ی').replace(/ك/g,'ک')
+    .replace(/[\u064B-\u065F\u0670\u0640]/g,'')
+    .replace(/[\u200c\u200f\u200e]/g,' ')
+    .replace(/\s+/g,' ').trim().toLowerCase();
+}
+const esc=s=>String(s).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+// تبدیل ارقام انگلیسی به فارسی فقط برای نمایش؛ مقادیر داخلی و کلیدهای جستجو تغییر نمی‌کنند.
+function persianDigits(value){return String(value??'').replace(/[0-9]/g,d=>'۰۱۲۳۴۵۶۷۸۹'[Number(d)]);}
+const disp=s=>esc(persianDigits(s));
+
+/* ---------- نمایش بندهای مستقل در خط‌های جداگانه ---------- */
+function formatLegalText(value){
+  let s=String(value==null?'':value).replace(/\r\n?/g,'\n');
+  // حروف رایج بندبندی در قوانین ایران: «الف -»، «ب -» و ...
+  const letterLabels='الف|ب|ج|د|ه|و|ز|ح|ط|ی|ک|ل|م|ن|س|ع|ف|ص|ق|ر|ش|ت|ث|خ|ذ|ض|ظ|غ';
+  // اعداد فارسی، عربی یا لاتین که به شکل «۱ -» یا «1)» آمده‌اند.
+  const numberLabel='[0-9۰-۹٠-٩]{1,3}\\s*(?:[-–—ـ]|[.)])';
+  const label='(?:'+letterLabels+')\\s*[-–—ـ]';
+  // فقط قبل از برچسبی که پس از فاصله آمده خط جدید می‌گذاریم؛ متن و ارجاعات دست‌نخورده می‌مانند.
+  const re=new RegExp('\\s+(?=(?:'+label+'|'+numberLabel+')\\s+)','g');
+  return s.replace(re,(gap,offset,whole)=>{
+    const before=whole.slice(0,offset+gap.length);
+    const next=whole.slice(offset+gap.length);
+    // «شماره 743 - سال 1394» ارجاع رأی است، نه یک بند شماره‌دار؛ آن را نشکن.
+    if (/^[0-9۰-۹٠-٩]{1,3}\s*(?:[-–—ـ]|[.)])/.test(next) && /شماره\s*$/.test(before)) return gap;
+    return '\n';
+  }).replace(/\n{3,}/g,'\n\n').trim();
+}
+
+/* ---------- نمایش هر رأی وحدت رویه در یک خط مستقل ---------- */
+function formatPrecedents(value){
+  let s=String(value==null?'':value).replace(/\r\n?/g,'\n').trim();
+  // هر ارجاع «شماره ... - سال ...» یک رأی مستقل است؛ قبل از شماره‌های بعدی خط جدید می‌آید.
+  s=s.replace(/\s*[,،;؛]?\s*(?=شماره\s*[0-9۰-۹٠-٩]+\s*[-–—ـ]\s*سال\s*[0-9۰-۹٠-٩]+)/g,'\n');
+  return s.replace(/\n{2,}/g,'\n').trim();
+}
+
+function digits(s){return String(s??'').replace(/[۰-۹]/g,d=>'۰۱۲۳۴۵۶۷۸۹'.indexOf(d)).replace(/[٠-٩]/g,d=>'٠١٢٣٤٥٦٧٨٩'.indexOf(d));}
+function citationHtml(value){
+  const s=formatPrecedents(value); if(!s)return '';
+  const re=/شماره\s*([0-9۰-۹٠-٩]+)\s*[-–—ـ]\s*سال\s*([0-9۰-۹٠-٩]+)/gi;
+  let out='',last=0,m,found=false;
+  while((m=re.exec(s))){found=true;out+=disp(s.slice(last,m.index));
+    const n=digits(m[1]),y=digits(m[2]),label=m[0];
+    out+=`<button type="button" class="precedent-link" data-decision-number="${esc(n)}" data-decision-year="${esc(y)}">${disp(label)}</button>`;
+    last=re.lastIndex;
+  }
+  out+=disp(s.slice(last));
+  return `<div class="precedent-list">${found?out:disp(s)}</div>`;
+}
+function decisionKey(number,year){return digits(number).replace(/\D/g,'')+'|'+digits(year).replace(/\D/g,'');}
+function toggleDecisionInline(button,number,year){
+  const old=button.nextElementSibling;
+  if(old&&old.classList.contains('decision-inline')){old.remove();button.setAttribute('aria-expanded','false');return;}
+  // Close any other expanded decision to keep the result list compact.
+  document.querySelectorAll('.decision-inline:not(.related-inline)').forEach(el=>{if(!el.contains(button))el.remove();});
+  document.querySelectorAll('[data-decision-number][aria-expanded="true"]').forEach(el=>el.setAttribute('aria-expanded','false'));
+  const key=decisionKey(number,year);
+  const d=DECISIONS.find(x=>decisionKey(x.number,x.year)===key);
+  const panel=document.createElement('div');panel.className='decision-inline';
+  const title=d?`رأی وحدت رویه شماره ${disp(d.number)} - سال ${disp(d.year)}`:`رأی وحدت رویه شماره ${disp(number)} - سال ${disp(year)}`;
+  panel.innerHTML=`<div class="decision-inline-head"><div><h3>${title}</h3>${d?.date?`<div class="modal-meta">تاریخ: ${disp(d.date)}</div>`:''}${d?.subject?`<div class="modal-meta">موضوع: ${disp(d.subject)}</div>`:''}</div><button type="button" data-close-inline>بستن ✕</button></div>${d?`<div class="decision-inline-body">${disp(d.text||'متن کامل برای این رأی ثبت نشده است.')}</div>`:`<p>متن این رأی در فایل اکسل آرای بارگذاری‌شده پیدا نشد.</p><p class="modal-meta">فایل اکسل آرا را با ستون‌های شماره رأی، سال و متن کامل رأی بارگذاری کنید.</p>`}`;
+  button.insertAdjacentElement('afterend',panel);button.setAttribute('aria-expanded','true');
+}
+async function readDecisionFile(file){
+  await loadXLSX();const wb=XLSX.read(await file.arrayBuffer(),{type:'array'}); let added=[];
+  wb.SheetNames.forEach(sn=>{
+    const grid=XLSX.utils.sheet_to_json(fixRef(wb.Sheets[sn]),{header:1,defval:''}).filter(r=>r.some(c=>String(c).trim()!==''));
+    if(grid.length<2)return;
+    let hi=0,best=0;grid.slice(0,10).forEach((r,i)=>{const n=r.filter(c=>String(c).trim()!=='').length;if(n>best){best=n;hi=i;}});
+    const headers=grid[hi].map(x=>norm(x).replace(/[\s_\/]/g,''));
+    const find=fn=>headers.findIndex((h,i)=>fn(h,i));
+    let ni=find(h=>h.includes('شماره')&&(h.includes('رای')||h.includes('رأی')||h.includes('وحدت')||h==='شماره')); if(ni<0)ni=find(h=>h==='شماره');
+    let yi=find(h=>h.includes('سال'));
+    let ti=find(h=>h.includes('متن')&&(h.includes('رای')||h.includes('رأی')||h.includes('کامل')||h==='متن')); if(ti<0)ti=find(h=>h.includes('رای')||h.includes('رأی'));
+    let di=find(h=>h.includes('تاریخ')); let si=find(h=>h.includes('موضوع')||h.includes('عنوان'));
+    if(ni<0||yi<0||ti<0){alert('در فایل «'+file.name+'» ستون‌های شماره رأی، سال و متن کامل رأی پیدا نشد. نام ستون‌ها را بررسی کنید.');return;}
+    grid.slice(hi+1).forEach(r=>{
+      const number=digits(r[ni]??'').match(/\d+/)?.[0]||''; const year=digits(r[yi]??'').match(/\d{4}/)?.[0]||''; const text=String(r[ti]??'').trim();
+      if(number&&year&&(text||r[si]||r[di])) added.push({number,year,date:di>=0?String(r[di]??'').trim():'',subject:si>=0?String(r[si]??'').trim():'',text});
+    });
+  });
+  return added;
+}
+
+/* ---------- خواندن اکسل (تشخیص خودکار ستون‌ها) ---------- */
+const PATH_CORE=['باب','مبحث','فصل','بخش','کتاب','گفتار','قسمت'];
+const PATH_SOFT=['عنوان','موضوع'];
+const nk=k=>norm(k).replace(/\s|\//g,'');
+function detect(headers,body){
+  const H=headers.map(nk);
+  const pick=(fn)=>H.findIndex((h,i)=>h&&fn(h,i));
+  const stat=i=>{const v=body.map(r=>String(r[i]??'').trim()).filter(Boolean);
+    return{n:v.length,avg:v.length?v.reduce((a,x)=>a+x.length,0)/v.length:0,
+      numeric:v.length?v.filter(x=>/^\D{0,6}\d{1,4}\D{0,8}$/.test(norm(x))).length/v.length:0};};
+  let num=pick(h=>h.includes('شمارهماده'));
+  if(num<0)num=pick(h=>h.includes('شماره')&&!/رای|رأی|وحدت|تبصره|بند|ردیف/.test(h));
+  if(num<0)num=pick(h=>h==='ماده'||(h.includes('ماده')&&!h.includes('متن')&&!/مرتبط|ارجاع|مواد/.test(h)));
+  if(num<0){let best=-1,bs=0;H.forEach((h,i)=>{const st=stat(i);if(st.numeric>.8&&st.avg<12&&st.n>bs){best=i;bs=st.n;}});num=best;}
+  let text=pick((h,i)=>i!==num&&h.includes('متنماده'));
+  if(text<0)text=pick((h,i)=>i!==num&&h.includes('متن')&&!/رای|رأی|توضیح|شرح|نظر/.test(h));
+  if(text<0)text=pick((h,i)=>i!==num&&h.includes('متن'));
+  if(text<0)text=pick((h,i)=>i!==num&&h.includes('ماده')&&!/مرتبط|ارجاع|مواد/.test(h));
+  if(text<0){let best=-1,ba=0;H.forEach((h,i)=>{if(i===num)return;const st=stat(i);if(st.avg>ba){best=i;ba=st.avg;}});text=best;}
+  const path=[],secs=[];
+  H.forEach((h,i)=>{
+    if(!h||i===num||i===text)return;
+    const isPath=PATH_CORE.some(p=>h.includes(p))&&(num<0||i<num);
+    if(isPath&&!/مرتبط|ارجاع/.test(h)&&stat(i).avg<90)path.push(i);else secs.push(i);
+  });
+  return{num,text,path,secs};
+}
+function parseSheet(grid,law){
+  grid=grid.filter(r=>r.some(c=>String(c).trim()!==''));
+  if(grid.length<2)return{rows:[],info:null};
+  // ردیف سرستون: ردیفی (بین ۱۰ ردیف اول) که بیشترین کلمهٔ سرستونی (شماره، متن، باب، فصل، بند، تبصره، ...) دارد
+  const KW=/شماره|متن|ماده|باب|مبحث|فصل|بخش|بند|تبصره|رأی|رای|وحدت|کتاب|گفتار|مرتبط|عنوان|موضوع|قاعده|نکته|توضیح/;
+  const PHC=/^[-–—_.\s]*$/;
+  let hi=-1,bs=0;
+  grid.slice(0,10).forEach((r,i)=>{const sc=r.filter(c=>String(c).length<45&&KW.test(norm(c))).length;if(sc>bs){bs=sc;hi=i;}});
+  if(hi<0){let bc=0;hi=0;grid.slice(0,10).forEach((r,i)=>{const c=r.filter(x=>!PHC.test(String(x))).length;if(c>bc){bc=c;hi=i;}});}
+  const W=Math.max(...grid.slice(0,400).map(r=>r.length));
+  const headers=Array.from({length:W},(_,i)=>String(grid[hi][i]??'').trim()||('ستون '+(i+1)));
+  const body=grid.slice(hi+1);
+  const d=detect(headers,body);
+  const last={};
+  const rows=body.map(r=>{
+    const raw=i=>i>=0?String(r[i]??'').trim():'';const PH=/^[-–—_.\s]+$/;const g=i=>{const v=raw(i);return PH.test(v)?'':v;};
+    // پر کردن خودکار سلول‌های خالیِ ادغام‌شده در ستون‌های ساختاری (باب/فصل/...)
+    const path=d.path.map(i=>{const rv=raw(i);let v=g(i);if(v)last[i]=v;else if(PH.test(rv))last[i]='';else v=last[i]||'';return v;}).filter(Boolean);
+    const numText=g(d.num);
+    const m=norm(numText).match(/\d+/);
+    const sections=d.secs.map(i=>({h:headers[i],v:g(i)})).filter(x=>x.v);
+    const o={law,num:m?m[0]:'',numText,text:g(d.text),path,sections};
+    o.norm=norm([o.text,path.join(' '),sections.map(x=>x.v).join(' ')].join(' '));
+    o.tn=norm([o.text,sections.map(x=>x.v).join(' ')].join(' '));o.pn=norm(path.join(' ')+' '+sections.filter(x=>/عنوان|موضوع/.test(x.h)).map(x=>x.v).join(' '));
+    return o;
+  }).filter(o=>(o.text||o.sections.length)&&nk(o.numText)!==nk(headers[d.num]));
+  const info=`شماره: ${headers[d.num]||'نامشخص'} | متن: ${headers[d.text]||'نامشخص'} | سایر: ${[...d.path,...d.secs].map(i=>headers[i]).join('، ')}`;
+  const smp=i=>{const r=body.find(x=>!PHC.test(String(x[i]??'')));return r?String(r[i]).trim().slice(0,28):'(خالی)';};
+  const rl=['تعداد ستون‌های خوانده‌شده: '+W,...headers.map((h,i)=>h+'  ←  '+(i===d.num?'شماره ماده':i===d.text?'متن ماده':d.path.includes(i)?'مسیر (باب/فصل)':'بخش جداگانه')+'   | نمونه: '+smp(i))];
+  return{rows,info,roles:rl};
+}
+function fixRef(ws){
+  if(!ws)return ws;const r=ws['!ref']?XLSX.utils.decode_range(ws['!ref']):{s:{r:0,c:0},e:{r:0,c:0}};
+  Object.keys(ws).forEach(k=>{if(k[0]==='!')return;const c=XLSX.utils.decode_cell(k);
+    if(c.c>r.e.c)r.e.c=c.c;if(c.r>r.e.r)r.e.r=c.r;if(c.c<r.s.c)r.s.c=c.c;if(c.r<r.s.r)r.s.r=c.r;});
+  ws['!ref']=XLSX.utils.encode_range(r);return ws;
+}
+async function readFile(f){
+  await loadXLSX();const buf=await f.arrayBuffer();
+  const wb=XLSX.read(buf,{type:'array'});
+  const law=f.name.replace(/\.[^.]+$/,'').replace(/_/g,' ');
+  let all=[],infos=[];
+  wb.SheetNames.forEach(sn=>{
+    const grid=XLSX.utils.sheet_to_json(fixRef(wb.Sheets[sn]),{header:1,defval:''});
+    const name=wb.SheetNames.length>1?law+' - '+sn:law;
+    const r=parseSheet(grid,name);
+    all=all.concat(r.rows);if(r.info)infos.push(r.info);if(r.roles)COLS[law+(wb.SheetNames.length>1?' - '+sn:'')]=r.roles;
+  });
+  INFO[law]=infos.join(' // ');
+  return all;
+}
+
+/* ---------- رابط ---------- */
+
+function parseQuery(q){
+  q=norm(q);
+  let num=null;
+  const m=q.match(/(?:ماده\s*)?(\d+)/);
+  const onlyNum=/^(ماده\s*)?\d+$/.test(q);
+  if(/ماده\s*\d+/.test(q)||onlyNum){
+    num=q.match(/\d+/)[0];
+    q=q.replace(/ماده\s*\d+/,'').replace(/^\d+$/,'').trim();
+  }
+  return{num,words:q.split(' ').filter(Boolean)};
+}
+function hlRe(words){
+  if(!words.length)return null;
+  const p=words.map(w=>w.replace(/[.*+?^${}()|[\]\\]/g,'\\$&').replace(/ی/g,'[یيى]').replace(/ک/g,'[کك]'));
+  return new RegExp('('+p.join('|')+')','gi');
+}
+/* ---------- رنگ هر قانون (خودکار، برای هر تعداد فایل) ---------- */
+const HUES=new Map();
+function hue(law){const b=String(law).split(' - ')[0];if(!HUES.has(b))HUES.set(b,Math.round((HUES.size*137.508+200)%360));return HUES.get(b);}
+
+/* ---------- ترتیب بخش‌ها: بند ← تبصره ← سایر ستون‌ها/مواد مرتبط ← آرای وحدت رویه ---------- */
+const isPrec=h=>/رأی|رای|آرا|وحدت\s*رویه/i.test(h);
+const secRank=h=>isPrec(h)?3:/بند/.test(nk(h))?0:/تبصره/.test(nk(h))?1:2;
+const CUR={re:null};
+const curH=t=>{t=disp(t);return CUR.re?t.replace(CUR.re,'<mark>$1</mark>'):t;};
+const numLabel=o=>/ماده/.test(norm(o.numText))?o.numText:'ماده '+(o.numText||'؟');
+
+/* ---------- ارجاع به ماده: فقط خود «ماده N / مواد N و M / مفاد N M» لینک می‌شود ---------- */
+const NUM='[0-9۰-۹٠-٩]+',NM=NUM+'(?:\\s*مکرر)?';
+const LISTA=NM+'(?:\\s*(?:،|,|و|تا|الی)\\s*'+NM+')*';
+const LISTB=NM+'(?:(?:\\s*(?:،|,|و|تا|الی)\\s*|\\s+)'+NM+')*';
+const REFSRC='(ماده)\\s*\\(?\\s*('+LISTA+')(?:\\s*\\))?|(مواد|مفاد)\\s*\\(?\\s*('+LISTB+')(?:\\s*\\))?';
+const STOPW=/^(و|یا|را|است|می|در|که|به|با|از|مصوب|بود|باشد|نیز|همچنین|مقرر|مذکور|مربوط|برای|تا|هم|بر|اگر|مگر|ولی|اما|پس|آمده|اشاره)$/;
+// قانونِ مقصد را از کلمات بعد از شماره تشخیص می‌دهد. نام ناقص فقط وقتی پذیرفته می‌شود که کلمهٔ بعدی بخشی از نام قانونِ دیگری نباشد
+function resolveLaws(after,curLaw){
+  const cut=after.split(/[\n،,؛;.()«»:]|ماده|مواد|مفاد|تبصره|بند/)[0];
+  const ws=norm(cut).split(' ').filter(Boolean).slice(0,7);
+  if(!ws.length||/^(این|همین|فوق|مذکور|سابق|بالا)$/.test(ws[0]))return{laws:[curLaw]};
+  const laws=[...new Set(DB.map(o=>o.law))],lw=l=>norm(l).split(' ');
+  const tryP=(w,strict)=>{for(let k=Math.min(w.length,6);k>=1;k--){const pre=w.slice(0,k);if(pre.length===1&&pre[0]==='قانون')continue;
+    const next=w[k];
+    const m=laws.filter(l=>{const lx=lw(l),need=lx.filter(x=>x!=='قانون'),lz=strict?need:lx;
+      const ok=strict?pre.every((x,j)=>lz[j]===x):pre.every(x=>lx.includes(x));if(!ok)return false;
+      const complete=pre.filter(x=>need.includes(x)).length>=need.length;
+      return complete||next===undefined||STOPW.test(next);});
+    if(m.length)return m;}return null;};
+  let m=tryP(ws,false);
+  if(!m&&ws[0]==='قانون')m=tryP(ws.slice(1),true);
+  if(m)return{laws:m.includes(curLaw)?[curLaw]:m};
+  if(/^(قانون|آیین|آئین|لایحه|قوانین)$/.test(ws[0])&&ws.length>1)return{laws:[],unknown:ws.slice(0,4).join(' ')};
+  return{laws:[curLaw]};
+}
+function relBtn(unit,info){const laws=(info.laws||[]).filter(Boolean),nums=unit.nums.map(x=>x.n+(x.mk?'m':'')).join(',');
+  return `<button type="button" class="precedent-link" data-rel-nums="${nums}" data-rel-laws="${esc(JSON.stringify(laws))}" data-rel-unknown="${esc(info.unknown||'')}" aria-expanded="false">${disp(unit.label)}</button>`;}
+function linkRefs(text,H,curLaw){
+  text=String(text);const refs=scanRefs(text);if(!refs.length)return H(text);let out='',last=0;
+  refs.forEach(r=>{out+=H(text.slice(last,r.start))+H(text.slice(r.start,r.kwEnd));
+    const info=resolveLaws(text.slice(r.end,r.end+90),curLaw);let cur=r.kwEnd;
+    r.units.forEach(u=>{out+=H(text.slice(cur,u.start))+relBtn(u,info);cur=u.end;});last=r.end;});
+  return out+H(text.slice(last));
+}
+
+function secHtml(o,H){
+  return [...o.sections].sort((a,b)=>secRank(a.h)-secRank(b.h)).map(x=>{
+    const bare=!isPrec(x.h)&&/مواد|ماده|مرتبط|ارجاع/.test(nk(x.h))&&/^[0-9۰-۹٠-٩\s،,و]+$/.test(String(x.v).trim());
+    const v=isPrec(x.h)?citationHtml(x.v):linkRefs((bare?'مواد ':'')+formatLegalText(x.v),H,o.law);
+    return `<div class="sec"><h4>${esc(x.h)}</h4><div class="txt">${v}</div></div>`;
+  }).join('');
+}
+function miniArticle(o){
+  return `<div class="rel-art" style="--h:${hue(o.law)}"><div class="head"><span class="law">${esc(o.law)}</span><span class="num">${disp(numLabel(o))}</span></div>${o.path.length?`<div class="path">${disp(o.path.join(' › '))}</div>`:''}<div class="txt">${linkRefs(formatLegalText(o.text),disp,o.law)}</div>${secHtml(o,disp)}</div>`;
+}
+function toggleRelatedInline(btn){
+  const old=btn.nextElementSibling;
+  if(old&&old.classList.contains('related-inline')){old.remove();btn.setAttribute('aria-expanded','false');return;}
+  let laws=[];try{laws=JSON.parse(btn.dataset.relLaws||'[]');}catch(e){}
+  const unk=btn.dataset.relUnknown,toks=(btn.dataset.relNums||'').split(',').filter(Boolean);
+  let rows=[];const miss=[];
+  toks.forEach(t=>{const mk=t.endsWith('m'),n=t.replace(/m$/,'');let c=[];laws.forEach(l=>{c=c.concat((IDX[l]||{})[n]||[]);});
+    const ex=c.filter(o=>/مکرر/.test(norm(o.numText))===mk);if(ex.length)c=ex;if(c.length)rows=rows.concat(c);else miss.push(n);});
+  const CAP=30,total=rows.length;rows=rows.slice(0,CAP);
+  const panel=document.createElement('div');panel.className='decision-inline related-inline';
+  const msg=unk?`«${disp(unk)}» در پایگاه نیست.`:'ماده‌ای با این مشخصات در پایگاه پیدا نشد.';
+  panel.innerHTML=`<div class="decision-inline-head"><h3>${esc(btn.textContent)}</h3><button type="button" data-close-inline="1">بستن</button></div>`+(rows.length?rows.map(miniArticle).join(''):`<div class="path">${msg}</div>`)+(total>CAP?`<div class="path">${disp(String(total-CAP))} ماده‌ی دیگر نمایش داده نشد.</div>`:'')+(rows.length&&miss.length?`<div class="path">در پایگاه نیست: ${disp(miss.join('، '))}</div>`:'');
+  btn.insertAdjacentElement('afterend',panel);btn.setAttribute('aria-expanded','true');
+}
+
+function cardHtml(i,grouped){
+  const o=DB[i],H=curH;
+  const hasP=i>0&&DB[i-1].law===o.law,hasN=i<DB.length-1&&DB[i+1].law===o.law;
+  const pathHtml=(!grouped&&o.path.length)?`<div class="path"><a data-pi="${i}" title="نمایش همه مواد این موضوع">${H(o.path.join(' › '))}</a></div>`:'';
+  return `<div class="res" data-i="${i}" data-g="${grouped?1:0}" style="--h:${hue(o.law)}"><div class="head"><span class="law">${esc(o.law)}</span>
+    <span class="num">${disp(numLabel(o))}</span>
+    <span class="nav"><button type="button" data-nav="-1" ${hasP?'':'disabled'} title="ماده قبل">→ قبلی</button><button type="button" data-nav="1" ${hasN?'':'disabled'} title="ماده بعد">بعدی ←</button><button type="button" class="mk" data-i="${i}" title="نشان‌کردن">${isMarked(o)?'★':'☆'}</button>${ADMIN?`<button type="button" class="aedit" data-i="${i}" title="ویرایش">✎</button><button type="button" class="adel" data-i="${i}" title="حذف">🗑</button>`:''}<button type="button" class="copy" data-i="${i}">کپی</button></span></div>
+    ${pathHtml}<div class="txt">${linkRefs(formatLegalText(o.text),H,o.law)}</div>${secHtml(o,H)}${extraHtml(o,i)}</div>`;
+}
+
+function renderSearch(){
+  if(mode==='marks')return renderMarks();
+  const {num,words}=parseQuery($('q').value);
+  const law=$('lawSel').value,out=$('out');
+  const pk=o=>o.law+'\u0001'+o.path.join(' › ');
+  const lbl=k=>k.split('\u0001').filter(Boolean).join(' › ');
+  $('pathchip').innerHTML=exactPath?`<span class="chip">فقط موضوع: <b>${esc(lbl(exactPath))}</b><i data-clr="1">✕</i></span>`:'';
+  if(!DB.length&&!DECISIONS.length){out.innerHTML='<div class="empty">'+(LOADERR?'بارگذاری قوانین ممکن نشد. اینترنت را بررسی کن و صفحه را دوباره باز کن.':'هنوز قانونی در پایگاه نیست.')+'</div>';$('count').textContent='';return;}
+  const inLaw=DB.filter(o=>!law||o.law===law);
+  const noQ=num===null&&!words.length;const SA=ADMIN&&showAll;
+  if(noQ&&!exactPath&&!SA){
+    if(mode==='topic'&&ADMIN){
+      const m=new Map();inLaw.forEach(o=>{if(!o.path.length)return;const k=pk(o);m.set(k,(m.get(k)||0)+1);});
+      TOPICS=[...m.keys()];
+      $('count').textContent=TOPICS.length?'یک موضوع را انتخاب کنید یا بخشی از نام آن را بنویسید:':'';
+      out.innerHTML=TOPICS.length?TOPICS.map((k,i)=>`<button class="topic" data-t="${i}">${disp(law?lbl(k).split(' › ').slice(1).join(' › '):lbl(k))} <small>(${persianDigits(m.get(k))} ماده)</small></button>`).join(''):'<div class="empty">در این فایل‌ها ستون باب/فصل/مبحث پیدا نشد.</div>';
+    }else{
+      $('count').textContent=persianDigits(inLaw.length)+' ماده بارگذاری شده است.';
+      out.innerHTML='<div class="empty">'+(mode==='decision'?'شماره رأی، سال یا کلمه‌ای از متن رأی را بنویسید.':'شماره ماده (مثلاً ماده ۴) یا یک کلمه را برای جستجو بنویسید.')+'</div>';
+    }
+    return;
+  }
+  const f={all:'norm',text:'tn',topic:'pn'}[mode];
+  const dec=mode==='decision';
+  const res=dec?[]:inLaw.filter(o=>(!exactPath||pk(o)===exactPath)&&(num===null||o.num===num)&&words.every(w=>(o[f]||'').includes(w)));
+  // رأی‌ها فقط در حالت «آرای وحدت رویه» جستجو می‌شوند
+  const decisionResults=dec?DECISIONS.filter(d=>{
+    const dn=digits(d.number).replace(/\D/g,''),dy=digits(d.year).replace(/\D/g,'');
+    if(num!==null&&dn!==num&&dy!==num)return false;
+    const corpus=norm([d.number,d.year,d.date,d.subject,d.text].join(' '));
+    return words.every(w=>corpus.includes(w));
+  }):[];
+  const cap=ADMIN?shown:50;
+  $('count').textContent=persianDigits(dec?decisionResults.length+' رأی':res.length+' نتیجه')+(!ADMIN&&(res.length>50||decisionResults.length>50)?' — ۵۰ مورد اول نمایش داده شد؛ جستجو را دقیق‌تر کنید':'');
+  if(!res.length&&!decisionResults.length){out.innerHTML='<div class="empty">نتیجه‌ای پیدا نشد. عبارت کوتاه‌تر را امتحان کنید یا نوع جستجو را عوض کنید.</div>';return;}
+  CUR.re=hlRe(words);const H=curH;
+  const grouped=mode==='topic'||!!exactPath||(SA&&!!law);
+  const gc={};if(grouped)res.forEach(o=>{const k=pk(o);gc[k]=(gc[k]||0)+1;});
+  let prev=null;
+  const part=res.slice(0,cap).map(o=>{
+    const k=pk(o);let g='';
+    if(grouped&&k!==prev){prev=k;g=`<div class="grp" style="--h:${hue(o.law)}"><span class="law">${esc(o.law)}</span> ${H(o.path.join(' › ')||'بدون موضوع')} <small>(${persianDigits(gc[k])} ماده)</small></div>`;}
+    return g+cardHtml(DB.indexOf(o),grouped);
+  }).join('');
+  const decisionPart=decisionResults.slice(0,cap).map(d=>{
+    const title=`رأی وحدت رویه شماره ${d.number} - سال ${d.year}`;
+    const summary=d.subject?`<div class="path">${H(d.subject)}</div>`:'';
+    const excerpt=String(d.text||'').slice(0,320);
+    const snippet=excerpt?`<div class="txt">${H(excerpt)}${d.text.length>320?'…':''}</div>`:'';
+    return `<div class="decision-search-result"><div class="head"><span class="law">رأی وحدت رویه</span><span class="num">${disp(title)}</span></div>${d.date?`<div class="path">تاریخ: ${disp(d.date)}</div>`:''}${summary}${snippet}<button type="button" class="precedent-link" data-decision-number="${esc(d.number)}" data-decision-year="${esc(d.year)}" aria-expanded="false">نمایش متن کامل رأی</button></div>`;
+  }).join('');
+  out.dataset.k=(+out.dataset.k||0)+1;out.innerHTML=part+(ADMIN&&res.length>shown?`<button id="more">نمایش بیشتر مواد</button>`:'')+decisionPart+(ADMIN&&decisionResults.length>shown?`<button id="more-decisions">نمایش آرای بیشتر</button>`:'');
+  [...out.children].forEach((c,i)=>c.style.setProperty('--d',Math.min(i,10)*45+'ms'));
+}
+
+/* ---------- رویدادها ---------- */
+document.querySelectorAll('input[name=mode]').forEach(r=>r.addEventListener('change',e=>{mode=e.target.value;shown=100;renderSearch();}));
+$('pathchip').addEventListener('click',e=>{if(e.target.dataset.clr){exactPath='';shown=100;renderSearch();}});
+$('q').addEventListener('input',()=>{shown=100;renderSearch();});
+$('lawSel').addEventListener('change',()=>{shown=(showAll&&$('lawSel').value)?1e9:100;renderSearch();});
+$('out').addEventListener('click',e=>{
+  const c=e.target.closest('[data-decision-number]');
+  if(c){toggleDecisionInline(c,c.dataset.decisionNumber,c.dataset.decisionYear);return;}
+});
+$('out').addEventListener('click',e=>{const close=e.target.closest('[data-close-inline]');if(close){const panel=close.closest('.decision-inline');const prev=panel?.previousElementSibling;if(prev?.matches('[data-decision-number]'))prev.setAttribute('aria-expanded','false');panel?.remove();return;}if(e.target.id==='more-decisions'){shown+=100;renderSearch();return;}});
+document.addEventListener('keydown',e=>{if(e.key==='Escape')document.querySelectorAll('.decision-inline').forEach(el=>el.remove());});
+$('out').addEventListener('click',e=>{
+  const nb=e.target.closest('[data-nav]');
+  if(nb){if(!nb.disabled){const card=nb.closest('.res');const ni=+card.dataset.i+ +nb.dataset.nav;if(DB[ni])card.outerHTML=cardHtml(ni,card.dataset.g==='1');}return;}
+  const rb=e.target.closest('[data-rel-nums]');
+  if(rb){toggleRelatedInline(rb);return;}
+  if(e.target.id==='more'){shown+=100;renderSearch();return;}
+  const t=e.target.closest('[data-t],[data-pi]');
+  if(t){const o=t.dataset.pi!==undefined?DB[t.dataset.pi]:null;
+    exactPath=o?o.law+'\u0001'+o.path.join(' › '):TOPICS[t.dataset.t];
+    shown=100;$('q').value='';renderSearch();window.scrollTo(0,0);return;}
+  if(e.target.classList.contains('copy')){
+    const o=DB[e.target.dataset.i];
+    const t=[o.law+' - '+o.numText,o.text,...o.sections.map(x=>x.h+': '+x.v)].filter(Boolean).join('\n');
+    navigator.clipboard?.writeText(t);e.target.textContent='کپی شد';
+    setTimeout(()=>e.target.textContent='کپی',1200);
+  }
+});
+
+function fill(o){const sv=o.sections.map(x=>x.v).join(' ');o.norm=norm([o.text,o.path.join(' '),sv].join(' '));o.tn=norm(o.text+' '+sv);o.pn=norm(o.path.join(' ')+' '+o.sections.filter(x=>/عنوان|موضوع/.test(x.h)).map(x=>x.v).join(' '));}
+function loadXLSX(){return XP||(XP=new Promise((res,rej)=>{const t=document.createElement('script');t.src='https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js';t.onload=res;t.onerror=rej;document.head.appendChild(t);}));}
+
+/* =====================================================================
+   بخش قوانین: بارگذاری از Supabase (با حافظه‌ی نهان)، مدیریت، و اتصال به برنامه‌ی مطالعاتی
+   ===================================================================== */
+let LAWS=[],IDX={},ADMIN=false,LOADERR=false,XP;
+const A=id=>document.getElementById(id);
+function buildIdx(){IDX={};DB.forEach(o=>{(IDX[o.law]=IDX[o.law]||{});(IDX[o.law][o.num]=IDX[o.law][o.num]||[]).push(o);});}
+function refreshMeta(){const laws=[...new Set(DB.map(o=>o.law))];const cur=$('lawSel').value;$('lawSel').innerHTML='<option value="">همه قوانین</option>'+laws.map(l=>`<option>${esc(l)}</option>`).join('');if(laws.includes(cur))$('lawSel').value=cur;}
+/* حافظه‌ی نهان در مرورگر تا هر بازدید دوباره همه‌ی متن‌ها دانلود نشود */
+const idb=()=>new Promise((res,rej)=>{const r=indexedDB.open('lawdb',1);r.onupgradeneeded=()=>r.result.createObjectStore('kv');r.onsuccess=()=>res(r.result);r.onerror=()=>rej(r.error);});
+async function idbGet(k){try{const db=await idb();return await new Promise((res,rej)=>{const q=db.transaction('kv').objectStore('kv').get(k);q.onsuccess=()=>res(q.result);q.onerror=()=>rej(q.error);});}catch(e){return null;}}
+async function idbSet(k,v){try{const db=await idb();await new Promise((res,rej)=>{const t=db.transaction('kv','readwrite');t.objectStore('kv').put(v,k);t.oncomplete=res;t.onerror=()=>rej(t.error);});}catch(e){}}
+async function idbDel(k){try{const db=await idb();await new Promise((res,rej)=>{const t=db.transaction('kv','readwrite');t.objectStore('kv').delete(k);t.oncomplete=res;t.onerror=()=>rej(t.error);});}catch(e){}}
+async function fetchAll(table,cols,orders){const out=[];for(let from=0;;from+=1000){let q=sb.from(table).select(cols);orders.forEach(o=>{q=q.order(o);});const r=await q.range(from,from+999);if(r.error)throw r.error;out.push(...r.data);if(r.data.length<1000)break;}return out;}
+function applyDB(o){const nm=new Map(o.laws.map(l=>[l.id,l.name]));LAWS=o.laws;
+  DB=o.arts.map(a=>({id:a.id,lawId:a.law_id,ord:a.ord,law:nm.get(a.law_id)||'؟',num:String(a.num),numText:a.num_text||String(a.num),text:a.text||'',path:a.path||[],sections:a.sections||[]}));
+  DB.forEach(fill);DECISIONS=o.decs.map(d=>({number:d.number,year:d.year,date:d.date||'',subject:d.subject||'',text:d.text||''}));buildIdx();}
+async function loadDB(force){
+  try{LOADERR=false;let ver=null;
+    try{const m=await sb.from('meta').select('value').eq('key','ver').maybeSingle();ver=(m.data&&m.data.value)||null;}catch(e){}
+    if(!force&&ver){const c=await idbGet('db');if(c&&c.ver===ver){applyDB(c);return;}}
+    const laws=await fetchAll('laws','id,name,sort',['sort','id']);
+    const arts=await fetchAll('articles','id,law_id,ord,num,num_text,text,path,sections',['law_id','ord']);
+    const decs=await fetchAll('decisions','number,year,date,subject,text',['year','number']);
+    const o={ver,laws,arts,decs};applyDB(o);if(ver)idbSet('db',o);
+  }catch(e){LOADERR=true;console.error(e);}
+}
+async function reloadAll(){await idbDel('db');await loadDB(true);refreshMeta();renderSearch();autoLink();if(ready)render();admRefresh();}
+
+/* ---------- مدیریت: افزودن قانون و ماده ---------- */
+const alog=m=>{const e=A('admLog');if(!e)return;e.textContent+=m+'\n';e.scrollTop=e.scrollHeight;};
+async function bumpVer(){await sb.from('meta').upsert({key:'ver',value:new Date().toISOString()});}
+async function ensureLaw(name){
+  const r=await sb.from('laws').select('id').eq('name',name).maybeSingle();if(r.data)return r.data.id;
+  const mx=await sb.from('laws').select('sort').order('sort',{ascending:false}).limit(1);const sort=(mx.data&&mx.data[0]?mx.data[0].sort:0)+1;
+  const ins=await sb.from('laws').insert({name,sort}).select('id').single();if(ins.error)throw ins.error;return ins.data.id;}
+async function importLaw(name,rows,replace){
+  const id=await ensureLaw(name);let start=0;
+  if(replace){const d=await sb.from('articles').delete().eq('law_id',id);if(d.error)throw d.error;}
+  else{const m=await sb.from('articles').select('ord').eq('law_id',id).order('ord',{ascending:false}).limit(1);start=(m.data&&m.data[0]?m.data[0].ord:-1)+1;}
+  for(let i=0;i<rows.length;i+=300){
+    const part=rows.slice(i,i+300).map((o,j)=>({law_id:id,ord:start+i+j,num:String(o.num||''),num_text:o.numText||String(o.num||''),text:o.text||'',path:o.path||[],sections:o.sections||[]}));
+    const r=await sb.from('articles').insert(part);if(r.error)throw r.error;alog(`  ${Math.min(i+300,rows.length)} از ${rows.length}`);}
+}
+async function importDecisions(list){
+  for(let i=0;i<list.length;i+=200){const part=list.slice(i,i+200).map(d=>({number:String(d.number),year:String(d.year),date:d.date||'',subject:d.subject||'',text:d.text||''}));
+    const r=await sb.from('decisions').upsert(part);if(r.error)throw r.error;alog(`  ${Math.min(i+200,list.length)} از ${list.length}`);}
+}
+async function runAdmin(fn){if(!isAdmin)return;try{await fn();await bumpVer();await reloadAll();alog('✔ انجام شد');}catch(err){alog('✖ '+(err.message||JSON.stringify(err)));}}
+function groupBy(rows){const by={};rows.forEach(o=>{(by[o.law]=by[o.law]||[]).push(o);});return by;}
+function admRefresh(){
+  if(!A('admLaws'))return;
+  if(!isAdmin){A('admLaws').innerHTML='';return;}
+  const cnt={};DB.forEach(o=>{cnt[o.law]=(cnt[o.law]||0)+1;});
+  A('admLaws').innerHTML=LAWS.length?LAWS.map(l=>`<div class="row between" style="padding:6px 0;border-bottom:1px dashed #dfe5ef"><span><b>${esc(l.name)}</b> <span class="muted small">${persianDigits(String(cnt[l.name]||0))} ماده</span></span><button class="btn danger" data-dellaw="${l.id}">حذف قانون</button></div>`).join(''):'<div class="muted small">هنوز قانونی در پایگاه نیست.</div>';
+  A('admAddLaw').innerHTML=LAWS.map(l=>`<option>${esc(l.name)}</option>`).join('')+'<option value="__new">قانون جدید…</option>';
+}
+async function saveEdit(i){const o=DB[i],t=A('edText').value,p=A('edPath').value.split('›').map(x=>x.trim()).filter(Boolean);
+  const r=await sb.from('articles').update({text:t,path:p}).eq('id',o.id);if(r.error)return window.toast(r.error.message);
+  o.text=t;o.path=p;fill(o);await bumpVer();await idbDel('db');window.closeModal();renderSearch();}
+async function delArt(i){const o=DB[i];const r=await sb.from('articles').delete().eq('id',o.id);if(r.error)return window.toast(r.error.message);
+  DB.splice(i,1);buildIdx();await bumpVer();await idbDel('db');window.closeModal();renderSearch();}
+async function delLaw(id){const r=await sb.from('laws').delete().eq('id',id);if(r.error)return window.toast(r.error.message);window.closeModal();await bumpVer();await reloadAll();}
+
+/* ---------- اتصال به برنامه‌ی مطالعاتی ---------- */
+function dbMap(name){const n=norm(name);
+  if(n.includes('مجازات اسلامی')){if(n.includes('حدود'))return{db:'قانون مجازات اسلامی',min:217};if(n.includes('عمومی'))return{db:'قانون مجازات اسلامی',max:216};return null;}
+  if(n.includes('لایحه اصلاحی'))return null;
+  if(n.includes('اجرای احکام'))return{db:'قانون اجرای احکام مدنی'};
+  const hit=LAWS.map(l=>l.name).filter(l=>norm(l)===n)[0];if(hit)return{db:hit};
+  if(n.includes('آیین دادرسی')&&n.includes('مدنی')&&LAWS.some(l=>l.name==='آیین دادرسی مدنی'))return{db:'آیین دادرسی مدنی'};
+  return null;}
+function linkOf(sid,lawName){const L=lawObj(sid,lawName);if(!L||L.topics)return null;return L.db?{db:L.db,min:L.min,max:L.max}:dbMap(lawName);}
+const inRange=(m,n)=>{n=+n;return(!m.min||n>=m.min)&&(!m.max||n<=m.max);};
+function autoLink(){let ch=false;if(!DB.length)return false;
+  state.subjects.forEach(s=>s.laws.forEach(l=>{if(l.topics)return;
+    if(!l.db){const m=dbMap(l.name);if(m&&IDX[m.db]){l.db=m.db;if(m.min)l.min=m.min;if(m.max)l.max=m.max;ch=true;}}
+    if(l.db&&!(+l.count)&&IDX[l.db]){const ns=Object.keys(IDX[l.db]).map(Number).filter(n=>inRange(l,n));if(ns.length){l.count=Math.max(...ns)-(l.min?l.min:1)+1;ch=true;}}}));
+  if(ch)persist();return ch;}
+const SHOW={};
+function textHtml(d,b){
+  const m=linkOf(b.subjectId,b.law);if(!m||!DB.length||!b.items)return '';
+  const idx=IDX[m.db]||{};const rows=b.items.filter(n=>/^\d+$/.test(n)).flatMap(n=>idx[n]||[]);
+  const have=new Set(rows.map(o=>o.num)).size,tot=b.items.length,n=SHOW[b.id]||0;
+  if(!have)return '<div class="small muted" style="margin-top:8px">متن این مواد در پایگاه نیست.</div>';
+  let h=`<div class="row" style="margin-top:10px"><button class="btn" onclick="LAWDB.toggle('${b.id}')">📖 ${n?'بستن متن مواد':'متن مواد'} (${fa(have)} از ${fa(tot)} ماده در پایگاه)</button></div>`;
+  if(n){h+='<div class="arttxt">'+rows.slice(0,n).map(o=>`<div class="art"><b>${disp(numLabel(o))}</b>${o.path.length?`<div class="small muted">${disp(o.path.join(' › '))}</div>`:''}<div class="atxt">${disp(formatLegalText(o.text))}</div>${o.sections.map(x=>`<div class="small"><b>${esc(x.h)}:</b> ${disp(formatLegalText(x.v))}</div>`).join('')}</div>`).join('')
+    +(rows.length>n?`<button class="btn" onclick="LAWDB.more('${b.id}')">نمایش ${fa(Math.min(25,rows.length-n))} ماده‌ی بعدی (${fa(rows.length-n)} مانده)</button>`:'')+'</div>';}
+  return h;}
+/* مواد اشاره‌شده در «ایرادات و نکات»: ماده ۲۶۰ ، مواد (۲۶۰) . (۲۷۰) ، مواد ۱۰ تا ۲۰ */
+function noteRefs(b){const t=b.notes||'';if(!t.trim()||!DB.length)return '';const refs=scanRefs(t);if(!refs.length)return '';
+  const lk=linkOf(b.subjectId,b.law),cur=lk?lk.db:null;
+  const btns=refs.flatMap(r=>{const info=resolveLaws(t.slice(r.end,r.end+90),cur);return r.units.map(u=>relBtn(u,info));});
+  return `<div class="small muted">مواد اشاره‌شده در نکته (برای دیدن متن کلیک کن):</div><div class="refrow">${btns.join(' ')}</div>`;}
+function planChips(o){const hits=[];
+  state.days.forEach(d=>d.blocks.forEach(b=>{if(!b.items||!b.items.includes(o.num))return;const m=linkOf(b.subjectId,b.law);if(!m||m.db!==o.law||!inRange(m,o.num))return;hits.push([d,b]);}));
+  if(!hits.length)return '';
+  return '<div class="plan-chips"><span class="path">📅 در برنامه:</span> '+hits.slice(0,8).map(([d,b])=>`<button type="button" class="pchip" data-goday="${d.id}" data-gob="${b.id}">روز ${fa(d.number)}</button>`).join('')+(hits.length>8?` <small>(+${fa(hits.length-8)})</small>`:'')+'</div>';}
+const mkKey=o=>o.law+'|'+o.numText;
+const MK=()=>state.marks||(state.marks={});
+const isMarked=o=>!!(me&&MK()[mkKey(o)]);
+function toggleMark(o){if(!me){window.openAuthModal();return false;}const m=MK(),k=mkKey(o);if(m[k])delete m[k];else m[k]={note:'',t:Date.now()};persist();return true;}
+function extraHtml(o,i){const m=me&&MK()[mkKey(o)];
+  return (me?planChips(o):'')+(m?`<div class="sec"><h4>نکته‌ی من</h4><textarea class="mknote" data-i="${i}" oninput="this.style.height='auto';this.style.height=this.scrollHeight+4+'px'" placeholder="نکته یا ایرادی که درباره‌ی این ماده دیدی...">${esc(m.note||'')}</textarea></div>`:'');}
+function renderMarks(){const law=$('lawSel').value;CUR.re=null;$('pathchip').innerHTML='';
+  if(!me){$('count').textContent='';$('out').innerHTML='<div class="empty">برای نشان‌کردن مواد و نوشتن نکته، وارد حساب شو.</div>';return;}
+  const m=MK(),rows=DB.filter(o=>m[mkKey(o)]&&(!law||o.law===law));
+  $('count').textContent=persianDigits(String(rows.length))+' ماده نشان‌شده';
+  $('out').innerHTML=rows.length?rows.map(o=>cardHtml(DB.indexOf(o),false)).join(''):'<div class="empty">هنوز ماده‌ای را ستاره‌دار نکرده‌ای. روی ☆ کنار هر ماده بزن.</div>';}
+function goDay(did,bid){const d=state.days.find(x=>x.id===did);if(!d)return;d.open=true;const b=d.blocks.find(x=>x.id===bid);if(b)b.open=true;persist();
+  window.go('planner');window.showView('days');render();
+  setTimeout(()=>{const e=document.getElementById('day-'+did);if(e)e.scrollIntoView({behavior:'smooth',block:'start'});},60);}
+window.LAWDB={
+  init:async()=>{await loadDB();refreshMeta();renderSearch();},
+  names:()=>LAWS.map(l=>l.name),textHtml,noteRefs,autoLink,admRefresh,
+  toggle(id){SHOW[id]=SHOW[id]?0:25;render();},more(id){SHOW[id]=(SHOW[id]||0)+25;render();},
+  onAdmin(){ADMIN=isAdmin;renderSearch();admRefresh();},
+  saveEdit,delArt,delLaw,
+  get ready(){return DB.length>0;},
+  _test:{scan:scanRefs,cardHtml:i=>cardHtml(i,false),planChips,toggleMark}
+};
+/* رویدادها */
+$('out').addEventListener('click',e=>{
+  const g=e.target.closest('[data-goday]');if(g){goDay(g.dataset.goday,g.dataset.gob);return;}
+  const mk=e.target.closest('.mk');if(mk){const card=mk.closest('.res'),i=+mk.dataset.i;if(!toggleMark(DB[i]))return;
+    if(mode==='marks')renderMarks();else card.outerHTML=cardHtml(i,card.dataset.g==='1');return;}
+  const ed=e.target.closest('.aedit');if(ed&&ADMIN){const i=+ed.dataset.i,o=DB[i];
+    window.showModal(`<h2>ویرایش ${esc(numLabel(o))} — ${esc(o.law)}</h2><div class="field"><label>متن ماده</label><textarea id="edText" rows="8">${esc(o.text)}</textarea></div><div class="field" style="margin-top:8px"><label>مسیر (باب › فصل › مبحث)</label><input id="edPath" value="${esc(o.path.join(' › '))}"></div><div class="modal-actions"><button class="btn" onclick="closeModal()">انصراف</button><button class="btn primary" onclick="LAWDB.saveEdit(${i})">ذخیره</button></div>`);return;}
+  const dl=e.target.closest('.adel');if(dl&&ADMIN){const i=+dl.dataset.i,o=DB[i];
+    window.showModal(`<h2>حذف ${esc(numLabel(o))}</h2><p>این ماده از قانون «${esc(o.law)}» برای همه حذف می‌شود. مطمئنی؟</p><div class="modal-actions"><button class="btn" onclick="closeModal()">انصراف</button><button class="btn danger" onclick="LAWDB.delArt(${i})">بله، حذف شود</button></div>`);return;}
+});
+$('out').addEventListener('change',e=>{if(e.target.classList.contains('mknote')){const o=DB[+e.target.dataset.i],m=me&&MK()[mkKey(o)];if(m){m.note=e.target.value;persist();}}});
+document.addEventListener('click',e=>{
+  const rb=e.target.closest('.noterefs [data-rel-nums]');if(rb){toggleRelatedInline(rb);return;}
+  const cl=e.target.closest('.noterefs [data-close-inline]');if(cl){const p=cl.closest('.decision-inline'),pv=p&&p.previousElementSibling;if(pv)pv.setAttribute('aria-expanded','false');if(p)p.remove();return;}
+  const dl=e.target.closest('[data-dellaw]');if(dl&&isAdmin){const l=LAWS.find(x=>x.id==dl.dataset.dellaw);if(l)window.showModal(`<h2>حذف قانون «${esc(l.name)}»</h2><p>همه‌ی مواد این قانون برای همه حذف می‌شود. مطمئنی؟</p><div class="modal-actions"><button class="btn" onclick="closeModal()">انصراف</button><button class="btn danger" onclick="LAWDB.delLaw(${l.id})">بله، حذف شود</button></div>`);}
+});
+A('admFiles').addEventListener('change',async e=>{const fs=[...e.target.files];e.target.value='';
+  await runAdmin(async()=>{for(const f of fs){alog('خواندن '+f.name+' …');const rows=await readFile(f),by=groupBy(rows);
+    for(const [name,list] of Object.entries(by)){alog(`«${name}»: ${list.length} ماده`);(COLS[name]||[]).forEach(x=>alog('   '+x));await importLaw(name,list,A('admReplace').checked);}}});});
+A('admDec').addEventListener('change',async e=>{const fs=[...e.target.files];e.target.value='';
+  await runAdmin(async()=>{for(const f of fs){alog('خواندن '+f.name+' …');const list=await readDecisionFile(f);alog(`${list.length} رأی`);await importDecisions(list);}});});
+A('admJson').addEventListener('change',async e=>{const f=e.target.files[0];e.target.value='';if(!f)return;
+  await runAdmin(async()=>{const obj=JSON.parse(await f.text()),rows=Array.isArray(obj)?obj:(obj.laws||[]),decs=Array.isArray(obj)?[]:(obj.decisions||[]);
+    const by=groupBy(rows);for(const [name,list] of Object.entries(by)){alog(`«${name}»: ${list.length} ماده`);await importLaw(name,list,A('admReplace').checked);}
+    if(decs.length){alog(`آرای وحدت رویه: ${decs.length}`);await importDecisions(decs);}});});
+A('admAddLaw').addEventListener('change',()=>{A('admNewLaw').classList.toggle('hidden',A('admAddLaw').value!=='__new');});
+A('admAddBtn').addEventListener('click',()=>runAdmin(async()=>{const sel=A('admAddLaw').value,name=sel==='__new'?A('admNewLaw').value.trim():sel,num=A('admNum').value.trim(),text=A('admText').value.trim();
+  if(!name||!num||!text)throw new Error('نام قانون، شماره و متن ماده را وارد کن');
+  const id=await ensureLaw(name),mx=await sb.from('articles').select('ord').eq('law_id',id).order('ord',{ascending:false}).limit(1),ord=(mx.data&&mx.data[0]?mx.data[0].ord:-1)+1;
+  const m=norm(num).match(/\d+/),path=A('admPath').value.split('›').map(x=>x.trim()).filter(Boolean);
+  const r=await sb.from('articles').insert({law_id:id,ord,num:m?m[0]:num,num_text:A('admNumText').value.trim()||('ماده '+num),text,path,sections:[]});if(r.error)throw r.error;
+  A('admText').value='';A('admNum').value='';alog('ماده اضافه شد.');}));
+
+})();
+</script>
+<script>
+(function(){
+ document.querySelectorAll(".tabs button").forEach(b=>b.addEventListener("click",()=>go(b.dataset.tab)));
+ if(!CLOUD||!window.supabase){document.getElementById("cfgWarn").classList.remove("hidden");document.getElementById("out").innerHTML='<div class="empty">تنظیمات Supabase کامل نیست.</div>';}
+ else{sb=supabase.createClient(SUPA_URL,SUPA_KEY);LAWDB.init();initAuth();}
+ go((location.hash||"#search").slice(1));
+})();
 </script>
 </body>
 </html>
