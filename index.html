@@ -152,6 +152,7 @@ body:not(.admin) .law-ui .adm{display:none!important}
 .law-ui .mk,.law-ui .aedit,.law-ui .adel{font-size:1.05rem;padding:2px 10px;line-height:1.4}
 .law-ui .nav{display:flex;overflow:visible;gap:6px}.law-ui .nav button{width:auto;margin:0;text-align:center;padding:4px 12px}
 .noterefs.law-ui{background:transparent;line-height:1.7;margin-top:6px}.refrow{display:block}.refrow .precedent-link{margin:2px 0 2px 4px}
+.fileitem{margin-top:8px;padding:8px 10px;border:1px solid #dfe5ef;border-radius:10px;background:#f7f9fd}.fimg{max-width:100%;max-height:340px;border-radius:10px;cursor:zoom-in;display:block;margin-top:8px;background:#eef2fa;min-height:40px}.fpdf{width:100%;height:520px;border:0;margin-top:8px;border-radius:10px;background:#fff}
 .pchip{padding:2px 10px;margin:2px 0 2px 4px;border-radius:99px;background:#eaf1ff;color:#2f5fc4;border:1px solid #c9dbff;font-size:.8rem;cursor:pointer}
 .plan-chips{margin-top:8px;padding-top:6px;border-top:1px dashed var(--line)}
 .arttxt{margin-top:8px;display:grid;gap:8px}.art{background:#f7f9fd;border:1px solid #dfe5ef;border-radius:10px;padding:10px 12px}.atxt{white-space:pre-wrap;margin-top:4px}
@@ -806,10 +807,7 @@ function goFirst(){let d=state.days.find(x=>!isDone(x));if(!d)return toast("هم
 let sb=null,me=null,ready=false,saveT=null,fileCtx=null;const urlCache={};
 function pickFile(did,bid){if(!sb||!me)return toast("برای افزودن فایل باید وارد حساب شده باشی");fileCtx={did,bid};let i=document.getElementById("filePick");if(!i){i=document.createElement("input");i.type="file";i.id="filePick";i.accept="application/pdf,image/*";i.multiple=true;i.className="hidden";i.onchange=upFiles;document.body.appendChild(i)}i.value="";i.click()}
 async function upFiles(e){let fs=[...e.target.files];if(!fs.length||!fileCtx)return;let b=findBlock(fileCtx.did,fileCtx.bid);b.files=b.files||[];toast("در حال آپلود...");for(let f of fs){if(f.size>20*1024*1024){toast("حجم "+f.name+" بیشتر از ۲۰ مگابایت است");continue}let ext=(f.name.match(/\.[A-Za-z0-9]+$/)||[""])[0],path=me.id+"/"+uid()+uid()+ext,r=await sb.storage.from("files").upload(path,f,{contentType:f.type});if(r.error)toast("آپلود "+f.name+" ناموفق بود");else b.files.push({path,name:f.name,type:f.type})}save()}
-async function signed(path){if(urlCache[path])return urlCache[path];let r=await sb.storage.from("files").createSignedUrl(path,3600);if(r.error)return null;urlCache[path]=r.data.signedUrl;return urlCache[path]}
-async function openFile(path){let w=window.open("","_blank"),u=await signed(path);if(u&&w)w.location=u;else if(w)w.close()}
 function loadThumbs(){if(!sb)return;document.querySelectorAll("img[data-p]").forEach(async im=>{let u=await signed(im.dataset.p);if(u)im.src=u})}
-function filesHTML(d,b){return (b.files||[]).map((f,i)=>`<div class="ref"><span>${/^image\//.test(f.type)?`<img data-p="${esc(f.path)}" alt="" onclick="openFile(this.dataset.p)" style="max-height:90px;max-width:160px;border-radius:8px;vertical-align:middle;cursor:pointer;background:#eef2fa;min-width:40px;min-height:40px"> `:"📄 "}<a href="#" onclick="openFile('${esc(f.path)}');return false">${esc(f.name)}</a></span><button class="btn danger" onclick="delFile('${d.id}','${b.id}',${i})">✕</button></div>`).join("")}
 function delFile(did,bid,i){let f=findBlock(did,bid).files.splice(i,1)[0];if(f&&sb)sb.storage.from("files").remove([f.path]);save()}
 function masteryCls(m){return m==="خوب"?"m-good":m==="متوسط"?"m-mid":m==="ضعیف"?"m-bad":""}
 function specText(b){let u=lawUnit(b.subjectId,b.law),L=lawObj(b.subjectId,b.law);return L&&L.topics?`${fa(b.items.length)} ${esc(u)}: ${esc(b.spec)}`:`${u==="ماده"?"مواد":esc(u)} ${esc(fa(b.spec))} (${fa(b.items.length)} ${esc(u)})`}
@@ -924,6 +922,29 @@ function go(tab){if(!["search","planner","admin"].includes(tab)||(tab==="admin"&
  document.querySelectorAll(".tabs button").forEach(b=>b.classList.toggle("active",b.dataset.tab===tab));
  try{history.replaceState(null,"","#"+tab)}catch(e){}
  if(tab==="planner")enterPlanner();if(tab==="admin"&&window.LAWDB)LAWDB.admRefresh()}
+
+/* =====================================================================
+   فایل و عکس‌های هر درس: عکس همان‌جا نمایش داده می‌شود، PDF با یک کلیک همان‌جا باز می‌شود،
+   و با «بزرگ‌نمایی / باز کردن» داخل خود صفحه تمام‌صفحه دیده می‌شود
+   ===================================================================== */
+const blobCache={};
+async function signed(path){const c=urlCache[path];if(c&&Date.now()-c.t<3000000)return c.u;const r=await sb.storage.from("files").createSignedUrl(path,3600);if(r.error)return null;urlCache[path]={u:r.data.signedUrl,t:Date.now()};return r.data.signedUrl}
+async function fileUrl(path,type){
+ const u=await signed(path);if(!u||/^image\//.test(type))return u;if(blobCache[path])return blobCache[path];
+ try{const r=await fetch(u);if(!r.ok)throw 0;const b=await r.blob();return blobCache[path]=URL.createObjectURL(new Blob([b],{type:type||b.type||"application/pdf"}))}catch(e){return u}}
+const fileBoxId=f=>"pf-"+f.path.replace(/\W/g,"");
+function filesHTML(d,b){return (b.files||[]).map((f,i)=>{const img=/^image\//.test(f.type),at=`'${d.id}','${b.id}',${i}`;
+ return `<div class="fileitem"><div class="row between"><span>${img?"🖼":"📄"} ${esc(f.name)}</span><span class="row">${img?"":`<button class="btn" onclick="togglePdfAt(${at})">👁 نمایش همین‌جا</button>`}<button class="btn" onclick="viewFileAt(${at})">${img?"بزرگ‌نمایی":"باز کردن"}</button><button class="btn danger" onclick="delFile('${d.id}','${b.id}',${i})">✕</button></span></div>${img?`<img class="fimg" data-p="${esc(f.path)}" alt="${esc(f.name)}" onclick="viewFileAt(${at})">`:`<div id="${fileBoxId(f)}"></div>`}</div>`}).join("")}
+const fileOf=(did,bid,i)=>findBlock(did,bid).files[i];
+async function togglePdfAt(did,bid,i){const f=fileOf(did,bid,i),box=document.getElementById(fileBoxId(f));if(!box)return;
+ if(box.firstChild){box.innerHTML="";return}box.innerHTML='<div class="muted small" style="margin-top:6px">در حال بارگذاری…</div>';
+ const u=await fileUrl(f.path,f.type);box.innerHTML=u?`<iframe class="fpdf" src="${esc(u)}"></iframe>`:'<div class="muted small" style="margin-top:6px">باز کردن فایل ممکن نشد.</div>'}
+async function viewFileAt(did,bid,i){const f=fileOf(did,bid,i),u=await fileUrl(f.path,f.type);if(!u)return toast("باز کردن فایل ممکن نشد");
+ let v=document.getElementById("viewer");if(!v){v=document.createElement("div");v.id="viewer";v.className="modal-back";v.addEventListener("click",e=>{if(e.target===v)closeViewer()});document.body.appendChild(v)}
+ const img=/^image\//.test(f.type);
+ v.innerHTML=`<div class="modal" style="width:min(1000px,100%)"><div class="row between"><b>${esc(f.name)}</b><span class="row"><a class="btn" href="${esc(u)}" target="_blank" rel="noopener">باز کردن در تب جدید</a><button class="btn" onclick="closeViewer()">بستن</button></span></div>${img?`<img src="${esc(u)}" alt="" style="max-width:100%;margin-top:10px;border-radius:10px">`:`<iframe src="${esc(u)}" style="width:100%;height:78vh;border:0;margin-top:10px;border-radius:10px;background:#fff"></iframe>`}</div>`;
+ v.classList.add("show")}
+function closeViewer(){const v=document.getElementById("viewer");if(v){v.classList.remove("show");v.innerHTML=""}}
 
 </script>
 <script>
