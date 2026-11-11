@@ -4,6 +4,12 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
 <meta name="theme-color" content="#f4f6fb">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="default">
+<meta name="apple-mobile-web-app-title" content="همراه مطالعه حقوق">
+<meta name="mobile-web-app-capable" content="yes">
+<link rel="manifest" href="./manifest.json">
+<link rel="apple-touch-icon" href="./icons/icon-192.png">
 <title>همراه مطالعه حقوق</title>
 <link href="https://fonts.googleapis.com/css2?family=Vazirmatn:wght@400;600;700&display=swap" rel="stylesheet">
 <style>
@@ -1470,6 +1476,15 @@ A('admAddBtn').addEventListener('click',()=>runAdmin(async()=>{const sel=A('admA
  else{sb=supabase.createClient(SUPA_URL,SUPA_KEY);LAWDB.init();initAuth();}
  go((location.hash||"#search").slice(1));
 })();
+</script>
+
+<script>
+// PWA: cache only the application shell. Supabase/API/auth requests remain network-only.
+if ('serviceWorker' in navigator && location.protocol === 'https:') {
+  window.addEventListener('load', () => {
+    navigator.serviceWorker.register('./sw.js').catch(err => console.warn('PWA service worker:', err));
+  });
+}
 </script>
 </body>
 </html>
