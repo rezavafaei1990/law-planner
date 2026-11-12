@@ -10,54 +10,161 @@
   // -------------------------------------------------------------------
   // هماهنگ‌سازی ابری دوطرفه با پایگاه داده Supabase و ذخیره‌سازی آفلاین
   // -------------------------------------------------------------------
+  const serverStatus = {
+    checked: false,
+    articlesCount: 0,
+    lastError: ''
+  };
+  let _syncPromise = null;
+
   async function syncToSupabase(key, data) {
     try {
-      if (window.sb && navigator.onLine) {
-        const res = await window.sb.from('meta').upsert({ key: key, value: JSON.stringify(data) });
-        if (res && res.error) {
-          console.warn('Supabase sync error for ' + key + ':', res.error.message);
-        }
+      if (!window.sb) {
+        return { ok: false, error: 'اتصال به پایگاه داده Supabase برقرار نیست.' };
       }
+      const res = await window.sb
+        .from('meta')
+        .upsert({ key: key, value: JSON.stringify(data) }, { onConflict: 'key' })
+        .select('key');
+      if (res && res.error) {
+        console.warn('Supabase sync error for ' + key + ':', res.error.message);
+        serverStatus.lastError = res.error.message || 'خطای ثبت در پایگاه داده';
+        return { ok: false, error: serverStatus.lastError };
+      }
+      if (key === ARTICLES_KEY && Array.isArray(data)) {
+        serverStatus.checked = true;
+        serverStatus.articlesCount = data.length;
+        serverStatus.lastError = '';
+      }
+      return { ok: true };
     } catch(err) {
-      console.warn('Supabase sync deferred (offline):', err);
+      const msg = (err && err.message) ? err.message : 'خطای شبکه در ارتباط با سرور';
+      console.warn('Supabase sync error:', err);
+      serverStatus.lastError = msg;
+      return { ok: false, error: msg };
     }
   }
 
   async function syncFromSupabase(key, onDataLoaded) {
     try {
-      if (window.sb && navigator.onLine) {
-        const r = await window.sb.from('meta').select('value').eq('key', key).maybeSingle();
-        if (r && r.data && r.data.value) {
-          const parsed = JSON.parse(r.data.value);
-          if (parsed && onDataLoaded) onDataLoaded(parsed);
+      if (!window.sb) return { exists: false, data: null };
+      const r = await window.sb.from('meta').select('value').eq('key', key).maybeSingle();
+      if (r && r.error) {
+        console.warn('Supabase fetch error for ' + key + ':', r.error.message);
+        return { exists: false, data: null, error: r.error.message };
+      }
+      if (r && r.data && r.data.value !== null && r.data.value !== undefined) {
+        const raw = r.data.value;
+        const parsed = typeof raw === 'string' ? JSON.parse(raw) : raw;
+        if (parsed !== null && parsed !== undefined) {
+          if (onDataLoaded) onDataLoaded(parsed);
+          return { exists: true, data: parsed };
         }
       }
+      return { exists: false, data: null };
     } catch(err) {
       console.warn('Supabase fetch deferred, using cached local data:', err);
+      return { exists: false, data: null, error: err && err.message };
     }
   }
 
   window.syncAllFromSupabase = async function() {
-    if (!window.sb || !navigator.onLine) return;
-    await syncFromSupabase(ARTICLES_KEY, (data) => {
-      if (Array.isArray(data)) {
-        localStorage.setItem(ARTICLES_KEY, JSON.stringify(data));
-        window.renderArticles();
+    if (!window.sb) return;
+    if (_syncPromise) return _syncPromise;
+    _syncPromise = (async () => {
+      try {
+        const artRes = await syncFromSupabase(ARTICLES_KEY, (data) => {
+          if (Array.isArray(data)) {
+            serverStatus.checked = true;
+            serverStatus.articlesCount = data.length;
+            serverStatus.lastError = '';
+            // اگر ادمین نیستیم یا سرور داده دارد با سرور همگام شود
+            const localArts = window.getArticles();
+            if (data.length > 0 || !window.isAdmin || localArts.length === 0) {
+              localStorage.setItem(ARTICLES_KEY, JSON.stringify(data));
+              window.renderArticles();
+            }
+          }
+        });
+        if (!artRes.exists) {
+          serverStatus.checked = true;
+          serverStatus.articlesCount = 0;
+        }
+
+        await syncFromSupabase(DEADLINES_KEY, (data) => {
+          if (Array.isArray(data) && data.length > 0) {
+            localStorage.setItem(DEADLINES_KEY, JSON.stringify(data));
+            window.renderDeadlines();
+          }
+        });
+        await syncFromSupabase(CALC_CUSTOM_KEY, (data) => {
+          if (Array.isArray(data) && data.length > 0) {
+            localStorage.setItem(CALC_CUSTOM_KEY, JSON.stringify(data));
+            window.renderCalculators();
+          }
+        });
+        if (typeof renderAdminPanels === 'function') renderAdminPanels();
+      } finally {
+        _syncPromise = null;
       }
-    });
-    await syncFromSupabase(DEADLINES_KEY, (data) => {
-      if (Array.isArray(data) && data.length > 0) {
-        localStorage.setItem(DEADLINES_KEY, JSON.stringify(data));
-        window.renderDeadlines();
+    })();
+    return _syncPromise;
+  };
+
+  window.autoSyncAdminArticlesOnLogin = async function() {
+    if (!window.isAdmin || !window.sb) return;
+    const localArts = window.getArticles();
+    const res = await syncFromSupabase(ARTICLES_KEY);
+    const serverArts = (res && res.exists && Array.isArray(res.data)) ? res.data : [];
+    serverStatus.checked = true;
+    serverStatus.articlesCount = serverArts.length;
+
+    if (localArts.length > 0 && serverArts.length === 0) {
+      const pushRes = await syncToSupabase(ARTICLES_KEY, localArts);
+      if (pushRes.ok) {
+        if (typeof toast === 'function') toast('مقالات ذخیره‌شده روی دستگاه در سرور منتشر شدند.');
+      } else {
+        if (typeof toast === 'function') toast('خطا در انتشار خودکار مقالات: ' + pushRes.error);
       }
-    });
-    await syncFromSupabase(CALC_CUSTOM_KEY, (data) => {
-      if (Array.isArray(data) && data.length > 0) {
-        localStorage.setItem(CALC_CUSTOM_KEY, JSON.stringify(data));
-        window.renderCalculators();
-      }
-    });
+    } else if (serverArts.length > 0) {
+      localStorage.setItem(ARTICLES_KEY, JSON.stringify(serverArts));
+      window.renderArticles();
+    }
     if (typeof renderAdminPanels === 'function') renderAdminPanels();
+  };
+
+  window.pushAllAdminDataToSupabase = async function() {
+    if (!window.isAdmin) {
+      if (typeof toast === 'function') toast('فقط مدیر سامانه می‌تواند داده‌ها را در سرور منتشر کند.');
+      return;
+    }
+    const arts = window.getArticles();
+    const dls = window.getDeadlines();
+    const calcs = window.getCustomCalculators();
+
+    const r1 = await syncToSupabase(ARTICLES_KEY, arts);
+    const r2 = await syncToSupabase(DEADLINES_KEY, dls);
+    const r3 = await syncToSupabase(CALC_CUSTOM_KEY, calcs);
+
+    if (typeof renderAdminPanels === 'function') renderAdminPanels();
+
+    const errors = [r1, r2, r3].filter(r => !r.ok).map(r => r.error);
+    if (errors.length === 0) {
+      if (typeof toast === 'function') toast('همه مقالات و تنظیمات با موفقیت روی سرور منتشر شدند.');
+    } else {
+      const msg = errors[0];
+      if (window.showModal) {
+        window.showModal(`
+          <h2>خطا در انتشار روی سرور Supabase</h2>
+          <p style="line-height:2; font-size:13.5px; color:#b91c1c;">سرور اجازه ذخیره در جدول meta را نداد:</p>
+          <pre dir="ltr" style="background:#f8fafc; padding:12px; border-radius:8px; overflow:auto; font-size:12px;">${esc(msg)}</pre>
+          <p style="line-height:2; font-size:13px; color:#334155;">مطمئن شوید با ایمیل مدیر (ثبت‌شده در جدول admins) وارد شده‌اید و جدول meta مجوز نوشتن برای مدیر دارد.</p>
+          <div class="modal-actions"><button class="btn primary" onclick="closeModal()">متوجه شدم</button></div>
+        `);
+      } else if (typeof toast === 'function') {
+        toast('خطای سرور: ' + msg);
+      }
+    }
   };
 
 
@@ -75,7 +182,7 @@
     }
   };
 
-  window.saveArticle = function(art) {
+  window.saveArticle = async function(art) {
     if (!window.isAdmin) { if (typeof toast === "function") toast("خطای دسترسی: نگارش مقاله فقط برای مدیر سامانه مجاز است."); return; }
     const list = window.getArticles();
     const idx = list.findIndex(a => a.id === art.id);
@@ -84,19 +191,29 @@
     localStorage.setItem(ARTICLES_KEY, JSON.stringify(list));
     window.renderArticles();
     if (typeof renderAdminPanels === 'function') renderAdminPanels();
-    if (typeof toast === 'function') toast('مقاله با موفقیت ذخیره شد.');
-    syncToSupabase(ARTICLES_KEY, list);
+    const res = await syncToSupabase(ARTICLES_KEY, list);
+    if (typeof renderAdminPanels === 'function') renderAdminPanels();
+    if (res.ok) {
+      if (typeof toast === 'function') toast('مقاله با موفقیت روی سرور منتشر شد.');
+    } else {
+      if (typeof toast === 'function') toast('ذخیره محلی انجام شد اما ثبت در سرور خطا داد: ' + res.error);
+    }
   };
 
-  window.deleteArticle = function(id) {
+  window.deleteArticle = async function(id) {
     if (!window.isAdmin) { if (typeof toast === "function") toast("خطای دسترسی: حذف مقاله فقط برای مدیر سامانه مجاز است."); return; }
     if (!confirm('آیا از حذف این مقاله اطمینان دارید؟')) return;
     const list = window.getArticles().filter(a => a.id !== id);
     localStorage.setItem(ARTICLES_KEY, JSON.stringify(list));
     window.renderArticles();
     if (typeof renderAdminPanels === 'function') renderAdminPanels();
-    if (typeof toast === 'function') toast('مقاله حذف شد.');
-    syncToSupabase(ARTICLES_KEY, list);
+    const res = await syncToSupabase(ARTICLES_KEY, list);
+    if (typeof renderAdminPanels === 'function') renderAdminPanels();
+    if (res.ok) {
+      if (typeof toast === 'function') toast('مقاله از سرور و برنامه حذف شد.');
+    } else {
+      if (typeof toast === 'function') toast('حذف محلی انجام شد اما خطای سرور رخ داد: ' + res.error);
+    }
   };
 
   window.renderArticles = function() {
@@ -309,7 +426,7 @@
     }
   };
 
-  window.saveDeadline = function(dl) {
+  window.saveDeadline = async function(dl) {
     if (!window.isAdmin) { if (typeof toast === "function") toast("خطای دسترسی: تغییر مواعد فقط برای مدیر مجاز است."); return; }
     const list = window.getDeadlines();
     const idx = list.findIndex(d => d.id === dl.id);
@@ -318,29 +435,41 @@
     localStorage.setItem(DEADLINES_KEY, JSON.stringify(list));
     window.renderDeadlines();
     if (typeof renderAdminPanels === 'function') renderAdminPanels();
-    if (typeof toast === 'function') toast('موعد قانونی ذخیره شد.');
-    syncToSupabase(DEADLINES_KEY, list);
+    const res = await syncToSupabase(DEADLINES_KEY, list);
+    if (res.ok) {
+      if (typeof toast === 'function') toast('موعد قانونی روی سرور ذخیره شد.');
+    } else {
+      if (typeof toast === 'function') toast('ذخیره محلی انجام شد اما خطای سرور رخ داد: ' + res.error);
+    }
   };
 
-  window.deleteDeadline = function(id) {
+  window.deleteDeadline = async function(id) {
     if (!window.isAdmin) { if (typeof toast === "function") toast("خطای دسترسی: حذف مواعد فقط برای مدیر مجاز است."); return; }
     if (!confirm('آیا از حذف این موعد قانونی اطمینان دارید؟')) return;
     const list = window.getDeadlines().filter(d => d.id !== id);
     localStorage.setItem(DEADLINES_KEY, JSON.stringify(list));
     window.renderDeadlines();
     if (typeof renderAdminPanels === 'function') renderAdminPanels();
-    if (typeof toast === 'function') toast('موعد حذف شد.');
-    syncToSupabase(DEADLINES_KEY, list);
+    const res = await syncToSupabase(DEADLINES_KEY, list);
+    if (res.ok) {
+      if (typeof toast === 'function') toast('موعد از سرور حذف شد.');
+    } else {
+      if (typeof toast === 'function') toast('حذف محلی انجام شد اما خطای سرور رخ داد: ' + res.error);
+    }
   };
 
-  window.resetDefaultDeadlines = function() {
+  window.resetDefaultDeadlines = async function() {
     if (!window.isAdmin) { if (typeof toast === "function") toast("خطای دسترسی: بازنشانی مواعد فقط برای مدیر مجاز است."); return; }
     if (!confirm('آیا مایلید تمام مواعد قانونی به لیست استاندارد ۱۵ گانه بازنشانی شوند؟')) return;
     localStorage.setItem(DEADLINES_KEY, JSON.stringify(DEFAULT_DEADLINES));
     window.renderDeadlines();
     if (typeof renderAdminPanels === 'function') renderAdminPanels();
-    if (typeof toast === 'function') toast('مواعد پیش‌فرض بازنشانی شد.');
-    syncToSupabase(DEADLINES_KEY, DEFAULT_DEADLINES);
+    const res = await syncToSupabase(DEADLINES_KEY, DEFAULT_DEADLINES);
+    if (res.ok) {
+      if (typeof toast === 'function') toast('مواعد پیش‌فرض روی سرور بازنشانی شد.');
+    } else {
+      if (typeof toast === 'function') toast('خطای سرور: ' + res.error);
+    }
   };
 
   window.computeDeadlineResult = function() {
@@ -511,7 +640,7 @@
     }
   };
 
-  window.saveCustomCalculator = function(c) {
+  window.saveCustomCalculator = async function(c) {
     if (!window.isAdmin) { if (typeof toast === "function") toast("خطای دسترسی: ثبت فرمول فقط برای مدیر مجاز است."); return; }
     const list = window.getCustomCalculators();
     const idx = list.findIndex(item => item.id === c.id);
@@ -520,19 +649,27 @@
     localStorage.setItem(CALC_CUSTOM_KEY, JSON.stringify(list));
     window.renderCalculators();
     if (typeof renderAdminPanels === 'function') renderAdminPanels();
-    if (typeof toast === 'function') toast('محاسبه‌گر ذخیره شد.');
-    syncToSupabase(CALC_CUSTOM_KEY, list);
+    const res = await syncToSupabase(CALC_CUSTOM_KEY, list);
+    if (res.ok) {
+      if (typeof toast === 'function') toast('محاسبه‌گر روی سرور ذخیره شد.');
+    } else {
+      if (typeof toast === 'function') toast('ذخیره محلی انجام شد اما خطای سرور رخ داد: ' + res.error);
+    }
   };
 
-  window.deleteCustomCalculator = function(id) {
+  window.deleteCustomCalculator = async function(id) {
     if (!window.isAdmin) { if (typeof toast === "function") toast("خطای دسترسی: حذف فرمول فقط برای مدیر مجاز است."); return; }
     if (!confirm('آیا از حذف این محاسبه‌گر اطمینان دارید؟')) return;
     const list = window.getCustomCalculators().filter(item => item.id !== id);
     localStorage.setItem(CALC_CUSTOM_KEY, JSON.stringify(list));
     window.renderCalculators();
     if (typeof renderAdminPanels === 'function') renderAdminPanels();
-    if (typeof toast === 'function') toast('محاسبه‌گر حذف شد.');
-    syncToSupabase(CALC_CUSTOM_KEY, list);
+    const res = await syncToSupabase(CALC_CUSTOM_KEY, list);
+    if (res.ok) {
+      if (typeof toast === 'function') toast('محاسبه‌گر از سرور حذف شد.');
+    } else {
+      if (typeof toast === 'function') toast('حذف محلی انجام شد اما خطای سرور رخ داد: ' + res.error);
+    }
   };
 
   // ۱. محاسبه هزینه دادرسی
@@ -779,10 +916,32 @@
   // ۴. رندر پنل‌های اختصاصی مدیریت در تب tab-admin
   // -------------------------------------------------------------------
   window.renderAdminPanels = function() {
+    const arts = window.getArticles();
+    const syncBox = document.getElementById('admSyncStatusCard');
+    if (syncBox) {
+      const localCount = arts.length;
+      const srvCount = serverStatus.articlesCount;
+      const mismatch = localCount !== srvCount || !!serverStatus.lastError;
+      syncBox.innerHTML = `
+        <div class="row between" style="gap:12px; flex-wrap:wrap;">
+          <div>
+            <div style="font-weight:700; font-size:14px; color:#0f172a;">وضعیت انتشار عمومی مقالات و تنظیمات در سرور Supabase</div>
+            <div class="muted small" style="margin-top:4px;">
+              تعداد مقالات روی این دستگاه: <b>${toFa(localCount)}</b> | تعداد مقالات منتشرشده برای همه کاربران در سرور: <b>${serverStatus.checked ? toFa(srvCount) : 'در حال بررسی'}</b>
+            </div>
+            ${serverStatus.lastError ? `<div style="margin-top:6px; font-size:12.5px; color:#b91c1c;">آخرین خطای سرور: ${esc(serverStatus.lastError)}</div>` : ''}
+            ${(!serverStatus.lastError && localCount > 0 && srvCount === 0 && serverStatus.checked) ? `<div style="margin-top:6px; font-size:12.5px; color:#b45309;">مقالات این دستگاه هنوز روی سرور منتشر نشده‌اند و دیگران آن را نمی‌بینند. دکمه همگام‌سازی را بزنید.</div>` : ''}
+          </div>
+          <div class="row" style="gap:8px;">
+            <button class="btn ${mismatch ? 'primary' : ''}" onclick="pushAllAdminDataToSupabase()">☁️ انتشار و همگام‌سازی در سرور</button>
+          </div>
+        </div>
+      `;
+    }
+
     // رندر مقالات در ادمین
     const admArtBox = document.getElementById('admArticlesList');
     if (admArtBox) {
-      const arts = window.getArticles();
       if (!arts.length) {
         admArtBox.innerHTML = '<div class="muted small" style="padding:12px; background:#f8fafc; border-radius:10px;">هنوز مقاله‌ای ثبت نشده است. برای انتشار اولین مقاله روی دکمه «نگارش مقاله جدید» کلیک کنید.</div>';
       } else {
@@ -988,10 +1147,20 @@
     if (tab === 'admin') {
       if (window.LAWDB && LAWDB.admRefresh) LAWDB.admRefresh();
       window.renderAdminPanels();
+      window.syncAllFromSupabase();
     }
-    if (tab === 'articles') window.renderArticles();
-    if (tab === 'deadlines') window.renderDeadlines();
-    if (tab === 'calculator') window.renderCalculators();
+    if (tab === 'articles') {
+      window.renderArticles();
+      window.syncAllFromSupabase();
+    }
+    if (tab === 'deadlines') {
+      window.renderDeadlines();
+      window.syncAllFromSupabase();
+    }
+    if (tab === 'calculator') {
+      window.renderCalculators();
+      window.syncAllFromSupabase();
+    }
 
     window.scrollTo({ top: 0, behavior: 'smooth' });
   };

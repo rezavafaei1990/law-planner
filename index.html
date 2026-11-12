@@ -1590,7 +1590,10 @@ textarea {
         <h2>📚 مقالات، تحلیل‌ها و پژوهش‌های حقوقی</h2>
         <div class="muted small">مجموعه پژوهش‌های تخصصی، تحلیل‌های رویه قضایی و مقالات دکترین گروه حقوقی برائت</div>
       </div>
-      <button class="btn primary adm-only" onclick="openArticleEditor()">✍️ نگارش و انتشار مقاله جدید</button>
+      <div class="row" style="gap:8px;">
+        <button class="btn" onclick="if(window.syncAllFromSupabase) syncAllFromSupabase().then(()=>{if(typeof toast==='function') toast('مقالات از سرور بروزرسانی شد.');})">🔄 بروزرسانی</button>
+        <button class="btn primary adm-only" onclick="openArticleEditor()">✍️ نگارش و انتشار مقاله جدید</button>
+      </div>
     </div>
 
     <div class="row between" style="margin-bottom:16px; gap:10px;">
@@ -1743,6 +1746,7 @@ textarea {
   </div>
 
   <div id="adminSuiteContent" style="display: none;">
+  <div id="admSyncStatusCard" class="panel" style="background:#f0fdfa; border:1px solid #99f6e4;"></div>
   <!-- پنل مدیریت مقالات و پژوهش‌ها -->
   <div class="panel">
     <div class="panel-head">
@@ -2495,6 +2499,9 @@ async function afterAuth(user){
   document.body.classList.toggle('is-admin', !!isAdmin);
   updateAuthUI();
   if (window.renderAdminPanels) window.renderAdminPanels();
+  if (isAdmin && typeof window.autoSyncAdminArticlesOnLogin === 'function') {
+    await window.autoSyncAdminArticlesOnLogin();
+  }
   if (window.LAWDB) LAWDB.onAdmin();
   if (!document.getElementById("tab-planner").classList.contains("hidden")) enterPlanner();
 }
