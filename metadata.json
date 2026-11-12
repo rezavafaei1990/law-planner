@@ -1,0 +1,6 @@
+{
+  "name": "گروه حقوقی برائت",
+  "description": "سامانه هوشمند گروه حقوقی برائت شامل جستجوی قوانین، مقالات و پژوهش‌ها، محاسبه‌گر حقوقی، مواعد قانونی و برنامه‌ریزی جامع مطالعه",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}

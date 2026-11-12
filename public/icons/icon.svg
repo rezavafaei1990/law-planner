@@ -1,0 +1,25 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512">
+  <defs>
+    <linearGradient id="tealGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#0f766e"/>
+      <stop offset="100%" stop-color="#115e59"/>
+    </linearGradient>
+    <linearGradient id="goldGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#fef08a"/>
+      <stop offset="100%" stop-color="#f59e0b"/>
+    </linearGradient>
+  </defs>
+  <rect width="512" height="512" rx="100" fill="url(#tealGrad)"/>
+  <!-- Central Pillar -->
+  <rect x="250" y="136" width="12" height="250" rx="6" fill="url(#goldGrad)"/>
+  <rect x="186" y="386" width="140" height="20" rx="10" fill="url(#goldGrad)"/>
+  <circle cx="256" cy="136" r="16" fill="url(#goldGrad)"/>
+  <!-- Beam -->
+  <rect x="96" y="166" width="320" height="10" rx="5" fill="url(#goldGrad)"/>
+  <!-- Left Pan Strings & Dish -->
+  <path d="M96 176 L136 286 M176 176 L136 286" stroke="#ffffff" stroke-width="3" stroke-linecap="round"/>
+  <path d="M90 286 Q136 320 182 286 Z" fill="url(#goldGrad)"/>
+  <!-- Right Pan Strings & Dish -->
+  <path d="M336 176 L376 286 M416 176 L376 286" stroke="#ffffff" stroke-width="3" stroke-linecap="round"/>
+  <path d="M330 286 Q376 320 422 286 Z" fill="url(#goldGrad)"/>
+</svg>

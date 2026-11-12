@@ -6,195 +6,1527 @@
 <meta name="theme-color" content="#f4f6fb">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="default">
-<meta name="apple-mobile-web-app-title" content="همراه مطالعه حقوق">
-<meta name="mobile-web-app-capable" content="yes">
+<meta name="application-name" content="برائت">
+<meta name="apple-mobile-web-app-title" content="برائت">
 <link rel="manifest" href="./manifest.json">
 <link rel="apple-touch-icon" href="./icons/apple-touch-icon.png">
-<title>همراه مطالعه حقوق</title>
-<link href="https://fonts.googleapis.com/css2?family=Vazirmatn:wght@400;600;700&display=swap" rel="stylesheet">
+<link rel="icon" type="image/svg+xml" href="./icons/icon.svg">
+<meta name="mobile-web-app-capable" content="yes">
+<title>برائت | سامانه جامع گروه حقوقی برائت</title>
+<link href="https://fonts.googleapis.com/css2?family=Vazirmatn:wght@300;400;500;600;700;800;900&display=swap" rel="stylesheet">
 <style>
-:root{--bg:#f4f6fb;--panel:#121d2e;--panel2:#f1f4fa;--line:#dfe5ef;--text:#1b2433;--muted:#667085;--accent:#75a7ff;--radius:18px;color-scheme:light;box-sizing:border-box;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}
-html{scroll-padding-top:env(safe-area-inset-top,0px)}
-*{box-sizing:border-box}body{margin:0;background:radial-gradient(900px 500px at 90% -10%,#dfe9ff 0%,transparent 60%),var(--bg);color:var(--text);font-family:'Vazirmatn',Tahoma,sans-serif;line-height:1.7}
-button,input,select,textarea{font:inherit}button{cursor:pointer;border:0}
-.app{max-width:1240px;margin:auto;padding:24px}
-header{display:flex;align-items:center;justify-content:space-between;gap:16px;margin-bottom:22px}
-.brand{display:flex;align-items:center;gap:13px}.logo{width:48px;height:48px;border-radius:15px;background:linear-gradient(135deg,#6ca7ff,#9b83f6);display:grid;place-items:center;font-size:24px;box-shadow:0 8px 30px #547fbd44}
-h1{font-size:22px;margin:0}header p{margin:2px 0 0;color:var(--muted);font-size:13px}
-.actions{display:flex;gap:8px;flex-wrap:wrap}.btn{padding:9px 14px;border-radius:12px;background:var(--panel2);color:var(--text);border:1px solid var(--line)}.btn.primary{background:linear-gradient(135deg,#548de8,#8b79e9);border:0;color:white}.btn.danger{color:#c0392b}
-.layout{display:grid;grid-template-columns:245px 1fr;gap:18px}.sidebar,.panel,.stat{background:#ffffff;border:1px solid var(--line);border-radius:var(--radius);box-shadow:0 12px 35px #10182814}
-.sidebar{padding:16px;height:max-content;position:sticky;top:14px}.nav-title{font-size:11px;color:var(--muted);margin:4px 8px 10px}.nav button{width:100%;text-align:right;background:transparent;color:var(--muted);padding:11px 12px;border-radius:11px;margin:2px 0}.nav button.active,.nav button:hover{background:#e8eefb;color:var(--text)}.side-note{margin-top:18px;padding:12px;background:#eef2fa;border-radius:13px;color:var(--muted);font-size:12px}
-main{min-width:0}.stats{display:grid;grid-template-columns:repeat(4,1fr);gap:12px;margin-bottom:16px}.stat{padding:16px}.stat .label{color:var(--muted);font-size:12px}.stat strong{display:block;font-size:25px;margin-top:4px}.stat small{color:var(--muted)}
-.panel{padding:19px;margin-bottom:16px}.panel-head{display:flex;align-items:center;justify-content:space-between;gap:12px;margin-bottom:15px}.panel h2{font-size:17px;margin:0}.muted{color:var(--muted)}.small{font-size:12px}.row{display:flex;align-items:center;gap:9px;flex-wrap:wrap}.between{justify-content:space-between}
-.progress{height:8px;background:#e3e8f2;border-radius:99px;overflow:hidden}.progress span{height:100%;display:block;background:linear-gradient(90deg,#58c7a5,#6ca7ff);border-radius:99px}
-.day-list{display:grid;gap:13px}.day-card{border:1px solid var(--line);background:#ffffff;border-radius:16px;padding:16px}.day-top{display:flex;justify-content:space-between;align-items:center;gap:12px}.day-title{font-weight:bold;font-size:16px}.pill{font-size:11px;padding:4px 9px;border-radius:99px;background:#e6eefc;color:#2f5fc4}.pill.done{background:#dcf5ec;color:#0b7a58}.pill.partial{background:#fdf0d4;color:#8a5a00}
-.block{margin-top:13px;padding:14px;border-radius:14px;background:#ffffff;border:1px solid #dfe5ef}.block-head{display:flex;justify-content:space-between;align-items:flex-start;gap:10px}.block h3{font-size:14px;margin:0}.block-meta{font-size:12px;color:var(--muted)}
-.checks{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:8px;margin:13px 0}.check{display:flex;align-items:center;gap:7px;padding:8px 9px;border:1px solid #d5dce9;border-radius:10px;font-size:12px;color:#27324a}.check input{accent-color:#2f9e7a;width:16px;height:16px}
-textarea,input,select{background:#ffffff;color:var(--text);border:1px solid #cdd6e6;border-radius:11px;padding:10px;outline:none;width:100%}textarea:focus,input:focus,select:focus{border-color:#75a7ff}textarea{min-height:70px;resize:vertical}.field{display:grid;gap:5px;min-width:0}.field label{font-size:12px;color:var(--muted)}.form-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px}
-.note-label{font-size:12px;color:var(--muted);display:block;margin:8px 0 5px}.block-foot{display:flex;justify-content:space-between;align-items:center;gap:10px;margin-top:10px}.select-small{width:auto;min-width:140px;padding:7px;font-size:12px}
-.empty{padding:35px;text-align:center;color:var(--muted);border:1px dashed #c3cddf;border-radius:15px}.subject-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px}.subject{padding:15px;background:#ffffff;border:1px solid var(--line);border-radius:14px}.subject h3{margin:0 0 6px;font-size:15px}.subject .sub{color:var(--muted);font-size:12px}
-.modal-back{position:fixed;inset:0;background:#101828aa;display:none;align-items:center;justify-content:center;padding:16px;z-index:10}.modal-back.show{display:flex}.modal{width:min(680px,100%);max-height:90vh;overflow:auto;background:#ffffff;border:1px solid #d0d9ea;border-radius:20px;padding:20px;box-shadow:0 25px 90px #1018283a}.modal h2{margin:0 0 15px;font-size:18px}.modal-actions{display:flex;justify-content:flex-end;gap:8px;margin-top:16px}.toast{position:fixed;bottom:20px;left:20px;background:#0f6b52;border:1px solid #0f6b52;color:#ffffff;padding:10px 15px;border-radius:12px;opacity:0;transform:translateY(10px);transition:.2s;pointer-events:none}.toast.show{opacity:1;transform:none}
-.hidden{display:none!important}
-@media(max-width:850px){.layout{grid-template-columns:1fr}.sidebar{position:static}.nav{display:flex;overflow:auto;gap:4px}.nav button{white-space:nowrap;width:auto}.side-note{display:none}.stats{grid-template-columns:repeat(2,1fr)}}
-@media(max-width:560px){.app{padding:13px}header{align-items:flex-start;flex-direction:column}.form-grid,.subject-grid{grid-template-columns:1fr}.checks{grid-template-columns:repeat(2,minmax(0,1fr))}.panel{padding:14px}.day-card{padding:12px}.block{padding:11px}}
-.day-card{background:var(--dt,#fff);border:1px solid var(--da,#dfe5ef);border-right:6px solid var(--da,#dfe5ef)}
-.day-title{color:var(--da)}
-textarea.note{overflow:hidden;resize:none;min-height:80px}
-.refs{margin-top:12px}.ref{display:flex;justify-content:space-between;align-items:center;gap:8px;padding:6px 10px;margin-top:6px;border:1px solid #dfe5ef;border-radius:10px;background:#f7f9fd;font-size:13px}.ref a{color:#2f5fc4;word-break:break-all}
-.sumline{white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:58vw}.day-top{align-items:flex-start}
-.block.m-good{background:#e4f6ec;border-color:#66c093}.block.m-mid{background:#fff5d1;border-color:#e3bf4b}.block.m-bad{background:#ffe6e3;border-color:#e4857b}
-.law-ui{--bg:#f3f6f7;--card:#fff;--ink:#14262b;--mute:#5d7076;--line:#d5dee1;--main:#0f4c5c;--hl:#ffe08a;--soft:#e4eef0}
-.law-ui .search{top:env(safe-area-inset-top,0px)!important}
-.law-ui{margin:0;background:var(--bg);color:var(--ink);font-family:Vazirmatn,Tahoma,sans-serif;line-height:1.9}
-.law-ui .wrap{max-width:860px;margin:0 auto;padding:20px 16px 60px}
-.law-ui h1{font-size:1.5rem;font-weight:800;margin:8px 0 4px;color:var(--main)}
-.law-ui .sub{color:var(--mute);margin:0 0 18px;font-size:.92rem}
-.law-ui .search{display:flex;gap:8px;position:sticky;top:0;background:var(--bg);padding:10px 0;z-index:5}
-.law-ui .search input{flex:1;font:inherit;font-size:1.05rem;padding:12px 16px;border:2px solid var(--line);border-radius:10px;background:var(--card);color:var(--ink)}
-.law-ui .search input:focus{outline:none;border-color:var(--main)}
-.law-ui .bar{display:flex;flex-wrap:wrap;gap:8px;align-items:center;margin:6px 0 14px}
-.law-ui select,.law-ui button,.law-ui .file{font:inherit;font-size:.9rem;padding:7px 14px;border-radius:8px;border:1px solid var(--line);background:var(--card);color:var(--ink);cursor:pointer}
-.law-ui button:hover,.law-ui .file:hover{border-color:var(--main)}
-.law-ui .file input{display:none}
-.law-ui .chips{display:flex;flex-wrap:wrap;gap:6px;margin-bottom:10px}
-.law-ui .chip{background:var(--soft);border-radius:20px;padding:2px 12px;font-size:.82rem}
-.law-ui .chip b{color:var(--main)}
-.law-ui .chip .viewall{font:inherit;font-size:.78rem;padding:0 10px;margin-right:8px;border-radius:12px}
-.law-ui .chip i{cursor:pointer;font-style:normal;margin-right:8px;color:var(--mute)}
-.law-ui .count{color:var(--mute);font-size:.9rem;margin:4px 0 10px}
-.law-ui .res{background:var(--card);border:1px solid var(--line);border-right:5px solid var(--main);border-radius:10px;padding:14px 18px;margin-bottom:12px}
-.law-ui .head{display:flex;flex-wrap:wrap;gap:8px;align-items:baseline;margin-bottom:4px}
-.law-ui .law{background:var(--main);color:var(--card);border-radius:6px;padding:0 10px;font-size:.8rem}
-.law-ui .num{font-weight:800;font-size:1.1rem}
-.law-ui .path{color:var(--mute);font-size:.82rem}
-.law-ui .txt{white-space:pre-wrap;margin:6px 0}
-.law-ui .sec{margin-top:8px;padding-top:8px;border-top:1px dashed var(--line)}
-.law-ui .sec h4{margin:0 0 2px;font-size:.88rem;color:var(--main)}
-.law-ui mark{background:var(--hl);color:inherit;border-radius:3px;padding:0 2px}
-.law-ui .empty{text-align:center;color:var(--mute);padding:40px 10px;border:2px dashed var(--line);border-radius:12px}
-.law-ui .modes{display:flex;flex-wrap:wrap;gap:6px 16px;align-items:center;font-size:.9rem;margin:2px 0 8px}
-.law-ui .modes label{cursor:pointer}
-.law-ui .grp{margin:22px 0 8px;padding:8px 14px;background:var(--soft);border-radius:8px;font-weight:600}
-.law-ui .grp small{color:var(--mute);font-weight:400}
-.law-ui .topic{display:block;width:100%;text-align:right;margin-bottom:6px}
-.law-ui .topic small{color:var(--mute)}
-.law-ui .path a{cursor:pointer;text-decoration:underline dotted}
-.law-ui .copy{margin-right:auto;font-size:.78rem;padding:1px 10px}
-.law-ui .precedent-list{display:flex;flex-direction:column;align-items:flex-start;gap:3px}
-.law-ui .precedent-link{border:0;background:transparent;color:var(--main);padding:0;text-decoration:underline;text-decoration-style:dotted;text-align:right;font:inherit;cursor:pointer}
-.law-ui .precedent-link:hover{background:var(--soft)}
-.law-ui .modal-backdrop{position:fixed;inset:0;background:#0008;z-index:20;display:flex;align-items:center;justify-content:center;padding:14px}
-.law-ui .modal{width:min(760px,100%);max-height:90dvh;overflow:auto;background:var(--card);color:var(--ink);border:1px solid var(--line);border-radius:14px;padding:18px;box-shadow:0 12px 50px #0004}
-.law-ui .modal-head{display:flex;align-items:flex-start;gap:12px;justify-content:space-between;border-bottom:1px solid var(--line);padding-bottom:10px;margin-bottom:12px}
-.law-ui .modal-head h2{font-size:1.1rem;margin:0;color:var(--main)}
-.law-ui .modal-body{white-space:pre-wrap;line-height:2}
-.law-ui .modal-meta{color:var(--mute);font-size:.88rem;margin:4px 0 10px}
-.law-ui .decision-inline{flex-basis:100%;width:100%;background:var(--soft);border:1px solid var(--line);border-radius:9px;padding:12px 14px;margin:6px 0 10px;white-space:normal}
-.law-ui .decision-inline-head{display:flex;align-items:flex-start;justify-content:space-between;gap:12px;border-bottom:1px solid var(--line);padding-bottom:8px;margin-bottom:8px}
-.law-ui .decision-inline h3{font-size:1rem;color:var(--main);margin:0}
-.law-ui .decision-inline-body{white-space:pre-wrap;line-height:2}
-.law-ui .decision-search-result{border:1px solid var(--line);border-right:4px solid var(--main);background:var(--card);border-radius:10px;padding:12px 16px;margin:10px 0}
-.law-ui .decision-search-result .decision-inline{margin-top:10px}
-body:not(.admin) .law-ui .adm{display:none!important}
-.law-ui .foot{text-align:center;color:var(--mute);font-size:.8rem;margin-top:30px}
-.law-ui .law{background:hsl(var(--h,190) 50% 30%);color:#fff}
-.law-ui .res{border-right-color:hsl(var(--h,190) 50% 36%)}
-.law-ui .dot{display:inline-block;width:.75em;height:.75em;border-radius:50%;background:hsl(var(--h,190) 50% 40%);margin-left:6px;vertical-align:baseline}
-.law-ui .decision-search-result .law{background:#6b5b95}
-.law-ui .nav{margin-right:auto;display:flex;gap:6px}
-.law-ui .nav button{font-size:.78rem;padding:1px 10px;margin:0}
-.law-ui button:disabled{opacity:.35;cursor:default}
-.law-ui .rel-art{padding:8px 0;border-top:1px dashed var(--line)}
-.law-ui .rel-art:first-child{border-top:0}
-.law-ui{--glass:rgba(255,255,255,.58);--glass-b:rgba(255,255,255,.75);--shadow:0 8px 30px rgba(15,76,92,.10);--shadow-h:0 14px 38px rgba(15,76,92,.18)}
-.law-ui{background:
- radial-gradient(800px 480px at 88% -8%,hsl(190 75% 78%/.55),transparent 62%),
- radial-gradient(700px 460px at -8% 22%,hsl(265 70% 84%/.45),transparent 62%),
- radial-gradient(820px 520px at 52% 112%,hsl(150 60% 80%/.40),transparent 62%),var(--bg);background-attachment:fixed}
-.law-ui .wrap{padding-top:34px}
-.law-ui h1{font-size:1.9rem;letter-spacing:-.3px;background:linear-gradient(90deg,var(--main),hsl(265 60% 55%));-webkit-background-clip:text;background-clip:text;color:transparent;display:inline-block;animation:rise .5s ease both}
-.law-ui .sub{animation:rise .5s .08s ease both}
-.law-ui .search{background:var(--glass)!important;-webkit-backdrop-filter:blur(18px) saturate(1.5);backdrop-filter:blur(18px) saturate(1.5);border:1px solid var(--glass-b);border-radius:20px;padding:8px!important;box-shadow:var(--shadow);margin-bottom:14px;transition:box-shadow .3s,transform .3s}
-.law-ui .search:focus-within{box-shadow:0 0 0 3px color-mix(in srgb,var(--main) 28%,transparent),var(--shadow-h);transform:translateY(-1px)}
-.law-ui .search input{border:0!important;background:transparent!important;font-size:1.12rem;padding:14px 52px 14px 16px;-webkit-appearance:none;appearance:none;
- background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='22' height='22' viewBox='0 0 24 24' fill='none' stroke='%23788' stroke-width='2.2' stroke-linecap='round'%3E%3Ccircle cx='11' cy='11' r='7'/%3E%3Cpath d='M20 20l-3.5-3.5'/%3E%3C/svg%3E")!important;background-repeat:no-repeat!important;background-position:right 16px center!important}
-.law-ui .search input:focus{outline:none}
-.law-ui .modes{gap:8px;margin:4px 0 14px}
-.law-ui .modes b{margin-left:4px;color:var(--mute);font-weight:600}
-.law-ui .modes label{padding:6px 14px;border-radius:999px;background:var(--glass);border:1px solid var(--glass-b);-webkit-backdrop-filter:blur(10px);backdrop-filter:blur(10px);transition:all .2s}
-.law-ui .modes label:hover{transform:translateY(-1px);box-shadow:var(--shadow)}
-.law-ui .modes label:has(input:checked){background:var(--main);color:var(--card);border-color:transparent;box-shadow:var(--shadow)}
-.law-ui .modes input{display:none}
-.law-ui select,.law-ui button,.law-ui .file{border-radius:12px;background:var(--glass);border:1px solid var(--glass-b);transition:transform .15s,box-shadow .2s,border-color .2s}
-.law-ui button:not(:disabled):hover,.law-ui .file:hover{transform:translateY(-1px);box-shadow:var(--shadow)}
-.law-ui button:not(:disabled):active{transform:scale(.97)}
-.law-ui .count{margin:6px 4px 14px}
-.law-ui .res,.law-ui .decision-search-result{background:var(--glass);-webkit-backdrop-filter:blur(8px);backdrop-filter:blur(8px);border-color:var(--glass-b);border-radius:18px;padding:18px 24px;margin-bottom:20px;box-shadow:var(--shadow);
- animation:rise .45s var(--d,0ms) cubic-bezier(.2,.8,.2,1) both;transition:transform .25s,box-shadow .25s}
-.law-ui .res:hover,.law-ui .decision-search-result:hover{transform:translateY(-3px);box-shadow:var(--shadow-h)}
-.law-ui .head{margin-bottom:8px;gap:10px}
-.law-ui .num{font-size:1.15rem}
-.law-ui .txt{line-height:2.1;margin:10px 0}
-.law-ui .sec{margin-top:14px;padding-top:12px}
-.law-ui .grp{border-radius:14px;margin:30px 0 14px;animation:rise .45s var(--d,0ms) ease both;box-shadow:var(--shadow)}
-.law-ui .law{border-radius:999px;padding:1px 12px;box-shadow:0 2px 8px hsl(var(--h,190) 50% 30%/.35)}
-.law-ui mark{background:linear-gradient(transparent 20%,var(--hl) 20%);border-radius:4px;padding:0 3px}
-.law-ui .chip{background:var(--glass);border:1px solid var(--glass-b);padding:3px 14px}
-.law-ui .empty{background:var(--glass);border-radius:18px;border-style:solid;border-color:var(--glass-b);padding:46px 16px;animation:rise .5s ease both}
-.law-ui .empty:first-child:only-child{animation:rise .5s ease both,pulse 2.2s 1s ease-in-out infinite}
-.law-ui .decision-inline{border-radius:12px;animation:pop .28s cubic-bezier(.2,.9,.3,1.2) both}
-.law-ui .foot{opacity:.8}
-.law-ui details.adm{margin:6px 0 12px;font-size:.88rem}
-.law-ui details.adm summary{cursor:pointer;color:var(--mute)}
-.law-ui .colbox{background:var(--glass);border-radius:12px;padding:8px 14px;margin:6px 0;line-height:1.8}
-@keyframes rise{from{opacity:0;transform:translateY(14px)}to{opacity:1;transform:none}}
-@keyframes pop{from{opacity:0;transform:scale(.96) translateY(-6px)}to{opacity:1;transform:none}}
-@keyframes pulse{50%{opacity:.65}}
-@media(prefers-reduced-motion:reduce){}
-.law-ui{--bg:#f4f6fb;background:transparent}
-.law-ui input[type=radio]{width:auto;padding:0;margin:0 0 0 4px;accent-color:#548de8}
-.law-ui select{width:auto}.law-ui .search input{width:auto}
-.law-ui textarea{min-height:60px;resize:none;overflow:hidden;width:100%}
-.law-ui .mk,.law-ui .aedit,.law-ui .adel{font-size:1.05rem;padding:2px 10px;line-height:1.4}
-.law-ui .nav{display:flex;overflow:visible;gap:6px}.law-ui .nav button{width:auto;margin:0;text-align:center;padding:4px 12px}
-.noterefs.law-ui{background:transparent;line-height:1.7;margin-top:6px}.refrow{display:block}.refrow .precedent-link{margin:2px 0 2px 4px}
-.fileitem{margin-top:8px;padding:8px 10px;border:1px solid #dfe5ef;border-radius:10px;background:#f7f9fd}.fimg{max-width:100%;max-height:340px;border-radius:10px;cursor:zoom-in;display:block;margin-top:8px;background:#eef2fa;min-height:40px}.fpdf{width:100%;height:520px;border:0;margin-top:8px;border-radius:10px;background:#fff}
-.pchip{padding:2px 10px;margin:2px 0 2px 4px;border-radius:99px;background:#eaf1ff;color:#2f5fc4;border:1px solid #c9dbff;font-size:.8rem;cursor:pointer}
-.plan-chips{margin-top:8px;padding-top:6px;border-top:1px dashed var(--line)}
-.arttxt{margin-top:8px;display:grid;gap:8px}.art{background:#f7f9fd;border:1px solid #dfe5ef;border-radius:10px;padding:10px 12px}.atxt{white-space:pre-wrap;margin-top:4px}
-.tabs{display:flex;gap:8px;margin:0 0 16px;overflow-x:auto}.tabs button{padding:10px 18px;border-radius:12px;background:#fff;border:1px solid var(--line);color:var(--muted);white-space:nowrap}
-.tabs button.active{background:linear-gradient(135deg,#548de8,#8b79e9);color:#fff;border-color:transparent}
-.warn{background:#fff3cd;border:1px solid #e6c45a;color:#6b4e00;padding:12px 16px;border-radius:12px;margin-bottom:14px}
-#admLog{white-space:pre-wrap;max-height:260px;overflow:auto;background:#f7f9fd;border:1px solid #dfe5ef;border-radius:10px;padding:10px;font-size:12px;margin:0}
+:root {
+  --bg: #f8fafc;
+  --panel: #ffffff;
+  --panel2: #f1f5f9;
+  --line: #e2e8f0;
+  --line-focus: #0d9488;
+  --text: #0f172a;
+  --muted: #64748b;
+  --accent: #0d9488;
+  --accent-light: #ccfbf1;
+  --radius: 16px;
+  --main: #0f766e;
+  --card: #ffffff;
+  --soft: #f0fdfa;
+  --hl: #fef08a;
+  --shadow-sm: 0 1px 3px rgba(15, 23, 42, 0.05);
+  --shadow-md: 0 4px 16px rgba(15, 23, 42, 0.06);
+  --shadow-lg: 0 12px 36px rgba(15, 23, 42, 0.09);
+  color-scheme: light;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+body {
+  margin: 0;
+  background-color: var(--bg);
+  background-image: 
+    radial-gradient(at 100% 0%, rgba(204, 251, 241, 0.4) 0px, transparent 50%),
+    radial-gradient(at 0% 100%, rgba(226, 232, 240, 0.5) 0px, transparent 50%);
+  background-attachment: fixed;
+  color: var(--text);
+  font-family: 'Vazirmatn', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+  line-height: 1.8;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+button, input, select, textarea {
+  font-family: inherit;
+}
+
+button {
+  cursor: pointer;
+  border: 0;
+  transition: all 0.15s ease-in-out;
+}
+
+.app {
+  max-width: 1240px;
+  margin: 0 auto;
+  padding: 24px 20px 80px;
+}
+
+/* Header */
+header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  margin-bottom: 24px;
+  padding-bottom: 20px;
+  border-bottom: 1px solid var(--line);
+}
+
+.brand {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+}
+
+.logo {
+  width: 48px;
+  height: 48px;
+  border-radius: 14px;
+  background: linear-gradient(135deg, #0f766e, #14b8a6);
+  display: grid;
+  place-items: center;
+  font-size: 24px;
+  color: #ffffff;
+  box-shadow: 0 6px 20px rgba(15, 118, 110, 0.25);
+  flex-shrink: 0;
+}
+
+h1 {
+  font-size: 22px;
+  font-weight: 800;
+  margin: 0;
+  color: #0f172a;
+  letter-spacing: -0.02em;
+}
+
+header p {
+  margin: 3px 0 0;
+  color: var(--muted);
+  font-size: 13px;
+  font-weight: 400;
+}
+
+.actions {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  padding: 9px 18px;
+  border-radius: 11px;
+  background: #ffffff;
+  color: #334155;
+  border: 1px solid var(--line);
+  font-size: 13px;
+  font-weight: 500;
+  box-shadow: var(--shadow-sm);
+  transition: all 0.15s ease;
+}
+
+.btn:hover:not(:disabled) {
+  background: #f8fafc;
+  border-color: #cbd5e1;
+  color: #0f172a;
+}
+
+.btn.primary {
+  background: #0f766e;
+  border: 1px solid #0f766e;
+  color: #ffffff;
+  font-weight: 600;
+  box-shadow: 0 4px 14px rgba(15, 118, 110, 0.25);
+}
+
+.btn.primary:hover {
+  background: #115e59;
+  border-color: #115e59;
+}
+
+.btn.danger {
+  color: #dc2626;
+  border-color: #fecaca;
+  background: #fef2f2;
+}
+
+.btn.danger:hover {
+  background: #fee2e2;
+}
+
+/* Tabs Navigation - Chic Segmented Bar */
+.tabs {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  background: #e2e8f0;
+  padding: 4px;
+  border-radius: 14px;
+  margin-bottom: 24px;
+  max-width: 100%;
+  overflow-x: auto;
+}
+
+.tabs button {
+  padding: 9px 22px;
+  border-radius: 10px;
+  background: transparent;
+  color: #64748b;
+  font-size: 13px;
+  font-weight: 500;
+  white-space: nowrap;
+  transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.tabs button:hover:not(.active) {
+  color: #0f172a;
+}
+
+.tabs button.active {
+  background: #ffffff;
+  color: #0f766e;
+  font-weight: 700;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
+}
+
+/* Section: Search (Law-UI) */
+.law-ui {
+  --bg: #f8fafc;
+  --card: #ffffff;
+  --ink: #0f172a;
+  --mute: #64748b;
+  --line: #e2e8f0;
+  --main: #0f766e;
+  --hl: #fef08a;
+  --soft: #f0fdfa;
+}
+
+.law-ui h2 {
+  font-size: 1.4rem;
+  font-weight: 800;
+  color: #0f172a;
+  margin: 0 0 6px;
+}
+
+.law-ui .sub {
+  color: var(--mute);
+  font-size: 13.5px;
+  margin: 0 0 18px;
+}
+
+.law-ui .bar {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  align-items: center;
+  margin: 10px 0 14px;
+}
+
+.law-ui select {
+  font: inherit;
+  font-size: 13.5px;
+  padding: 10px 18px;
+  border-radius: 12px;
+  border: 1px solid #cbd5e1;
+  background: #ffffff;
+  color: #1e293b;
+  cursor: pointer;
+  outline: none;
+  box-shadow: var(--shadow-sm);
+  transition: border-color 0.15s, box-shadow 0.15s;
+}
+
+.law-ui select:focus {
+  border-color: var(--main);
+  box-shadow: 0 0 0 3px rgba(15, 118, 110, 0.15);
+}
+
+.law-ui .search {
+  display: flex;
+  gap: 10px;
+  position: sticky;
+  top: 10px;
+  background: var(--bg);
+  padding: 8px 0;
+  z-index: 20;
+}
+
+.law-ui .search input {
+  flex: 1;
+  font: inherit;
+  font-size: 15px;
+  padding: 14px 22px;
+  border: 1.5px solid #cbd5e1;
+  border-radius: 14px;
+  background: #ffffff;
+  color: #0f172a;
+  box-shadow: var(--shadow-sm);
+  outline: none;
+  transition: all 0.2s ease;
+}
+
+.law-ui .search input:focus {
+  border-color: var(--main);
+  box-shadow: 0 0 0 4px rgba(15, 118, 110, 0.15);
+}
+
+/* Modes - Segmented Pills */
+.law-ui .modes {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  align-items: center;
+  font-size: 13px;
+  margin: 14px 0 18px;
+}
+
+.law-ui .modes b {
+  color: #475569;
+  font-size: 12.5px;
+  margin-left: 6px;
+}
+
+.law-ui .modes label {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 7px 16px;
+  border-radius: 10px;
+  background: #ffffff;
+  border: 1px solid var(--line);
+  color: #475569;
+  font-size: 12.5px;
+  cursor: pointer;
+  transition: all 0.15s ease;
+  user-select: none;
+}
+
+.law-ui .modes label:hover {
+  background: #f1f5f9;
+  border-color: #cbd5e1;
+}
+
+.law-ui .modes label:has(input:checked) {
+  background: #0f766e;
+  border-color: #0f766e;
+  color: #ffffff;
+  font-weight: 600;
+  box-shadow: 0 2px 8px rgba(15, 118, 110, 0.2);
+}
+
+.law-ui .modes label input {
+  accent-color: #0f766e;
+  width: 14px;
+  height: 14px;
+}
+
+.law-ui .count {
+  color: var(--mute);
+  font-size: 13px;
+  margin: 8px 0 14px;
+  font-variant-numeric: tabular-nums;
+}
+
+.law-ui .chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-bottom: 12px;
+}
+
+.law-ui .chip {
+  background: var(--soft);
+  border: 1px solid #bbf7d0;
+  color: #166534;
+  border-radius: 20px;
+  padding: 4px 14px;
+  font-size: 12.5px;
+  display: inline-flex;
+  align-items: center;
+}
+
+.law-ui .chip b {
+  color: var(--main);
+}
+
+.law-ui .chip i {
+  cursor: pointer;
+  font-style: normal;
+  margin-right: 8px;
+  color: var(--mute);
+  font-weight: bold;
+}
+
+/* Result Cards (.res) */
+.law-ui .res {
+  background: #ffffff;
+  border: 1px solid var(--line);
+  border-right: 5px solid var(--main);
+  border-radius: 16px;
+  padding: 22px 26px;
+  margin-bottom: 18px;
+  box-shadow: var(--shadow-sm);
+  transition: box-shadow 0.2s ease, transform 0.2s ease;
+}
+
+.law-ui .res:hover {
+  box-shadow: var(--shadow-md);
+}
+
+.law-ui .head {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 12px;
+}
+
+.law-ui .law {
+  background: #f0fdf4;
+  color: #166534;
+  border: 1px solid #bbf7d0;
+  border-radius: 8px;
+  padding: 4px 12px;
+  font-size: 12px;
+  font-weight: 700;
+}
+
+.law-ui .num {
+  font-weight: 800;
+  font-size: 1.15rem;
+  color: #0f172a;
+  font-variant-numeric: tabular-nums;
+}
+
+.law-ui .nav {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.law-ui .nav button {
+  padding: 6px 12px;
+  font-size: 12px;
+  font-weight: 500;
+  border-radius: 8px;
+  background: #f8fafc;
+  color: #334155;
+  border: 1px solid var(--line);
+  transition: all 0.15s;
+}
+
+.law-ui .nav button:hover:not(:disabled) {
+  background: #f1f5f9;
+  border-color: #cbd5e1;
+  color: #0f172a;
+}
+
+.law-ui .nav button.mk {
+  font-size: 15px;
+  color: #f59e0b;
+  padding: 4px 10px;
+}
+
+.law-ui .nav button.copy {
+  color: #0f766e;
+}
+
+.law-ui .path {
+  color: #64748b;
+  font-size: 12.5px;
+  margin-bottom: 12px;
+}
+
+.law-ui .path a {
+  cursor: pointer;
+  text-decoration: underline dotted;
+  color: #0f766e;
+}
+
+.law-ui .txt {
+  white-space: pre-wrap;
+  margin: 12px 0;
+  font-size: 14.5px;
+  line-height: 2.1;
+  color: #1e293b;
+}
+
+.law-ui .sec {
+  margin-top: 14px;
+  padding-top: 12px;
+  border-top: 1px dashed var(--line);
+}
+
+.law-ui .sec h4 {
+  margin: 0 0 4px;
+  font-size: 13px;
+  font-weight: 700;
+  color: var(--main);
+}
+
+.law-ui mark {
+  background: var(--hl);
+  color: #854d0e;
+  border-radius: 4px;
+  padding: 1px 4px;
+  font-weight: 600;
+}
+
+.law-ui .empty {
+  text-align: center;
+  color: var(--mute);
+  padding: 48px 16px;
+  border: 2px dashed #cbd5e1;
+  border-radius: 16px;
+  background: #ffffff;
+  font-size: 14px;
+}
+
+.law-ui .decision-search-result {
+  border: 1px solid #e2e8f0;
+  border-right: 5px solid #d97706;
+  background: #fffbeb;
+  border-radius: 14px;
+  padding: 18px 22px;
+  margin: 14px 0;
+  box-shadow: var(--shadow-sm);
+}
+
+.law-ui .precedent-link {
+  border: 0;
+  background: transparent;
+  color: var(--main);
+  padding: 4px 0;
+  font-size: 13px;
+  font-weight: 600;
+  text-decoration: underline;
+  text-decoration-style: dotted;
+  text-align: right;
+  cursor: pointer;
+}
+
+.law-ui .foot {
+  text-align: center;
+  color: var(--mute);
+  font-size: 12px;
+  margin-top: 36px;
+  padding-top: 20px;
+  border-top: 1px solid var(--line);
+}
+
+/* Planner Tab */
+.layout {
+  display: grid;
+  grid-template-columns: 260px 1fr;
+  gap: 20px;
+}
+
+.sidebar, .panel, .stat {
+  background: #ffffff;
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  box-shadow: var(--shadow-sm);
+}
+
+.sidebar {
+  padding: 18px 14px;
+  height: max-content;
+  position: sticky;
+  top: 14px;
+}
+
+.nav-title {
+  font-size: 11.5px;
+  font-weight: 700;
+  color: var(--muted);
+  margin: 4px 10px 10px;
+  letter-spacing: 0.02em;
+}
+
+.nav button {
+  width: 100%;
+  text-align: right;
+  background: transparent;
+  color: #475569;
+  padding: 10px 14px;
+  border-radius: 10px;
+  margin: 2px 0;
+  font-size: 13px;
+  font-weight: 500;
+  transition: all 0.15s;
+}
+
+.nav button.active, .nav button:hover {
+  background: #f0fdfa;
+  color: #0f766e;
+  font-weight: 600;
+}
+
+.side-note {
+  margin-top: 20px;
+  padding: 14px;
+  background: #f8fafc;
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  color: var(--muted);
+  font-size: 12px;
+  line-height: 1.7;
+}
+
+main {
+  min-width: 0;
+}
+
+.stats {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 14px;
+  margin-bottom: 20px;
+}
+
+.stat {
+  padding: 18px 20px;
+}
+
+.stat .label {
+  color: var(--muted);
+  font-size: 12.5px;
+  font-weight: 500;
+}
+
+.stat strong {
+  display: block;
+  font-size: 28px;
+  font-weight: 800;
+  margin-top: 4px;
+  color: #0f172a;
+  font-variant-numeric: tabular-nums;
+}
+
+.stat small {
+  color: var(--muted);
+  font-size: 12px;
+}
+
+.panel {
+  padding: 22px;
+  margin-bottom: 20px;
+}
+
+.panel-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 18px;
+}
+
+.panel h2 {
+  font-size: 18px;
+  font-weight: 700;
+  margin: 0;
+  color: #0f172a;
+}
+
+.progress {
+  height: 8px;
+  background: #e2e8f0;
+  border-radius: 999px;
+  overflow: hidden;
+}
+
+.progress span {
+  height: 100%;
+  display: block;
+  background: linear-gradient(90deg, #0d9488, #10b981);
+  border-radius: 999px;
+}
+
+.day-list {
+  display: grid;
+  gap: 14px;
+}
+
+.day-card {
+  border: 1px solid var(--line);
+  background: #ffffff;
+  border-radius: 16px;
+  padding: 18px;
+  box-shadow: var(--shadow-sm);
+  transition: box-shadow 0.2s ease;
+}
+
+.day-top {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 12px;
+}
+
+.day-title {
+  font-weight: 700;
+  font-size: 16px;
+  color: #0f172a;
+}
+
+.pill {
+  font-size: 11.5px;
+  font-weight: 600;
+  padding: 4px 12px;
+  border-radius: 999px;
+  background: #f1f5f9;
+  color: #475569;
+}
+
+.pill.done {
+  background: #dcfce7;
+  color: #15803d;
+}
+
+.pill.partial {
+  background: #fef3c7;
+  color: #b45309;
+}
+
+.block {
+  margin-top: 14px;
+  padding: 16px;
+  border-radius: 14px;
+  background: #f8fafc;
+  border: 1px solid var(--line);
+}
+
+.block-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 10px;
+}
+
+.block h3 {
+  font-size: 14.5px;
+  font-weight: 700;
+  margin: 0;
+  color: #0f172a;
+}
+
+.block-meta {
+  font-size: 12.5px;
+  color: var(--muted);
+}
+
+.checks {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 8px;
+  margin: 14px 0;
+}
+
+.check {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 9px 12px;
+  border: 1px solid var(--line);
+  background: #ffffff;
+  border-radius: 10px;
+  font-size: 12.5px;
+  color: #334155;
+  cursor: pointer;
+  transition: all 0.15s;
+}
+
+.check:hover {
+  border-color: #cbd5e1;
+}
+
+.check:has(input:checked) {
+  background: #f0fdf4;
+  border-color: #86efac;
+  color: #166534;
+  font-weight: 600;
+}
+
+.check input {
+  accent-color: #0f766e;
+  width: 17px;
+  height: 17px;
+}
+
+textarea, input, select {
+  background: #ffffff;
+  color: var(--text);
+  border: 1px solid #cbd5e1;
+  border-radius: 11px;
+  padding: 10px 14px;
+  outline: none;
+  width: 100%;
+  font-size: 13.5px;
+  transition: border-color 0.15s, box-shadow 0.15s;
+}
+
+textarea:focus, input:focus, select:focus {
+  border-color: var(--main);
+  box-shadow: 0 0 0 3px rgba(15, 118, 110, 0.15);
+}
+
+textarea {
+  min-height: 75px;
+  resize: vertical;
+}
+
+.field {
+  display: grid;
+  gap: 6px;
+  min-width: 0;
+}
+
+.field label {
+  font-size: 12.5px;
+  font-weight: 500;
+  color: var(--muted);
+}
+
+.form-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 14px;
+}
+
+.block.m-good {
+  background: #f0fdf4;
+  border-color: #86efac;
+}
+
+.block.m-mid {
+  background: #fffbeb;
+  border-color: #fde68a;
+}
+
+.block.m-bad {
+  background: #fef2f2;
+  border-color: #fca5a5;
+}
+
+/* Modals */
+.modal-back {
+  position: fixed;
+  inset: 0;
+  background: rgba(15, 23, 42, 0.6);
+  backdrop-filter: blur(6px);
+  display: none;
+  align-items: center;
+  justify-content: center;
+  padding: 16px;
+  z-index: 100;
+}
+
+.modal-back.show {
+  display: flex;
+}
+
+.modal {
+  width: min(680px, 100%);
+  max-height: 90vh;
+  overflow: auto;
+  background: #ffffff;
+  border: 1px solid var(--line);
+  border-radius: 20px;
+  padding: 24px;
+  box-shadow: var(--shadow-lg);
+}
+
+.modal h2 {
+  margin: 0 0 16px;
+  font-size: 18px;
+  font-weight: 800;
+  color: #0f172a;
+}
+
+.modal-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+  margin-top: 20px;
+}
+
+.toast {
+  position: fixed;
+  bottom: 24px;
+  left: 24px;
+  background: #0f172a;
+  color: #ffffff;
+  padding: 12px 20px;
+  border-radius: 12px;
+  font-size: 13.5px;
+  font-weight: 500;
+  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.2);
+  opacity: 0;
+  transform: translateY(12px);
+  transition: all 0.25s cubic-bezier(0.16, 1, 0.3, 1);
+  pointer-events: none;
+  z-index: 999;
+}
+
+.toast.show {
+  opacity: 1;
+  transform: translateY(0);
+}
+
+.hidden {
+  display: none !important;
+}
+
+@media (max-width: 850px) {
+  .layout {
+    grid-template-columns: 1fr;
+  }
+  .sidebar {
+    position: static;
+  }
+  .nav {
+    display: flex;
+    overflow-x: auto;
+    gap: 4px;
+  }
+  .nav button {
+    white-space: nowrap;
+    width: auto;
+  }
+  .side-note {
+    display: none;
+  }
+  .stats {
+    grid-template-columns: repeat(2, 1fr);
+  }
+}
+
+@media (max-width: 560px) {
+  .app {
+    padding: 16px 12px;
+  }
+  header {
+    align-items: flex-start;
+    flex-direction: column;
+  }
+  .form-grid, .subject-grid {
+    grid-template-columns: 1fr;
+  }
+  .checks {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+  .panel {
+    padding: 16px;
+  }
+  .day-card {
+    padding: 14px;
+  }
+  .block {
+    padding: 12px;
+  }
+}
+
+/* =====================================================================
+   استایل‌های اختصاصی گروه حقوقی برائت: داک سمت راست، سرچ شیشه‌ای و بخش‌های جدید
+   ===================================================================== */
+
+/* Right Hover-Expandable Dock (داک شناور سمت راست با انیمیشن باز شدن با هاور) */
+.right-hover-dock {
+  position: fixed;
+  top: 0;
+  right: 0;
+  bottom: 0;
+  width: 66px;
+  background: rgba(255, 255, 255, 0.88);
+  backdrop-filter: blur(20px);
+  -webkit-backdrop-filter: blur(20px);
+  border-left: 1px solid rgba(226, 232, 240, 0.8);
+  box-shadow: -8px 0 30px rgba(15, 23, 42, 0.08);
+  z-index: 1000;
+  display: flex;
+  flex-direction: column;
+  transition: width 0.3s cubic-bezier(0.16, 1, 0.3, 1), box-shadow 0.3s;
+  overflow: hidden;
+  user-select: none;
+}
+
+.right-hover-dock:hover {
+  width: 250px;
+  box-shadow: -15px 0 45px rgba(15, 23, 42, 0.14);
+}
+
+.dock-header {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 18px 14px;
+  border-bottom: 1px solid rgba(226, 232, 240, 0.7);
+  white-space: nowrap;
+}
+
+.dock-logo {
+  width: 38px;
+  height: 38px;
+  border-radius: 12px;
+  background: linear-gradient(135deg, #0f766e, #14b8a6);
+  color: #fff;
+  display: grid;
+  place-items: center;
+  font-size: 20px;
+  flex-shrink: 0;
+  box-shadow: 0 4px 12px rgba(15, 118, 110, 0.25);
+}
+
+.dock-brand-text {
+  font-size: 15px;
+  font-weight: 800;
+  color: #0f172a;
+  opacity: 0;
+  transform: translateX(12px);
+  transition: opacity 0.2s 0.05s, transform 0.2s 0.05s;
+}
+
+.right-hover-dock:hover .dock-brand-text {
+  opacity: 1;
+  transform: translateX(0);
+}
+
+.dock-nav {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding: 16px 8px;
+  flex: 1;
+  overflow-y: auto;
+}
+
+.dock-btn {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 11px 12px;
+  border-radius: 12px;
+  background: transparent;
+  color: #475569;
+  border: 0;
+  cursor: pointer;
+  white-space: nowrap;
+  font-size: 13.5px;
+  font-weight: 500;
+  transition: all 0.15s ease;
+  width: 100%;
+  text-align: right;
+  position: relative;
+}
+
+.dock-icon {
+  font-size: 18px;
+  display: grid;
+  place-items: center;
+  width: 24px;
+  flex-shrink: 0;
+}
+
+.dock-label {
+  opacity: 0;
+  transform: translateX(10px);
+  transition: opacity 0.2s 0.05s, transform 0.2s 0.05s;
+}
+
+.right-hover-dock:hover .dock-label {
+  opacity: 1;
+  transform: translateX(0);
+}
+
+.dock-btn:hover {
+  background: #f1f5f9;
+  color: #0f172a;
+}
+
+.dock-btn.active {
+  background: #f0fdfa;
+  color: #0f766e;
+  font-weight: 700;
+}
+
+.dock-btn.active::before {
+  content: '';
+  position: absolute;
+  right: 0;
+  top: 6px;
+  bottom: 6px;
+  width: 4px;
+  border-radius: 4px;
+  background: #0f766e;
+}
+
+.dock-footer {
+  padding: 12px 8px;
+  border-top: 1px solid rgba(226, 232, 240, 0.7);
+}
+
+.dock-btn-auth {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 11px 12px;
+  border-radius: 12px;
+  background: #f8fafc;
+  color: #0f766e;
+  border: 1px solid #e2e8f0;
+  cursor: pointer;
+  white-space: nowrap;
+  font-size: 13px;
+  font-weight: 600;
+  width: 100%;
+  text-align: right;
+  transition: all 0.15s;
+}
+
+.dock-btn-auth:hover {
+  background: #f0fdfa;
+  border-color: #0f766e;
+}
+
+/* Offset for main app container */
+@media (min-width: 768px) {
+  .app {
+    margin-right: 76px !important;
+  }
+}
+
+/* Centered Glassmorphic Search Hero with Motion */
+@keyframes heroGlassIn {
+  0% {
+    opacity: 0;
+    transform: translateY(28px) scale(0.97);
+  }
+  100% {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
+.search-hero-glass {
+  background: rgba(255, 255, 255, 0.76);
+  backdrop-filter: blur(24px);
+  -webkit-backdrop-filter: blur(24px);
+  border: 1.5px solid rgba(255, 255, 255, 0.85);
+  box-shadow: 0 25px 60px -15px rgba(15, 118, 110, 0.14), 0 0 0 1px rgba(13, 148, 136, 0.08);
+  border-radius: 28px;
+  padding: 38px 32px 32px;
+  max-width: 900px;
+  margin: 15px auto 35px;
+  text-align: center;
+  animation: heroGlassIn 0.65s cubic-bezier(0.16, 1, 0.3, 1) both;
+}
+
+.hero-chip {
+  display: inline-block;
+  padding: 4px 14px;
+  border-radius: 20px;
+  background: rgba(13, 148, 136, 0.1);
+  color: #0f766e;
+  font-size: 12px;
+  font-weight: 700;
+  margin-bottom: 12px;
+}
+
+.hero-heading {
+  font-size: 1.65rem;
+  font-weight: 800;
+  color: #0f172a;
+  margin: 0 0 6px;
+  letter-spacing: -0.02em;
+}
+
+.hero-subheading {
+  color: #64748b;
+  font-size: 13.5px;
+  margin: 0 0 22px;
+}
+
+.hero-search-wrapper {
+  position: relative;
+  max-width: 760px;
+  margin: 0 auto 16px;
+}
+
+.hero-search-icon {
+  position: absolute;
+  right: 18px;
+  top: 50%;
+  transform: translateY(-50%);
+  font-size: 18px;
+  pointer-events: none;
+  opacity: 0.6;
+}
+
+.hero-search-wrapper input {
+  width: 100%;
+  font-size: 15.5px;
+  padding: 16px 50px 16px 20px;
+  border-radius: 16px;
+  border: 2px solid #cbd5e1;
+  background: rgba(255, 255, 255, 0.95);
+  box-shadow: 0 6px 25px rgba(15, 23, 42, 0.05);
+  transition: all 0.25s ease;
+  outline: none;
+}
+
+.hero-search-wrapper input:focus {
+  border-color: #0d9488;
+  box-shadow: 0 0 0 5px rgba(13, 148, 136, 0.18), 0 10px 30px rgba(13, 148, 136, 0.12);
+  background: #ffffff;
+}
+
+.hero-filters-row {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+
+/* Articles and Research Tab Styling */
+.empty-glass-card {
+  text-align: center;
+  padding: 60px 24px;
+  border-radius: 24px;
+  background: rgba(255, 255, 255, 0.7);
+  backdrop-filter: blur(16px);
+  border: 2px dashed #cbd5e1;
+  margin: 20px auto;
+  max-width: 680px;
+}
+
+.empty-icon {
+  font-size: 48px;
+  margin-bottom: 12px;
+  opacity: 0.8;
+}
+
+.empty-glass-card h3 {
+  font-size: 18px;
+  font-weight: 700;
+  color: #0f172a;
+  margin: 0 0 8px;
+}
+
+.empty-glass-card p {
+  font-size: 13.5px;
+  color: #64748b;
+  line-height: 1.8;
+  margin: 0 auto;
+  max-width: 480px;
+}
+
+.articles-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
+  gap: 18px;
+  margin-top: 20px;
+}
+
+.article-card {
+  background: #ffffff;
+  border: 1px solid var(--line);
+  border-radius: 18px;
+  padding: 22px;
+  box-shadow: var(--shadow-sm);
+  display: flex;
+  flex-direction: column;
+  transition: all 0.2s ease;
+}
+
+.article-card:hover {
+  transform: translateY(-2px);
+  box-shadow: var(--shadow-md);
+  border-color: #cbd5e1;
+}
+
+.art-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 12px;
+}
+
+.art-tag {
+  font-size: 11.5px;
+  font-weight: 700;
+  padding: 3px 10px;
+  border-radius: 8px;
+  background: #f0fdfa;
+  color: #0f766e;
+  border: 1px solid #ccfbf1;
+}
+
+.art-date {
+  font-size: 12px;
+  color: var(--muted);
+}
+
+.art-title {
+  font-size: 16px;
+  font-weight: 800;
+  color: #0f172a;
+  margin: 0 0 8px;
+  line-height: 1.6;
+}
+
+.art-author {
+  font-size: 12.5px;
+  color: #64748b;
+  margin-bottom: 10px;
+}
+
+.art-desc {
+  font-size: 13px;
+  color: #475569;
+  line-height: 1.8;
+  margin: 0 0 16px;
+  flex: 1;
+}
+
+.art-tags {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-bottom: 16px;
+}
+
+.tag-chip {
+  font-size: 11px;
+  color: #0f766e;
+  background: #f8fafc;
+  border: 1px solid var(--line);
+  padding: 2px 8px;
+  border-radius: 6px;
+}
+
+.art-actions {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding-top: 14px;
+  border-top: 1px solid var(--line);
+}
+
+/* Deadlines & Calculator Styling */
+.dl-result-card {
+  background: linear-gradient(135deg, #f0fdfa, #f8fafc);
+  border: 1.5px solid #99f6e4;
+  border-radius: 16px;
+  padding: 20px;
+  box-shadow: var(--shadow-sm);
+}
+
+.deadlines-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
+  gap: 16px;
+  margin-top: 18px;
+}
+
+.deadline-item-card {
+  background: #ffffff;
+  border: 1px solid var(--line);
+  border-radius: 16px;
+  padding: 20px;
+  box-shadow: var(--shadow-sm);
+  transition: all 0.2s;
+}
+
+.deadline-item-card:hover {
+  border-color: #cbd5e1;
+  box-shadow: var(--shadow-md);
+}
+
+.calculator-card {
+  background: #ffffff;
+  border: 1px solid var(--line);
+  border-radius: 18px;
+  padding: 22px;
+  box-shadow: var(--shadow-sm);
+  margin-bottom: 18px;
+}
+
+.calc-res-strip {
+  background: #f0fdfa;
+  border: 1px solid #99f6e4;
+  border-radius: 14px;
+  padding: 16px 20px;
+  margin-top: 14px;
+}
+
+/* Mobile Navigation Optimization */
+@media (max-width: 768px) {
+  .right-hover-dock {
+    top: auto !important;
+    bottom: 0 !important;
+    left: 0 !important;
+    right: 0 !important;
+    width: 100% !important;
+    height: 62px !important;
+    flex-direction: row !important;
+    border-left: 0 !important;
+    border-top: 1px solid rgba(226, 232, 240, 0.9) !important;
+    box-shadow: 0 -6px 25px rgba(15, 23, 42, 0.08) !important;
+  }
+  .dock-header, .dock-footer {
+    display: none !important;
+  }
+  .dock-nav {
+    flex-direction: row !important;
+    padding: 4px 6px !important;
+    gap: 4px !important;
+    justify-content: space-around !important;
+    width: 100% !important;
+  }
+  .dock-btn {
+    padding: 6px 8px !important;
+    flex-direction: column !important;
+    gap: 2px !important;
+    justify-content: center !important;
+    align-items: center !important;
+    border-radius: 8px !important;
+    width: auto !important;
+  }
+  .dock-label {
+    opacity: 1 !important;
+    transform: none !important;
+    font-size: 10px !important;
+    white-space: nowrap !important;
+  }
+  .dock-icon {
+    font-size: 16px !important;
+    width: auto !important;
+  }
+  .dock-btn.active::before {
+    display: none !important;
+  }
+  .app {
+    margin-right: 0 !important;
+    padding-bottom: 90px !important;
+  }
+}
+
 </style>
+  <link rel="stylesheet" href="/src/chic.css">
 </head>
 <body>
+<div id="offlineBanner" class="offline-banner hidden">
+  <span class="pulse-dot"></span>
+  <span>📡 حالت آفلاین فعال است — تمام قوانین، مواد، یادداشت‌ها و محاسبات از حافظه دستگاه لود شده‌اند.</span>
+</div>
+
+<aside class="right-hover-dock" id="rightDock">
+  <div class="dock-header">
+    <div class="dock-logo">⚖</div>
+    <div class="dock-brand-text">گروه حقوقی برائت</div>
+  </div>
+  <nav class="dock-nav">
+    <button class="dock-btn active" data-tab="search" onclick="go('search')" title="جستجوی مواد و قوانین">
+      <span class="dock-icon">🔎</span>
+      <span class="dock-label">جستجوی مواد</span>
+    </button>
+    <button class="dock-btn" data-tab="planner" onclick="go('planner')" title="برنامه مطالعاتی و لایتنر">
+      <span class="dock-icon">📅</span>
+      <span class="dock-label">برنامه مطالعاتی</span>
+    </button>
+    <button class="dock-btn" data-tab="articles" onclick="go('articles')" title="مقالات و پژوهش‌های حقوقی">
+      <span class="dock-icon">📚</span>
+      <span class="dock-label">مقالات و پژوهش‌ها</span>
+    </button>
+    <button class="dock-btn" data-tab="deadlines" onclick="go('deadlines')" title="مواعد قانونی و قضایی">
+      <span class="dock-icon">⚖️</span>
+      <span class="dock-label">مواعد قانونی</span>
+    </button>
+    <button class="dock-btn" data-tab="calculator" onclick="go('calculator')" title="محاسبه‌گر هزینه دادرسی و خسارت">
+      <span class="dock-icon">🧮</span>
+      <span class="dock-label">محاسبه‌گر حقوقی</span>
+    </button>
+    <button class="dock-btn" id="dockAdminBtn" data-tab="admin" onclick="go('admin')" title="مدیریت سیستم">
+      <span class="dock-icon">🛠</span>
+      <span class="dock-label">مدیریت سیستم</span>
+    </button>
+  </nav>
+    <div class="dock-footer">
+    <button class="dock-btn-auth" id="pwaInstallDockBtn" onclick="promptPWAInstall()" style="margin-bottom:6px; color:#0f766e; background:#f0fdfa;" title="نصب اپلیکیشن برائت روی دستگاه">
+      <span class="dock-icon">📲</span>
+      <span class="dock-label">نصب برائت</span>
+    </button>
+    <button class="dock-btn-auth" onclick="openAuthModal()">
+      <span class="dock-icon">👤</span>
+      <span class="dock-label" id="dockAuthLabel">ورود / حساب</span>
+    </button>
+  </div>
+</aside>
+
 <div class="app">
 <header>
- <div class="brand"><div class="logo">⚖</div><div><h1>همراه مطالعه حقوق</h1><p>جستجوی مواد قانونی برای همه · برنامه‌ی مطالعاتی شخصی با ورود</p></div></div>
- <div class="actions">
+ <div class="brand"><div class="logo">⚖</div><div><h1>گروه حقوقی برائت</h1><p>سامانه هوشمند قوانین، مقالات و پژوهش‌ها، مواعد قضایی و برنامه‌ریزی</p></div></div>
+  <div class="actions">
+  <div class="cloud-sync-badge" id="cloudSyncBadge">
+    <span class="status-dot green"></span> آنلاین (سینک با Supabase)
+  </div>
+  <button class="btn" id="pwaInstallHeaderBtn" onclick="promptPWAInstall()" style="color:#0f766e; border-color:#99f6e4; background:#f0fdfa;">
+    <span style="font-size:15px">📲</span> نصب اپلیکیشن برائت
+  </button>
   <button class="btn primary" id="authBtn" onclick="openAuthModal()">ورود / ثبت‌نام</button>
   <button class="btn hidden" id="outBtn" onclick="logout()">خروج</button>
  </div>
 </header>
 <div class="warn hidden" id="cfgWarn">تنظیمات Supabase کامل نیست: دو مقدار <b>SUPA_URL</b> و <b>SUPA_KEY</b> را اول فایل برنامه عوض کن.</div>
 <nav class="tabs">
- <button class="active" data-tab="search">🔎 جستجوی مواد</button>
- <button data-tab="planner">📅 برنامه مطالعاتی</button>
- <button class="hidden" id="adminTab" data-tab="admin">🛠 مدیریت قوانین</button>
+  <button class="active" data-tab="search" onclick="go('search')">🔎 جستجوی مواد</button>
+  <button data-tab="planner" onclick="go('planner')">📅 برنامه مطالعاتی</button>
+  <button data-tab="articles" onclick="go('articles')">📚 مقالات و پژوهش‌ها</button>
+  <button data-tab="deadlines" onclick="go('deadlines')">⚖️ مواعد قانونی</button>
+  <button data-tab="calculator" onclick="go('calculator')">🧮 محاسبه‌گر حقوقی</button>
+  <button data-tab="admin" onclick="go('admin')">🛠 مدیریت سیستم</button>
 </nav>
 
 <section id="tab-search" class="law-ui">
-  <h2 style="margin:0 0 4px;font-size:1.3rem">🔎 جستجوی مواد قانونی</h2>
-  <p class="sub">شماره ماده (مثلاً «ماده ۴») یا یک کلمه را جستجو کنید. برای این بخش نیازی به ورود نیست.</p>
-  <div class="bar"><select id="lawSel"><option value="">همه قوانین</option></select></div>
-  <div class="search"><input id="q" type="search" placeholder="مثلاً: ماده 4 &nbsp;یا&nbsp; وصیت &nbsp;یا&nbsp; ماده 10 اراده"></div>
-  <div class="modes"><b>جستجو در:</b>
-    <label><input type="radio" name="mode" value="all" checked> همه (متن و موضوع)</label>
-    <label><input type="radio" name="mode" value="text"> فقط متن ماده</label>
-    <label><input type="radio" name="mode" value="topic"> فقط موضوع (باب / فصل / مبحث)</label>
-    <label><input type="radio" name="mode" value="decision"> آرای وحدت رویه</label>
-    <label><input type="radio" name="mode" value="marks"> ★ نشان‌شده‌ها</label>
+  <div class="search-hero-glass">
+    <div class="hero-chip">گروه حقوقی برائت · پایگاه هوشمند تنقیح و پژوهش قوانین</div>
+    <h2 class="hero-heading">جستجوی هوشمند در متن قوانین و آرای قضایی</h2>
+    <p class="hero-subheading">شماره ماده (مثلاً «ماده ۲۱۸») یا هر واژه، عنوان یا قاعده حقوقی را جستجو کنید</p>
+    
+    <div class="hero-search-wrapper">
+      <div class="hero-search-icon">🔍</div>
+      <input id="q" type="search" placeholder="مثلاً: ماده 218  یا  وجه التزام  یا  معامله فضولی  یا  ماده 10 اراده">
+    </div>
+
+    <div class="hero-filters-row">
+      <div class="bar" style="margin:0;">
+        <select id="lawSel">
+          <option value="">همه قوانین پایگاه</option>
+        </select>
+      </div>
+      <div class="modes" style="margin:0;">
+        <b>جستجو در:</b>
+        <label><input type="radio" name="mode" value="all" checked> همه (متن و موضوع)</label>
+        <label><input type="radio" name="mode" value="text"> فقط متن ماده</label>
+        <label><input type="radio" name="mode" value="topic"> موضوع (باب / فصل)</label>
+        <label><input type="radio" name="mode" value="decision"> آرای دیوان</label>
+        <label><input type="radio" name="mode" value="marks"> ★ نشان‌شده‌ها</label>
+      </div>
+    </div>
   </div>
   <div class="chips" id="pathchip"></div>
   <div class="count" id="count"></div>
@@ -247,19 +1579,217 @@ body:not(.admin) .law-ui .adm{display:none!important}
   </div>
  </div>
 </section>
+<section id="tab-articles" class="hidden">
+  <div class="panel">
+    <div class="panel-head">
+      <div>
+        <h2>📚 مقالات، تحلیل‌ها و پژوهش‌های حقوقی</h2>
+        <div class="muted small">مجموعه پژوهش‌های تخصصی، تحلیل‌های رویه قضایی و مقالات دکترین گروه حقوقی برائت</div>
+      </div>
+      <button class="btn primary adm-only" onclick="openArticleEditor()">✍️ نگارش و انتشار مقاله جدید</button>
+    </div>
 
+    <div class="row between" style="margin-bottom:16px; gap:10px;">
+      <div style="flex:1; max-width:440px;">
+        <input id="artSearch" placeholder="جستجو در عنوان یا متن مقالات..." oninput="renderArticles()">
+      </div>
+      <div style="width:auto; min-width:200px;">
+        <select id="artCatFilter" onchange="renderArticles()">
+          <option value="all">همه گرایش‌های حقوقی</option>
+          <option value="حقوق مدنی">حقوق مدنی</option>
+          <option value="حقوق تجارت">حقوق تجارت</option>
+          <option value="آیین دادرسی مدنی">آیین دادرسی مدنی</option>
+          <option value="حقوق جزا و جرم‌شناسی">حقوق جزا و جرم‌شناسی</option>
+          <option value="آیین دادرسی کیفری">آیین دادرسی کیفری</option>
+          <option value="رویه قضایی و دیوان عالی">رویه قضایی و دیوان عالی</option>
+          <option value="حقوق ثبت و املاک">حقوق ثبت و املاک</option>
+          <option value="کاربردی و حرفه‌ای وکالت">کاربردی و حرفه‌ای وکالت</option>
+        </select>
+      </div>
+    </div>
+
+    <div id="articlesList"></div>
+  </div>
+</section>
+
+<section id="tab-deadlines" class="hidden">
+  <div class="panel">
+    <div class="panel-head">
+      <div>
+        <h2>⚖️ مواعد قانونی و قضایی (محاسبه‌گر و جدول مواعد)</h2>
+        <div class="muted small">محاسبه دقیق مهلت‌های قانونی با اعمال مواد ۴۴۳ الی ۴۴۵ قانون آیین دادرسی مدنی</div>
+      </div>
+      <div class="row" style="gap:8px;">
+        <button class="btn primary adm-only" onclick="openDeadlineEditor()">＋ افزودن موعد جدید</button>
+        <button class="btn adm-only" onclick="resetDefaultDeadlines()">بازنشانی مواعد پیش‌فرض</button>
+      </div>
+    </div>
+
+    <!-- Interactive Calculator -->
+    <div style="background:#f0fdfa; border:1px solid #99f6e4; border-radius:18px; padding:22px; margin-bottom:24px;">
+      <h3 style="margin:0 0 14px; font-size:15px; color:#0f766e;">محاسبه‌گر آنلاین موعد اقدام بر اساس ابلاغ در سامانه ثنا</h3>
+      <div class="form-grid" style="align-items:end;">
+        <div class="field">
+          <label>انتخاب موعد یا اقدام قانونی</label>
+          <select id="calcDlSelect" onchange="computeDeadlineResult()"></select>
+        </div>
+        <div class="field">
+          <label>تاریخ ابلاغ الکترونیک در سامانه ثنا</label>
+          <input type="date" id="calcDlDate" onchange="computeDeadlineResult()">
+        </div>
+        <div class="field" style="grid-column:1/-1;">
+          <label class="check" style="cursor:pointer; display:inline-flex; width:auto; border:0; padding:0; background:transparent;">
+            <input type="checkbox" id="calcDlAbroad" onchange="computeDeadlineResult()">
+            <span>محل اقامت شخص ابلاغ‌شونده خارج از کشور است (مهلت طولانی‌تر قانون)</span>
+          </label>
+        </div>
+      </div>
+      <div id="calcDlOutput" style="margin-top:16px;"></div>
+    </div>
+
+    <!-- Deadlines Grid -->
+    <h3 style="margin:20px 0 12px; font-size:16px;">فهرست جامع مواعد قانونی ایران (قابل ویرایش و اضافه کردن)</h3>
+    <div class="deadlines-grid" id="deadlinesGrid"></div>
+  </div>
+</section>
+
+<section id="tab-calculator" class="hidden">
+  <div class="panel">
+    <div class="panel-head">
+      <div>
+        <h2>🧮 محاسبه‌گرهای حقوقی، خسارت و تعرفه‌ها</h2>
+        <div class="muted small">محاسبه دقیق هزینه دادرسی، خسارت تأخیر تأدیه و تعرفه قانونی حق‌الوکاله</div>
+      </div>
+      <div class="row" style="gap:8px;">
+        <button class="btn primary adm-only" onclick="openCustomCalcEditor()">＋ افزودن محاسبه‌گر جدید</button>
+      </div>
+    </div>
+
+    <div class="form-grid" style="gap:20px;">
+      <!-- Court fees calculator -->
+      <div class="calculator-card">
+        <h3 style="margin:0 0 6px; font-size:16px; color:#0f766e;">۱. محاسبه هزینه دادرسی دعاوی مالی و غیرمالی</h3>
+        <p style="font-size:12.5px; color:var(--muted); margin:0 0 14px;">محاسبه بر مبنای قانون وصول برخی از درآمدهای دولت و جدول تعرفه مصوب قوه قضائیه</p>
+        <div class="field">
+          <label>مرحله رسیدگی قضایی</label>
+          <select id="cfStage" onchange="calcCourtFees()">
+            <option value="first">مرحله نخستین / بدوی (۲.۵٪ تا ۲۰ میلیون تومان، مازاد ۳.۵٪)</option>
+            <option value="appeal">مرحله تجدیدنظر و واخواهی (۴.۵٪ مبلغ خواسته)</option>
+            <option value="supreme">مرحله فرجام‌خواهی و اعاده دادرسی (۵.۵٪ مبلغ خواسته)</option>
+            <option value="exec">اجرای احکام مدنی (۵٪ مبلغ محکوم‌به - نیم‌عشر دولتی)</option>
+          </select>
+        </div>
+        <div class="field" style="margin-top:12px;">
+          <label>بهای خواسته یا مبلغ مورد مطالبه (تومان)</label>
+          <input type="text" id="cfAmount" value="50,000,000" oninput="calcCourtFees()">
+        </div>
+        <div id="cfResult"></div>
+      </div>
+
+      <!-- Attorney fees calculator -->
+      <div class="calculator-card">
+        <h3 style="margin:0 0 6px; font-size:16px; color:#0f766e;">۲. محاسبه تعرفه قانونی حق‌الوکاله وکیل</h3>
+        <p style="font-size:12.5px; color:var(--muted); margin:0 0 14px;">طبق آیین‌نامه تعرفه حق‌الوکاله و هزینه سفر وکلای دادگستری مصوب قوه قضائیه</p>
+        <div class="field">
+          <label>بهای خواسته یا مبلغ محکوم‌به (تومان)</label>
+          <input type="text" id="atAmount" value="100,000,000" oninput="calcAttorneyFees()">
+        </div>
+        <div id="atResult"></div>
+      </div>
+
+      <!-- Late payment interest -->
+      <div class="calculator-card" style="grid-column:1/-1;">
+        <h3 style="margin:0 0 6px; font-size:16px; color:#0f766e;">۳. محاسبه خسارت تأخیر تأدیه (ماده ۵۲۲ قانون آیین دادرسی مدنی)</h3>
+        <p style="font-size:12.5px; color:var(--muted); margin:0 0 14px;">بر اساس فرمول شاخص بهای کالاها و خدمات مصرفی بانک مرکزی جمهوری اسلامی ایران</p>
+        <div class="form-grid">
+          <div class="field">
+            <label>مبلغ اصل دین / طلب (تومان)</label>
+            <input type="text" id="lpAmount" value="100,000,000" oninput="calcLatePayment()">
+          </div>
+          <div class="field">
+            <label>سال سررسید دین (زمان استحقاق)</label>
+            <input type="number" id="lpYearDue" value="1399" oninput="calcLatePayment()">
+          </div>
+          <div class="field">
+            <label>سال پرداخت یا مطالبه</label>
+            <input type="number" id="lpYearPay" value="1403" oninput="calcLatePayment()">
+          </div>
+        </div>
+        <div id="lpResult"></div>
+      </div>
+    </div>
+
+    <!-- Custom calculators -->
+    <h3 style="margin:26px 0 12px; font-size:16px;">محاسبه‌گرهای اختصاصی و فرمول‌های سفارشی (قابل تنظیم و ویرایش)</h3>
+    <div class="articles-grid" id="customCalculatorsGrid"></div>
+  </div>
+</section>
 <section id="tab-admin" class="hidden">
- <div class="panel"><div class="panel-head"><h2>🛠 قوانین موجود در پایگاه</h2></div><div id="admLaws"></div></div>
- <div class="panel"><h2>افزودن یا جایگزینی قانون (اکسل)</h2><p class="muted small">هر فایل یک قانون است و نام قانون از نام فایل گرفته می‌شود. ستون‌ها خودکار تشخیص داده می‌شوند و نتیجه‌ی تشخیص در «گزارش» پایین نوشته می‌شود.</p>
-  <div class="row"><input type="file" id="admFiles" accept=".xlsx,.xls,.csv" multiple><label class="small"><input type="checkbox" id="admReplace" checked style="width:auto"> اگر قانونی با همین نام هست، جایگزین شود (وگرنه موادش به آخر اضافه می‌شود)</label></div></div>
- <div class="panel"><h2>آرای وحدت رویه (اکسل)</h2><input type="file" id="admDec" accept=".xlsx,.xls,.csv" multiple></div>
- <div class="panel"><h2>ایمپورت فایل JSON</h2><p class="muted small">برای انتقال یک‌باره‌ی داده‌های قبلی (فایل <b>laws-export.json</b>).</p><input type="file" id="admJson" accept=".json"></div>
- <div class="panel"><h2>افزودن یک ماده</h2>
-  <div class="form-grid"><div class="field"><label>قانون</label><select id="admAddLaw"></select></div><div class="field"><label>نام قانون جدید</label><input id="admNewLaw" class="hidden"></div>
-  <div class="field"><label>شماره ماده</label><input id="admNum"></div><div class="field"><label>عنوان ماده (اختیاری، مثل «ماده ۵ مکرر»)</label><input id="admNumText"></div>
-  <div class="field" style="grid-column:1/-1"><label>مسیر (باب › فصل › مبحث)</label><input id="admPath"></div></div>
-  <div class="field" style="margin-top:10px"><label>متن ماده</label><textarea id="admText" rows="4"></textarea></div><div class="modal-actions"><button class="btn primary" id="admAddBtn">افزودن ماده</button></div></div>
- <div class="panel"><h2>گزارش</h2><pre id="admLog"></pre></div>
+  <!-- گیت امنیتی دسترسی مدیران -->
+  <div id="adminAccessGate" class="panel text-center" style="padding: 48px 24px; text-align: center;">
+    <div style="font-size: 52px; margin-bottom: 14px;">🔒</div>
+    <h2 style="font-size: 20px; font-weight: 800; color: #0f172a; margin-bottom: 10px;">بخش مدیریت سامانه برائت</h2>
+    <p class="muted" style="max-width: 540px; margin: 0 auto 22px; font-size: 14px; line-height: 2;">
+      دسترسی به بخش مدیریت سامانه، انتشار مقالات پژوهشی، تغییر مواعد قانونی، فرمول‌ها و تنقیح قوانین، <b>منحصراً برای مدیرانی است که ایمیل آن‌ها در پایگاه داده Supabase ثبت شده باشد</b>.
+    </p>
+    <div class="row" style="justify-content: center; gap: 10px;">
+      <button class="btn primary" onclick="openAuthModal()">ورود با حساب مدیریت</button>
+      <button class="btn" onclick="go('search')">بازگشت به جستجوی مواد</button>
+    </div>
+  </div>
+
+  <div id="adminSuiteContent" style="display: none;">
+  <!-- پنل مدیریت مقالات و پژوهش‌ها -->
+  <div class="panel">
+    <div class="panel-head">
+      <div>
+        <h2>📚 مدیریت و نگارش مقالات پژوهشی</h2>
+        <div class="muted small">نگارش، انتشار، ویرایش و حذف مقالات تخصصی و یادداشت‌های تحلیلی گروه حقوقی برائت</div>
+      </div>
+      <button class="btn primary" onclick="openArticleEditor()">✍️ نگارش مقاله جدید</button>
+    </div>
+    <div id="admArticlesList"></div>
+  </div>
+
+  <!-- پنل مدیریت مواعد قانونی -->
+  <div class="panel">
+    <div class="panel-head">
+      <div>
+        <h2>⚖️ مدیریت مواعد قانونی (ویرایش و افزودن)</h2>
+        <div class="muted small">افزودن مواعد قانونی جدید، تغییر تعداد روزها و مستندات قانونی</div>
+      </div>
+      <div class="row" style="gap:6px;">
+        <button class="btn primary adm-only" onclick="openDeadlineEditor()">＋ افزودن موعد جدید</button>
+        <button class="btn" onclick="resetDefaultDeadlines()">بازنشانی پیش‌فرض‌ها</button>
+      </div>
+    </div>
+    <div id="admDeadlinesList"></div>
+  </div>
+
+  <!-- پنل مدیریت محاسبه‌گرها و نرخ‌ها -->
+  <div class="panel">
+    <div class="panel-head">
+      <div>
+        <h2>🧮 مدیریت فرمول‌ها و محاسبه‌گرهای حقوقی</h2>
+        <div class="muted small">ویرایش نرخ‌ها و درصدهای محاسبه‌گرها یا افزودن فرمول سفارشی جدید</div>
+      </div>
+      <button class="btn primary" onclick="openCustomCalcEditor()">＋ افزودن فرمول جدید</button>
+    </div>
+    <div id="admCalculatorsList"></div>
+  </div>
+
+  <div class="panel"><div class="panel-head"><h2>🛠 قوانین موجود در پایگاه</h2></div><div id="admLaws"></div></div>
+  <div class="panel"><h2>افزودن یا جایگزینی قانون (اکسل)</h2><p class="muted small">هر فایل یک قانون است و نام قانون از نام فایل گرفته می‌شود. ستون‌ها خودکار تشخیص داده می‌شوند و نتیجه‌ی تشخیص در «گزارش» پایین نوشته می‌شود.</p>
+   <div class="row"><input type="file" id="admFiles" accept=".xlsx,.xls,.csv" multiple><label class="small"><input type="checkbox" id="admReplace" checked style="width:auto"> اگر قانونی با همین نام هست، جایگزین شود (وگرنه موادش به آخر اضافه می‌شود)</label></div></div>
+  <div class="panel"><h2>آرای وحدت رویه (اکسل)</h2><input type="file" id="admDec" accept=".xlsx,.xls,.csv" multiple></div>
+  <div class="panel"><h2>ایمپورت فایل JSON</h2><p class="muted small">برای انتقال یک‌باره‌ی داده‌های قبلی (فایل <b>laws-export.json</b>).</p><input type="file" id="admJson" accept=".json"></div>
+  <div class="panel"><h2>افزودن یک ماده</h2>
+   <div class="form-grid"><div class="field"><label>قانون</label><select id="admAddLaw"></select></div><div class="field"><label>نام قانون جدید</label><input id="admNewLaw" class="hidden"></div>
+   <div class="field"><label>شماره ماده</label><input id="admNum"></div><div class="field"><label>عنوان ماده (اختیاری، مثل «ماده ۵ مکرر»)</label><input id="admNumText"></div>
+   <div class="field" style="grid-column:1/-1"><label>مسیر (باب › فصل › مبحث)</label><input id="admPath"></div></div>
+   <div class="field" style="margin-top:10px"><label>متن ماده</label><textarea id="admText" rows="4"></textarea></div><div class="modal-actions"><button class="btn primary" id="admAddBtn">افزودن ماده</button></div></div>
+  <div class="panel"><h2>گزارش</h2><pre id="admLog"></pre></div>
+  </div>
 </section>
 </div>
 <div class="modal-back" id="authBack"><div class="modal"><h2>ورود / ثبت‌نام</h2><div class="field"><label>ایمیل</label><input id="authEmail" type="email" dir="ltr"></div><div class="field" style="margin-top:10px"><label>رمز عبور (حداقل ۶ کاراکتر)</label><input id="authPass" type="password" dir="ltr"></div><p class="muted small" id="authMsg"></p><div class="modal-actions"><button class="btn" onclick="document.getElementById('authBack').classList.remove('show')">بستن</button><button class="btn" onclick="doAuth('up')">ثبت‌نام</button><button class="btn primary" onclick="doAuth('in')">ورود</button></div></div></div>
@@ -271,6 +1801,7 @@ const SUPA_URL="https://xfmdpeeuzhuvqwoalfea.supabase.co";
 const SUPA_KEY="sb_publishable_ndrrbpAGh5VfuiVfETIE8g_IS-jfJD4";
 const CLOUD=SUPA_URL.startsWith("https://");
 let isAdmin=false;
+window.isAdmin=false;
 const defaultSubjects=[
  ["حقوق مدنی",["قانون مدنی","قانون مسئولیت مدنی"]],
  ["آیین دادرسی مدنی",["قانون آیین دادرسی دادگاه‌های عمومی و انقلاب در امور مدنی","قانون اجرای احکام مدنی"]],
@@ -714,7 +2245,7 @@ const uid=()=>Math.random().toString(36).slice(2,10);
 const fa=n=>String(n).replace(/\d/g,d=>"۰۱۲۳۴۵۶۷۸۹"[d]);
 let state=fresh();
 function fresh(){return {subjects:defaultSubjects.map((x,i)=>({id:"s"+i,name:x[0],laws:x[1].map(n=>({name:n,count:COUNTS[n]||0,unit:UNITS[n]||"ماده"}))})),days:[],marks:{},imports:[]}}
-function norm(s){s.subjects.forEach(u=>u.laws=u.laws.map(l=>typeof l==="string"?{name:l,count:COUNTS[l]||0}:l));s.days.forEach(d=>d.blocks.forEach(b=>{if(b.checks.length<CHECKS.length)b.checks.splice(1,0,...Array(CHECKS.length-b.checks.length).fill(false));b.refs=b.refs||[];b.title=b.title||"";if(!b.items){b.spec=b.from===b.to?String(b.from):b.from+"-"+b.to;b.items=expand(b.spec)}}));s.subjects.forEach(u=>u.laws.forEach(l=>{if(l.topics)l.count=l.topics.length}));s.marks=s.marks||{};s.imports=s.imports||[];return s}
+function norm(s){if(!s||typeof s!=="object")s=fresh();if(!Array.isArray(s.subjects))s=fresh();if(!Array.isArray(s.days))s.days=[];s.subjects.forEach(u=>{if(u&&Array.isArray(u.laws)){u.laws=u.laws.map(l=>typeof l==="string"?{name:l,count:COUNTS[l]||0}:l);u.laws.forEach(l=>{if(l&&l.topics)l.count=l.topics.length})}else if(u){u.laws=[]}});s.days.forEach(d=>{if(d&&Array.isArray(d.blocks)){d.blocks.forEach(b=>{if(!b)return;if(!Array.isArray(b.checks))b.checks=Array(CHECKS.length).fill(false);if(b.checks.length<CHECKS.length)b.checks.splice(1,0,...Array(CHECKS.length-b.checks.length).fill(false));b.refs=b.refs||[];b.title=b.title||"";if(!b.items){b.spec=b.from===b.to?String(b.from):b.from+"-"+b.to;b.items=(typeof expand==="function")?expand(b.spec):[]}})}else if(d){d.blocks=[]}});s.marks=s.marks||{};s.imports=s.imports||[];return s}
 function persist(){if(ready)cloudSave()}
 function save(){persist();render();toast("تغییرات ذخیره شد")}
 function toast(t){let e=document.getElementById("toast");e.textContent=t;e.classList.add("show");setTimeout(()=>e.classList.remove("show"),1800)}
@@ -743,6 +2274,7 @@ function updateMastery(did,bid,v){findBlock(did,bid).mastery=v;save()}
 function findBlock(did,bid){return state.days.find(d=>d.id===did).blocks.find(b=>b.id===bid)}
 function showModal(content){document.getElementById("modal").innerHTML=content;document.getElementById("modalBack").classList.add("show")}
 function closeModal(){document.getElementById("modalBack").classList.remove("show")}
+window.showModal=showModal;window.closeModal=closeModal;window.toast=toast;
 document.getElementById("modalBack").addEventListener("click",e=>{if(e.target.id==="modalBack")closeModal()});
 function openDayModal(){showModal(`<h2>افزودن روز مطالعاتی</h2><div class="field"><label>شماره روز</label><input id="dayNum" type="number" min="1" value="${state.days.length?Math.max(...state.days.map(d=>d.number))+1:1}"></div><div class="modal-actions"><button class="btn" onclick="closeModal()">انصراف</button><button class="btn primary" onclick="addDay()">ساخت روز</button></div>`)}
 function addDay(){let n=+document.getElementById("dayNum").value;if(!n||n<1)return toast("شماره روز معتبر نیست");if(state.days.some(d=>d.number===n))return toast("این شماره روز قبلاً وجود دارد");state.days.push({id:uid(),number:n,blocks:[],open:true});state.days.sort((a,b)=>a.number-b.number);closeModal();save()}
@@ -913,21 +2445,82 @@ async function doAuth(kind){if(!sb)return authMsg("تنظیمات Supabase کا�
  const r=kind==="up"?await sb.auth.signUp({email:e,password:p}):await sb.auth.signInWithPassword({email:e,password:p});
  if(r.error)return authMsg(r.error.message);if(!r.data.session)return authMsg("ثبت‌نام انجام شد. اگر تأیید ایمیل فعال است، ایمیلت را بررسی کن و بعد وارد شو.");
  document.getElementById("authBack").classList.remove("show");await afterAuth(r.data.session.user)}
-function updateAuthUI(){document.getElementById("authBtn").classList.toggle("hidden",!!me);const o=document.getElementById("outBtn");o.classList.toggle("hidden",!me);if(me)o.textContent="خروج ("+(me.email||"").split("@")[0]+")";document.getElementById("adminTab").classList.toggle("hidden",!isAdmin)}
-async function afterAuth(user){me=user;try{const r=await sb.from("admins").select("user_id").eq("user_id",user.id).maybeSingle();isAdmin=!!r.data}catch(e){isAdmin=false}
- updateAuthUI();if(window.LAWDB)LAWDB.onAdmin();if(!document.getElementById("tab-planner").classList.contains("hidden"))enterPlanner()}
+function updateAuthUI(){
+  window.isAdmin = typeof isAdmin !== 'undefined' ? !!isAdmin : false;
+  window.me = typeof me !== 'undefined' ? me : null;
+
+  document.body.classList.toggle('is-admin', !!window.isAdmin);
+
+  document.getElementById("authBtn").classList.toggle("hidden", !!me);
+  const o = document.getElementById("outBtn");
+  o.classList.toggle("hidden", !me);
+  if (me) o.textContent = "خروج (" + (me.email || "").split("@")[0] + (window.isAdmin ? " · مدیر" : "") + ")";
+
+  const dockAuth = document.getElementById("dockAuthLabel");
+  if (dockAuth) dockAuth.textContent = me ? (me.email || "").split("@")[0] + (window.isAdmin ? " (مدیر)" : "") : "ورود / حساب";
+
+  // Hide or show admin-only elements
+  document.querySelectorAll(".adm-only").forEach(el => {
+    el.style.display = window.isAdmin ? "" : "none";
+  });
+
+  // Admin section gate vs suite
+  const admContent = document.getElementById("adminSuiteContent");
+  const admGate = document.getElementById("adminAccessGate");
+  if (admContent && admGate) {
+    admContent.style.display = window.isAdmin ? "block" : "none";
+    admGate.style.display = window.isAdmin ? "none" : "block";
+  }
+
+  // Update tabs to re-render buttons based on role
+  if (window.renderArticles) window.renderArticles();
+  if (window.renderDeadlines) window.renderDeadlines();
+  if (window.renderCalculators) window.renderCalculators();
+}
+
+async function afterAuth(user){
+  me = user;
+  try {
+    const r = await sb.from("admins").select("user_id").eq("user_id", user.id).maybeSingle();
+    isAdmin = !!(r.data && r.data.user_id);
+  } catch(e) {
+    isAdmin = false;
+  }
+  window.isAdmin = isAdmin;
+  window.me = me;
+  document.body.classList.toggle('is-admin', !!isAdmin);
+  updateAuthUI();
+  if (window.renderAdminPanels) window.renderAdminPanels();
+  if (window.LAWDB) LAWDB.onAdmin();
+  if (!document.getElementById("tab-planner").classList.contains("hidden")) enterPlanner();
+}
 async function loadPlanner(){const r=await sb.from("planner").select("data").eq("user_id",me.id).maybeSingle();
  if(r.error){document.getElementById("plannerApp").innerHTML='<div class="panel">خطا در دریافت برنامه: '+esc(r.error.message)+"</div>";return}
- state=r.data?norm(r.data.data):fresh();ready=true;if(window.LAWDB)LAWDB.autoLink();showView("dashboard");render()}
+ let payload=null;if(r.data){if(r.data.data!==undefined&&r.data.data!==null)payload=r.data.data;else if(r.data.subjects||r.data.days)payload=r.data;}state=payload?norm(payload):fresh();ready=true;if(window.LAWDB)LAWDB.autoLink();showView("dashboard");render()}
 function cloudSave(){clearTimeout(saveT);saveT=setTimeout(async()=>{const r=await sb.from("planner").upsert({user_id:me.id,data:state,updated_at:new Date().toISOString()});if(r.error)toast("ذخیره روی سرور ناموفق بود")},500)}
 async function logout(){await sb.auth.signOut();location.reload()}
-function initAuth(){sb.auth.getSession().then(async r=>{if(r.data&&r.data.session)await afterAuth(r.data.session.user)})}
+function initAuth(){sb.auth.getSession().then(async r=>{if(r.data&&r.data.session)await afterAuth(r.data.session.user);else updateAuthUI();}).catch(()=>updateAuthUI());}
 function enterPlanner(){const ok=!!me;document.getElementById("plannerGate").classList.toggle("hidden",ok);document.getElementById("plannerApp").classList.toggle("hidden",!ok);if(ok&&!ready)loadPlanner()}
-function go(tab){if(!["search","planner","admin"].includes(tab)||(tab==="admin"&&!isAdmin))tab="search";
- ["search","planner","admin"].forEach(n=>document.getElementById("tab-"+n).classList.toggle("hidden",n!==tab));
- document.querySelectorAll(".tabs button").forEach(b=>b.classList.toggle("active",b.dataset.tab===tab));
- try{history.replaceState(null,"","#"+tab)}catch(e){}
- if(tab==="planner")enterPlanner();if(tab==="admin"&&window.LAWDB)LAWDB.admRefresh()}
+const ALL_TABS=["search","planner","articles","deadlines","calculator","admin"];
+function go(tab){
+  if(window.go && window.go !== go){ return window.go(tab); }
+  if(!ALL_TABS.includes(tab)) tab="search";
+  ALL_TABS.forEach(n=>{
+    const el=document.getElementById("tab-"+n);
+    if(el) el.classList.toggle("hidden",n!==tab);
+  });
+  document.querySelectorAll("[data-tab]").forEach(b=>b.classList.toggle("active",b.dataset.tab===tab));
+  try{history.replaceState(null,"","#"+tab)}catch(e){}
+  if(tab==="planner") enterPlanner();
+  if(tab==="admin"){
+    if(window.LAWDB && LAWDB.admRefresh) LAWDB.admRefresh();
+    if(window.renderAdminPanels) window.renderAdminPanels();
+  }
+  if(tab==="articles" && window.renderArticles) window.renderArticles();
+  if(tab==="deadlines" && window.renderDeadlines) window.renderDeadlines();
+  if(tab==="calculator" && window.renderCalculators) window.renderCalculators();
+  window.scrollTo({top:0,behavior:"smooth"});
+}
 
 /* =====================================================================
    فایل و عکس‌های هر درس: عکس همان‌جا نمایش داده می‌شود، PDF با یک کلیک همان‌جا باز می‌شود،
@@ -1331,14 +2924,21 @@ function applyDB(o){const nm=new Map(o.laws.map(l=>[l.id,l.name]));LAWS=o.laws;
   DB=o.arts.map(a=>({id:a.id,lawId:a.law_id,ord:a.ord,law:nm.get(a.law_id)||'؟',num:String(a.num),numText:a.num_text||String(a.num),text:a.text||'',path:a.path||[],sections:a.sections||[]}));
   DB.forEach(fill);DECISIONS=o.decs.map(d=>({number:d.number,year:d.year,date:d.date||'',subject:d.subject||'',text:d.text||''}));buildIdx();}
 async function loadDB(force){
-  try{LOADERR=false;let ver=null;
+  try{
+    LOADERR=false;let ver=null;
+    const cached=await idbGet('db');
+    if(!navigator.onLine && cached){ applyDB(cached); return; }
     try{const m=await sb.from('meta').select('value').eq('key','ver').maybeSingle();ver=(m.data&&m.data.value)||null;}catch(e){}
-    if(!force&&ver){const c=await idbGet('db');if(c&&c.ver===ver){applyDB(c);return;}}
+    if(!force&&ver){if(cached&&cached.ver===ver){applyDB(cached);return;}}
     const laws=await fetchAll('laws','id,name,sort',['sort','id']);
     const arts=await fetchAll('articles','id,law_id,ord,num,num_text,text,path,sections',['law_id','ord']);
     const decs=await fetchAll('decisions','number,year,date,subject,text',['year','number']);
-    const o={ver,laws,arts,decs};applyDB(o);if(ver)idbSet('db',o);
-  }catch(e){LOADERR=true;console.error(e);}
+    const o={ver,laws,arts,decs};applyDB(o);idbSet('db',o);
+  }catch(e){
+    console.warn('Network fetch error, loading from local offline cache:', e);
+    const c=await idbGet('db');
+    if(c){applyDB(c);LOADERR=false;} else {LOADERR=true;}
+  }
 }
 async function reloadAll(){await idbDel('db');await loadDB(true);refreshMeta();renderSearch();autoLink();if(ready)render();admRefresh();}
 
@@ -1471,20 +3071,24 @@ A('admAddBtn').addEventListener('click',()=>runAdmin(async()=>{const sel=A('admA
 </script>
 <script>
 (function(){
- document.querySelectorAll(".tabs button").forEach(b=>b.addEventListener("click",()=>go(b.dataset.tab)));
  if(!CLOUD||!window.supabase){document.getElementById("cfgWarn").classList.remove("hidden");document.getElementById("out").innerHTML='<div class="empty">تنظیمات Supabase کامل نیست.</div>';}
- else{sb=supabase.createClient(SUPA_URL,SUPA_KEY);LAWDB.init();initAuth();}
+ else{window.sb=sb=supabase.createClient(SUPA_URL,SUPA_KEY);LAWDB.init();initAuth();}
  go((location.hash||"#search").slice(1));
 })();
 </script>
 
 <script>
-// PWA: cache only the application shell. Supabase/API/auth requests remain network-only.
-if ('serviceWorker' in navigator && location.protocol === 'https:') {
+// PWA: register service worker for offline support
+if ('serviceWorker' in navigator) {
   window.addEventListener('load', () => {
-    navigator.serviceWorker.register('./sw.js').catch(err => console.warn('PWA service worker:', err));
+    navigator.serviceWorker.register('./sw.js').then(reg => {
+      console.log('Baraat PWA service worker registered');
+    }).catch(err => {
+      console.warn('PWA service worker registration notice:', err);
+    });
   });
 }
 </script>
+<script src="./baraat_engine.js"></script>
 </body>
 </html>

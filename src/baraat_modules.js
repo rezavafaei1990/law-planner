@@ -1,0 +1,674 @@
+// =====================================================================
+// ماژول‌های اختصاصی گروه حقوقی برائت: مقالات، مواعد، محاسبه‌گر و ناوبری
+// =====================================================================
+
+(function() {
+  const toFa = n => String(n).replace(/[0-9]/g, w => ['۰','۱','۲','۳','۴','۵','۶','۷','۸','۹'][+w]);
+  const toEn = s => String(s).replace(/[۰-۹]/g, d => String(d.charCodeAt(0) - 1776)).replace(/[٠-٩]/g, d => String(d.charCodeAt(0) - 1632));
+  const formatToman = n => Number(n).toLocaleString('fa-IR') + ' تومان';
+
+  // -------------------------------------------------------------------
+  // ۱. ماژول مقالات و پژوهش‌های حقوقی (کاملاً در دسترسی عمومی)
+  // -------------------------------------------------------------------
+  const ARTICLES_KEY = 'baraat_articles_v1';
+  
+  window.getArticles = function() {
+    try {
+      const data = localStorage.getItem(ARTICLES_KEY);
+      return data ? JSON.parse(data) : [];
+    } catch(e) {
+      return [];
+    }
+  };
+
+  window.saveArticle = function(art) {
+    const list = window.getArticles();
+    const idx = list.findIndex(a => a.id === art.id);
+    if (idx >= 0) {
+      list[idx] = art;
+    } else {
+      list.unshift(art);
+    }
+    localStorage.setItem(ARTICLES_KEY, JSON.stringify(list));
+    window.renderArticles();
+    if (window.toast) window.toast('مقاله با موفقیت ذخیره شد.');
+  };
+
+  window.deleteArticle = function(id) {
+    if (!confirm('آیا از حذف این مقاله اطمینان دارید؟')) return;
+    const list = window.getArticles().filter(a => a.id !== id);
+    localStorage.setItem(ARTICLES_KEY, JSON.stringify(list));
+    window.renderArticles();
+    if (window.toast) window.toast('مقاله حذف شد.');
+  };
+
+  window.renderArticles = function() {
+    const box = document.getElementById('articlesList');
+    if (!box) return;
+
+    const list = window.getArticles();
+    const q = (document.getElementById('artSearch')?.value || '').trim().toLowerCase();
+    const cat = document.getElementById('artCatFilter')?.value || 'all';
+
+    const filtered = list.filter(a => {
+      if (cat !== 'all' && a.category !== cat) return false;
+      if (!q) return true;
+      return (
+        (a.title || '').toLowerCase().includes(q) ||
+        (a.abstract || '').toLowerCase().includes(q) ||
+        (a.author || '').toLowerCase().includes(q) ||
+        (a.tags || []).some(t => t.toLowerCase().includes(q))
+      );
+    });
+
+    if (filtered.length === 0) {
+      box.innerHTML = `
+        <div class="empty-glass-card">
+          <div class="empty-icon">📚</div>
+          <h3>هنوز مقاله‌ای منتشر نشده است</h3>
+          <p>پژوهش‌ها، تحلیل‌های رویه قضایی و مقالات تخصصی گروه حقوقی برائت پس از نگارش و تأیید در این قسمت قرار می‌گیرند.</p>
+          <div style="margin-top: 16px;">
+            <button class="btn primary" onclick="window.openArticleEditor()">✍️ نگارش و انتشار مقاله جدید</button>
+          </div>
+        </div>
+      `;
+      return;
+    }
+
+    box.innerHTML = `
+      <div class="articles-grid">
+        ${filtered.map(a => `
+          <div class="article-card">
+            <div class="art-head">
+              <span class="art-tag">${a.category || 'پژوهش حقوقی'}</span>
+              <span class="art-date">${toFa(a.date || 'امروز')}</span>
+            </div>
+            <h3 class="art-title">${a.title}</h3>
+            ${a.author ? `<div class="art-author">✍️ نویسنده: ${a.author}</div>` : ''}
+            <p class="art-desc">${a.abstract || (a.content ? a.content.slice(0, 140) + '…' : '')}</p>
+            ${(a.tags && a.tags.length) ? `
+              <div class="art-tags">
+                ${a.tags.map(t => `<span class="tag-chip">#${t}</span>`).join('')}
+              </div>
+            ` : ''}
+            <div class="art-actions">
+              <button class="btn small primary" onclick="window.readArticle('${a.id}')">📖 مطالعه کامل مقاله</button>
+              <div class="row" style="gap:4px">
+                <button class="btn small" onclick="window.openArticleEditor('${a.id}')" title="ویرایش">✎</button>
+                <button class="btn small danger" onclick="window.deleteArticle('${a.id}')" title="حذف">✕</button>
+              </div>
+            </div>
+          </div>
+        `).join('')}
+      </div>
+    `;
+  };
+
+  window.openArticleEditor = function(id) {
+    let art = { id: 'art_' + Date.now(), title: '', category: 'حقوق مدنی', author: '', abstract: '', content: '', tags: [] };
+    if (id) {
+      const found = window.getArticles().find(a => a.id === id);
+      if (found) art = found;
+    }
+
+    const m = document.getElementById('modal');
+    if (!m) return;
+
+    m.innerHTML = `
+      <h2>${id ? 'ویرایش مقاله حقوقی' : 'نگارش و انتشار مقاله جدید'}</h2>
+      <div class="form-grid">
+        <div class="field" style="grid-column: 1 / -1;">
+          <label>عنوان مقاله</label>
+          <input id="edArtTitle" value="${art.title}" placeholder="مثلاً: تحلیل تحلیلی شرط وجه التزام در قراردادهای پیش‌فروش">
+        </div>
+        <div class="field">
+          <label>موضوع / گرایش حقوقی</label>
+          <select id="edArtCat">
+            <option ${art.category==='حقوق مدنی'?'selected':''}>حقوق مدنی</option>
+            <option ${art.category==='حقوق تجارت'?'selected':''}>حقوق تجارت</option>
+            <option ${art.category==='آیین دادرسی مدنی'?'selected':''}>آیین دادرسی مدنی</option>
+            <option ${art.category==='حقوق جزا و جرم‌شناسی'?'selected':''}>حقوق جزا و جرم‌شناسی</option>
+            <option ${art.category==='آیین دادرسی کیفری'?'selected':''}>آیین دادرسی کیفری</option>
+            <option ${art.category==='رویه قضایی و دیوان عالی'?'selected':''}>رویه قضایی و دیوان عالی</option>
+            <option ${art.category==='حقوق اساسی و اداری'?'selected':''}>حقوق اساسی و اداری</option>
+            <option ${art.category==='کاربردی و حرفه‌ای وکالت'?'selected':''}>کاربردی و حرفه‌ای وکالت</option>
+          </select>
+        </div>
+        <div class="field">
+          <label>نام نویسنده / پژوهشگر</label>
+          <input id="edArtAuthor" value="${art.author || ''}" placeholder="دکتر ... / وکیل دادگستری">
+        </div>
+      </div>
+      <div class="field" style="margin-top:12px;">
+        <label>چکیده و مقدمه مقاله</label>
+        <textarea id="edArtAbstract" rows="3" placeholder="خلاصه هدف، مسأله حقوقی و نتایج پژوهش...">${art.abstract || ''}</textarea>
+      </div>
+      <div class="field" style="margin-top:12px;">
+        <label>متن کامل مقاله و استدلال‌های حقوقی</label>
+        <textarea id="edArtContent" rows="8" placeholder="متن کامل، استناد به مواد قانونی، نقد آرا و نتیجه‌گیری...">${art.content || ''}</textarea>
+      </div>
+      <div class="field" style="margin-top:12px;">
+        <label>کلمات کلیدی و برچسب‌ها (با ویرگول یا خط فاصله جدا کنید)</label>
+        <input id="edArtTags" value="${(art.tags||[]).join(', ')}" placeholder="وجه التزام، ماده ۲۳۰، قوه قاهره">
+      </div>
+      <div class="modal-actions">
+        <button class="btn" onclick="closeModal()">انصراف</button>
+        <button class="btn primary" onclick="window.submitArticle('${art.id}')">ذخیره و انتشار</button>
+      </div>
+    `;
+    document.getElementById('modalBack').classList.add('show');
+  };
+
+  window.submitArticle = function(id) {
+    const title = (document.getElementById('edArtTitle')?.value || '').trim();
+    if (!title) return alert('لطفاً عنوان مقاله را وارد کنید.');
+
+    const category = document.getElementById('edArtCat')?.value || 'حقوق مدنی';
+    const author = (document.getElementById('edArtAuthor')?.value || '').trim();
+    const abstract = (document.getElementById('edArtAbstract')?.value || '').trim();
+    const content = (document.getElementById('edArtContent')?.value || '').trim();
+    const rawTags = (document.getElementById('edArtTags')?.value || '').split(/[,،،-]/).map(t => t.trim()).filter(Boolean);
+
+    window.saveArticle({
+      id,
+      title,
+      category,
+      author,
+      abstract,
+      content,
+      tags: rawTags,
+      date: new Date().toLocaleDateString('fa-IR')
+    });
+    closeModal();
+  };
+
+  window.readArticle = function(id) {
+    const art = window.getArticles().find(a => a.id === id);
+    if (!art) return;
+
+    const m = document.getElementById('modal');
+    if (!m) return;
+
+    m.innerHTML = `
+      <div class="read-article-container">
+        <div class="art-head" style="margin-bottom:8px">
+          <span class="art-tag">${art.category}</span>
+          <span class="art-date">${toFa(art.date || '')}</span>
+        </div>
+        <h2 style="font-size:1.45rem; line-height:1.6; margin-bottom:6px">${art.title}</h2>
+        ${art.author ? `<div style="color:var(--muted); font-size:13px; margin-bottom:14px">پژوهشگر: <b>${art.author}</b></div>` : ''}
+        ${art.abstract ? `
+          <div style="background:var(--soft); border-right:4px solid var(--main); padding:12px 16px; border-radius:10px; margin-bottom:18px; font-size:13.5px; line-height:2">
+            <b>چکیده:</b> ${art.abstract}
+          </div>
+        ` : ''}
+        <div style="font-size:14.5px; line-height:2.2; white-space:pre-wrap; color:var(--text);">${art.content || 'متنی برای این مقاله ثبت نشده است.'}</div>
+        ${(art.tags && art.tags.length) ? `
+          <div class="art-tags" style="margin-top:20px; padding-top:14px; border-top:1px dashed var(--line);">
+            ${art.tags.map(t => `<span class="tag-chip">#${t}</span>`).join('')}
+          </div>
+        ` : ''}
+        <div class="modal-actions" style="margin-top:24px">
+          <button class="btn" onclick="closeModal()">بستن</button>
+        </div>
+      </div>
+    `;
+    document.getElementById('modalBack').classList.add('show');
+  };
+
+  // -------------------------------------------------------------------
+  // ۲. ماژول مواعد قانونی (قابل ادیت و اضافه کردن)
+  // -------------------------------------------------------------------
+  const DEADLINES_KEY = 'baraat_deadlines_v1';
+  const DEFAULT_DEADLINES = [
+    { id: 'dl_1', title: 'تجدیدنظرخواهی از احکام مدنی', law: 'ماده ۳۳۶ قانون آیین دادرسی مدنی', daysIran: 20, daysAbroad: 60, cat: 'مدنی', desc: 'مهلت تجدیدنظرخواهی از احکام و قرارهای قابل تجدیدنظر دادگاه عمومی و انقلاب.' },
+    { id: 'dl_2', title: 'واخواهی از حکم غیابی مدنی', law: 'ماده ۳۰۶ قانون آیین دادرسی مدنی', daysIran: 20, daysAbroad: 60, cat: 'مدنی', desc: 'محکوم‌علیه غایب حق دارد ظرف مدت مقرر به حکم غیابی اعتراض و واخواهی نماید.' },
+    { id: 'dl_3', title: 'فرجام‌خواهی در دیوان عالی کشور', law: 'ماده ۳۹۷ قانون آیین دادرسی مدنی', daysIran: 20, daysAbroad: 60, cat: 'مدنی', desc: 'مهلت فرجام‌خواهی از احکام و قرارهای قابل فرجام شعب دادگاه‌های تجدیدنظر استان.' },
+    { id: 'dl_4', title: 'رفع نقص دادخواست / اخطار رفع نقص', law: 'ماده ۵۴ قانون آیین دادرسی مدنی', daysIran: 10, daysAbroad: 10, cat: 'مدنی', desc: 'مدیر دفتر دادگاه مراتب نقص دادخواست را به خواهان ابلاغ و ده روز مهلت رفع نقص می‌دهد.' },
+    { id: 'dl_5', title: 'تبادل لوایح در مرحله تجدیدنظر', law: 'ماده ۳۴۶ قانون آیین دادرسی مدنی', daysIran: 10, daysAbroad: 10, cat: 'مدنی', desc: 'تجدیدنظرخوانده می‌تواند ظرف ده روز پاسخ دادخواست تجدیدنظر را به دفتر دادگاه تسلیم نماید.' },
+    { id: 'dl_6', title: 'اعتراض به قرار رد دادخواست', law: 'ماده ۳۳۲ قانون آیین دادرسی مدنی', daysIran: 10, daysAbroad: 10, cat: 'مدنی', desc: 'قرار رد دادخواست ظرف ۱۰ روز قابل اعتراض در همان دادگاه است.' },
+    { id: 'dl_7', title: 'تجدیدنظرخواهی و فرجام‌خواهی کیفری', law: 'ماده ۴۳۱ قانون آیین دادرسی کیفری', daysIran: 20, daysAbroad: 60, cat: 'کیفری', desc: 'مهلت تجدیدنظرخواهی یا فرجام‌خواهی از احکام و قرارهای کیفری دادگاه‌ها.' },
+    { id: 'dl_8', title: 'اعتراض به تصمیم واحد ثبتی در مورد افراز', law: 'ماده ۲ قانون فروش و افراز املاک مشاع', daysIran: 10, daysAbroad: 10, cat: 'ثبتی', desc: 'مهلت اعتراض به تصمیم واحد ثبتی مبنی بر عدم قابلیت افراز ظرف ۱۰ روز در دادگاه عمومی است.' }
+  ];
+
+  window.getDeadlines = function() {
+    try {
+      const data = localStorage.getItem(DEADLINES_KEY);
+      return data ? JSON.parse(data) : DEFAULT_DEADLINES;
+    } catch(e) {
+      return DEFAULT_DEADLINES;
+    }
+  };
+
+  window.saveDeadline = function(dl) {
+    const list = window.getDeadlines();
+    const idx = list.findIndex(d => d.id === dl.id);
+    if (idx >= 0) list[idx] = dl;
+    else list.push(dl);
+    localStorage.setItem(DEADLINES_KEY, JSON.stringify(list));
+    window.renderDeadlines();
+    if (window.toast) window.toast('موعد قانونی ذخیره شد.');
+  };
+
+  window.deleteDeadline = function(id) {
+    if (!confirm('آیا از حذف این موعد قانونی اطمینان دارید؟')) return;
+    const list = window.getDeadlines().filter(d => d.id !== id);
+    localStorage.setItem(DEADLINES_KEY, JSON.stringify(list));
+    window.renderDeadlines();
+    if (window.toast) window.toast('موعد حذف شد.');
+  };
+
+  window.computeDeadlineResult = function() {
+    const list = window.getDeadlines();
+    const selId = document.getElementById('calcDlSelect')?.value;
+    const cur = list.find(d => d.id === selId) || list[0];
+    if (!cur) return;
+
+    const notifStr = document.getElementById('calcDlDate')?.value || new Date().toISOString().split('T')[0];
+    const isAbroad = document.getElementById('calcDlAbroad')?.checked || false;
+
+    const days = isAbroad ? Number(cur.daysAbroad) : Number(cur.daysIran);
+    const date = new Date(notifStr);
+    
+    // طبق ماده ۴۴۳-۴۴۵ ق.آ.د.م: روز ابلاغ جزو مدت نیست (days + 1)
+    date.setDate(date.getDate() + days + 1);
+    
+    // اگر جمعه بود (day === 5 در سیستم ایران معمولاً روز جمعه)، انتقال به شنبه
+    if (date.getDay() === 5) {
+      date.setDate(date.getDate() + 1);
+    }
+
+    const today = new Date();
+    today.setHours(0,0,0,0);
+    const target = new Date(date);
+    target.setHours(0,0,0,0);
+    const diffDays = Math.ceil((target - today) / (1000 * 60 * 60 * 24));
+
+    const out = document.getElementById('calcDlOutput');
+    if (out) {
+      out.innerHTML = `
+        <div class="dl-result-card">
+          <div class="row between">
+            <span style="font-size:12px; color:var(--muted)">آخرین مهلت قانونی اقدام:</span>
+            <span class="pill ${diffDays > 0 ? 'done' : 'danger'} font-mono">${diffDays > 0 ? toFa(diffDays) + ' روز باقیمانده' : 'مهلت منقضی شده'}</span>
+          </div>
+          <div style="font-size:24px; font-weight:800; color:var(--main); margin:10px 0; font-family:monospace">
+            ${toFa(date.toISOString().split('T')[0])}
+          </div>
+          <p style="font-size:12.5px; color:var(--muted); line-height:1.8; margin:0">
+            بر مبنای <b>${toFa(days)} روز قانونی</b> (${cur.law}) با اعمال قاعده عدم احتساب روز ابلاغ و اقدام و انتقال روز آخر تعطیل به اولین روز کاری پس از تعطیل (مواد ۴۴۳ الی ۴۴۵ ق.آ.د.م).
+          </p>
+        </div>
+      `;
+    }
+  };
+
+  window.renderDeadlines = function() {
+    const list = window.getDeadlines();
+    
+    // Populate select
+    const sel = document.getElementById('calcDlSelect');
+    if (sel) {
+      const prevVal = sel.value;
+      sel.innerHTML = list.map(d => `<option value="${d.id}">${d.title} (${toFa(d.daysIran)} روز)</option>`).join('');
+      if (prevVal && list.some(d => d.id === prevVal)) sel.value = prevVal;
+      window.computeDeadlineResult();
+    }
+
+    // Populate cards
+    const grid = document.getElementById('deadlinesGrid');
+    if (!grid) return;
+
+    grid.innerHTML = list.map(d => `
+      <div class="deadline-item-card">
+        <div class="row between">
+          <span class="pill">${d.cat || 'عمومی'}</span>
+          <span style="font-size:12px; font-weight:bold; color:var(--main);">${toFa(d.daysIran)} روز داخلی / ${toFa(d.daysAbroad)} روز خارج</span>
+        </div>
+        <h4 style="margin:8px 0 4px; font-size:14.5px;">${d.title}</h4>
+        <div style="font-size:12px; color:var(--muted); margin-bottom:8px;">مستند: ${d.law}</div>
+        <p style="font-size:12px; color:var(--text); line-height:1.7; margin:0 0 10px;">${d.desc || ''}</p>
+        <div class="row" style="gap:6px; justify-content:flex-end;">
+          <button class="btn small" onclick="window.openDeadlineEditor('${d.id}')">✎ ویرایش</button>
+          <button class="btn small danger" onclick="window.deleteDeadline('${d.id}')">✕ حذف</button>
+        </div>
+      </div>
+    `).join('');
+  };
+
+  window.openDeadlineEditor = function(id) {
+    let dl = { id: 'dl_' + Date.now(), title: '', law: '', daysIran: 20, daysAbroad: 60, cat: 'مدنی', desc: '' };
+    if (id) {
+      const found = window.getDeadlines().find(d => d.id === id);
+      if (found) dl = found;
+    }
+
+    const m = document.getElementById('modal');
+    if (!m) return;
+
+    m.innerHTML = `
+      <h2>${id ? 'ویرایش موعد قانونی' : 'افزودن موعد قانونی جدید'}</h2>
+      <div class="form-grid">
+        <div class="field" style="grid-column: 1 / -1;">
+          <label>عنوان اقدام یا موعد قانونی</label>
+          <input id="edDlTitle" value="${dl.title}" placeholder="مثلاً: اعتراض به قرار اناطه">
+        </div>
+        <div class="field">
+          <label>مستند قانونی</label>
+          <input id="edDlLaw" value="${dl.law}" placeholder="مثلاً: ماده ۱۹ قانون آیین دادرسی مدنی">
+        </div>
+        <div class="field">
+          <label>حوزه / دسته‌بندی</label>
+          <select id="edDlCat">
+            <option ${dl.cat==='مدنی'?'selected':''}>مدنی</option>
+            <option ${dl.cat==='کیفری'?'selected':''}>کیفری</option>
+            <option ${dl.cat==='ثبتی'?'selected':''}>ثبتی</option>
+            <option ${dl.cat==='اداری'?'selected':''}>اداری</option>
+            <option ${dl.cat==='کار و کارگری'?'selected':''}>کار و کارگری</option>
+            <option ${dl.cat==='خانواده'?'selected':''}>خانواده</option>
+          </select>
+        </div>
+        <div class="field">
+          <label>مهلت برای اشخاص مقیم ایران (به روز)</label>
+          <input type="number" id="edDlIran" value="${dl.daysIran}">
+        </div>
+        <div class="field">
+          <label>مهلت برای اشخاص مقیم خارج از کشور (به روز)</label>
+          <input type="number" id="edDlAbroad" value="${dl.daysAbroad}">
+        </div>
+        <div class="field" style="grid-column: 1 / -1;">
+          <label>توضیحات و ضمانت‌اجرای انقضای مهلت</label>
+          <textarea id="edDlDesc" rows="3">${dl.desc || ''}</textarea>
+        </div>
+      </div>
+      <div class="modal-actions">
+        <button class="btn" onclick="closeModal()">انصراف</button>
+        <button class="btn primary" onclick="window.submitDeadline('${dl.id}')">ذخیره موعد</button>
+      </div>
+    `;
+    document.getElementById('modalBack').classList.add('show');
+  };
+
+  window.submitDeadline = function(id) {
+    const title = (document.getElementById('edDlTitle')?.value || '').trim();
+    if (!title) return alert('لطفاً عنوان موعد را وارد کنید.');
+
+    const law = (document.getElementById('edDlLaw')?.value || '').trim();
+    const cat = document.getElementById('edDlCat')?.value || 'مدنی';
+    const daysIran = Number(document.getElementById('edDlIran')?.value) || 20;
+    const daysAbroad = Number(document.getElementById('edDlAbroad')?.value) || 60;
+    const desc = (document.getElementById('edDlDesc')?.value || '').trim();
+
+    window.saveDeadline({ id, title, law, cat, daysIran, daysAbroad, desc });
+    closeModal();
+  };
+
+  // -------------------------------------------------------------------
+  // ۳. ماژول محاسبه‌گر حقوقی (قابل ادیت و اضافه کردن)
+  // -------------------------------------------------------------------
+  const CALC_CUSTOM_KEY = 'baraat_custom_calcs_v1';
+  const DEFAULT_CUSTOM_CALCS = [
+    { id: 'c_arb', title: 'حق‌الزحمه داوری', type: 'percent', rate: 1.5, desc: 'محاسبه بر مبنای ۱.۵ درصد از مبلغ خواسته ارجاعی به داوری' },
+    { id: 'c_reg', title: 'حق‌الثبت اسناد مالی', type: 'percent', rate: 0.5, desc: 'نیم درصد مبلغ سند مالی طبق قانون ثبت اسناد و املاک' },
+    { id: 'c_delay', title: 'خسارت روزشمار تأخیر در انجام تعهد', type: 'daily', rate: 0.1, desc: 'یک در هزار مبلغ قرارداد به ازای هر روز تأخیر' }
+  ];
+
+  window.getCustomCalculators = function() {
+    try {
+      const data = localStorage.getItem(CALC_CUSTOM_KEY);
+      return data ? JSON.parse(data) : DEFAULT_CUSTOM_CALCS;
+    } catch(e) {
+      return DEFAULT_CUSTOM_CALCS;
+    }
+  };
+
+  window.saveCustomCalculator = function(c) {
+    const list = window.getCustomCalculators();
+    const idx = list.findIndex(item => item.id === c.id);
+    if (idx >= 0) list[idx] = c;
+    else list.push(c);
+    localStorage.setItem(CALC_CUSTOM_KEY, JSON.stringify(list));
+    window.renderCalculators();
+    if (window.toast) window.toast('محاسبه‌گر ذخیره شد.');
+  };
+
+  window.deleteCustomCalculator = function(id) {
+    if (!confirm('آیا از حذف این محاسبه‌گر اطمینان دارید؟')) return;
+    const list = window.getCustomCalculators().filter(item => item.id !== id);
+    localStorage.setItem(CALC_CUSTOM_KEY, JSON.stringify(list));
+    window.renderCalculators();
+    if (window.toast) window.toast('محاسبه‌گر حذف شد.');
+  };
+
+  // فرمول هزینه دادرسی
+  window.calcCourtFees = function() {
+    const rawVal = toEn(document.getElementById('cfAmount')?.value || '0').replace(/,/g, '');
+    const amount = Number(rawVal) || 0;
+    const stage = document.getElementById('cfStage')?.value || 'first';
+
+    let fee = 0;
+    if (stage === 'first') {
+      // بدوی مالی: تا ۲۰۰ میلیون ریال (۲۰ میلیون تومان) ۲.۵٪، مازاد ۳.۵٪
+      if (amount <= 20000000) {
+        fee = amount * 0.025;
+      } else {
+        fee = (20000000 * 0.025) + ((amount - 20000000) * 0.035);
+      }
+    } else if (stage === 'appeal') {
+      // تجدیدنظر: ۴.۵٪
+      fee = amount * 0.045;
+    } else if (stage === 'supreme') {
+      // فرجام‌خواهی: ۵.۵٪
+      fee = amount * 0.055;
+    } else if (stage === 'exec') {
+      // اجراییه: ۵٪
+      fee = amount * 0.05;
+    }
+
+    const out = document.getElementById('cfResult');
+    if (out) {
+      out.innerHTML = `
+        <div class="calc-res-strip">
+          <div>
+            <span style="font-size:12px; color:var(--muted)">مبلغ برآورد هزینه دادرسی:</span>
+            <div style="font-size:22px; font-weight:800; color:var(--main); margin-top:4px;">
+              ${toFa(Math.round(fee).toLocaleString())} تومان
+            </div>
+            <div style="font-size:12px; color:var(--muted); margin-top:2px;">
+              (معادل ${toFa(Math.round(fee * 10).toLocaleString())} ریال)
+            </div>
+          </div>
+        </div>
+      `;
+    }
+  };
+
+  // فرمول حق‌الوکاله مصوب
+  window.calcAttorneyFees = function() {
+    const rawVal = toEn(document.getElementById('atAmount')?.value || '0').replace(/,/g, '');
+    const claim = Number(rawVal) || 0;
+
+    let fee = 0;
+    if (claim <= 100000000) { // تا ۱۰۰ میلیون تومان ۸٪
+      fee = claim * 0.08;
+    } else if (claim <= 500000000) { // تا ۵۰۰ میلیون تومان ۷٪
+      fee = (100000000 * 0.08) + ((claim - 100000000) * 0.07);
+    } else if (claim <= 2000000000) { // تا ۲ میلیارد تومان ۵٪
+      fee = (100000000 * 0.08) + (400000000 * 0.07) + ((claim - 500000000) * 0.05);
+    } else { // مازاد ۴٪
+      fee = (100000000 * 0.08) + (400000000 * 0.07) + (1500000000 * 0.05) + ((claim - 2000000000) * 0.04);
+    }
+
+    const firstStage = fee * 0.6;
+    const appealStage = fee * 0.4;
+    const tax = fee * 0.05; // ۵٪ مالیات علی‌الحساب
+
+    const out = document.getElementById('atResult');
+    if (out) {
+      out.innerHTML = `
+        <div class="calc-res-strip">
+          <div>
+            <span style="font-size:12px; color:var(--muted)">کل تعرفه حق‌الوکاله قانونی:</span>
+            <div style="font-size:22px; font-weight:800; color:var(--main); margin:4px 0;">
+              ${toFa(Math.round(fee).toLocaleString())} تومان
+            </div>
+            <div style="font-size:12px; color:var(--muted); line-height:1.8">
+              · سهم مرحله نخستین (۶۰٪): <b>${toFa(Math.round(firstStage).toLocaleString())} تومان</b><br>
+              · سهم مرحله تجدیدنظر (۴۰٪): <b>${toFa(Math.round(appealStage).toLocaleString())} تومان</b><br>
+              · مالیات علی‌الحساب تمبر مالیاتی (۵٪): <b>${toFa(Math.round(tax).toLocaleString())} تومان</b>
+            </div>
+          </div>
+        </div>
+      `;
+    }
+  };
+
+  // محاسبه سفارشی
+  window.runCustomCalc = function(id) {
+    const list = window.getCustomCalculators();
+    const c = list.find(item => item.id === id);
+    if (!c) return;
+
+    const inVal = Number(toEn(document.getElementById('input_' + id)?.value || '0').replace(/,/g, '')) || 0;
+    let res = 0;
+    if (c.type === 'percent') {
+      res = (inVal * Number(c.rate)) / 100;
+    } else if (c.type === 'daily') {
+      const days = Number(toEn(document.getElementById('days_' + id)?.value || '1')) || 1;
+      res = inVal * (Number(c.rate) / 100) * days;
+    }
+
+    const out = document.getElementById('out_' + id);
+    if (out) {
+      out.innerHTML = `مبلغ محاسبه‌شده: <b>${toFa(Math.round(res).toLocaleString())} تومان</b>`;
+    }
+  };
+
+  window.renderCalculators = function() {
+    window.calcCourtFees();
+    window.calcAttorneyFees();
+
+    const box = document.getElementById('customCalculatorsGrid');
+    if (!box) return;
+
+    const list = window.getCustomCalculators();
+    box.innerHTML = list.map(c => `
+      <div class="calculator-card">
+        <div class="row between">
+          <h4 style="margin:0; font-size:15px; font-weight:700;">${c.title}</h4>
+          <div class="row" style="gap:4px">
+            <button class="btn small" onclick="window.openCustomCalcEditor('${c.id}')" title="ویرایش فرمول">✎</button>
+            <button class="btn small danger" onclick="window.deleteCustomCalculator('${c.id}')" title="حذف">✕</button>
+          </div>
+        </div>
+        <p style="font-size:12px; color:var(--muted); margin:6px 0 10px;">${c.desc || ''}</p>
+        <div class="form-grid" style="gap:8px;">
+          <div class="field">
+            <label style="font-size:11.5px">مبلغ پایه (تومان)</label>
+            <input id="input_${c.id}" type="text" placeholder="مثلاً: 50,000,000" oninput="window.runCustomCalc('${c.id}')">
+          </div>
+          ${c.type === 'daily' ? `
+            <div class="field">
+              <label style="font-size:11.5px">تعداد روز تأخیر</label>
+              <input id="days_${c.id}" type="number" value="10" oninput="window.runCustomCalc('${c.id}')">
+            </div>
+          ` : ''}
+        </div>
+        <div id="out_${c.id}" style="margin-top:10px; font-size:13px; color:var(--main); font-weight:600;">
+          برای محاسبه، مبلغ را وارد کنید.
+        </div>
+      </div>
+    `).join('');
+  };
+
+  window.openCustomCalcEditor = function(id) {
+    let c = { id: 'c_' + Date.now(), title: '', type: 'percent', rate: 1.0, desc: '' };
+    if (id) {
+      const found = window.getCustomCalculators().find(item => item.id === id);
+      if (found) c = found;
+    }
+
+    const m = document.getElementById('modal');
+    if (!m) return;
+
+    m.innerHTML = `
+      <h2>${id ? 'ویرایش محاسبه‌گر حقوقی' : 'افزودن فرمول / محاسبه‌گر جدید'}</h2>
+      <div class="form-grid">
+        <div class="field" style="grid-column: 1 / -1;">
+          <label>عنوان محاسبه‌گر</label>
+          <input id="edCTitle" value="${c.title}" placeholder="مثلاً: حق‌التحریر تنظیم قرارداد یا خسارت روزانه">
+        </div>
+        <div class="field">
+          <label>نوع فرمول محاسباتی</label>
+          <select id="edCType">
+            <option value="percent" ${c.type==='percent'?'selected':''}>درصدی از مبلغ پایه</option>
+            <option value="daily" ${c.type==='daily'?'selected':''}>روزشمار (درصد روزانه × تعداد روز)</option>
+          </select>
+        </div>
+        <div class="field">
+          <label>نرخ درصد (%)</label>
+          <input type="number" step="0.01" id="edCRate" value="${c.rate}">
+        </div>
+        <div class="field" style="grid-column: 1 / -1;">
+          <label>توضیحات و راهنمای فرمول</label>
+          <textarea id="edCDesc" rows="2">${c.desc || ''}</textarea>
+        </div>
+      </div>
+      <div class="modal-actions">
+        <button class="btn" onclick="closeModal()">انصراف</button>
+        <button class="btn primary" onclick="window.submitCustomCalc('${c.id}')">ذخیره محاسبه‌گر</button>
+      </div>
+    `;
+    document.getElementById('modalBack').classList.add('show');
+  };
+
+  window.submitCustomCalc = function(id) {
+    const title = (document.getElementById('edCTitle')?.value || '').trim();
+    if (!title) return alert('لطفاً عنوان را وارد کنید.');
+
+    const type = document.getElementById('edCType')?.value || 'percent';
+    const rate = Number(document.getElementById('edCRate')?.value) || 1.0;
+    const desc = (document.getElementById('edCDesc')?.value || '').trim();
+
+    window.saveCustomCalculator({ id, title, type, rate, desc });
+    closeModal();
+  };
+
+  // -------------------------------------------------------------------
+  // ۴. هدایت عمومی تب‌ها و باز شدن با هاور سایدبار راست
+  // -------------------------------------------------------------------
+  const TABS = ['search', 'planner', 'articles', 'deadlines', 'calculator', 'admin'];
+
+  window.goTab = function(tab) {
+    if (!TABS.includes(tab)) tab = 'search';
+
+    TABS.forEach(t => {
+      const el = document.getElementById('tab-' + t);
+      if (el) el.classList.toggle('hidden', t !== tab);
+    });
+
+    document.querySelectorAll('[data-tab]').forEach(btn => {
+      btn.classList.toggle('active', btn.dataset.tab === tab);
+    });
+
+    try {
+      history.replaceState(null, '', '#' + tab);
+    } catch(e) {}
+
+    if (tab === 'planner' && window.enterPlanner) window.enterPlanner();
+    if (tab === 'admin' && window.LAWDB) LAWDB.admRefresh();
+    if (tab === 'articles') window.renderArticles();
+    if (tab === 'deadlines') window.renderDeadlines();
+    if (tab === 'calculator') window.renderCalculators();
+    
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+  };
+
+  // هماهنگی اولیه پس از بارگذاری DOM
+  document.addEventListener('DOMContentLoaded', () => {
+    // بازخوانی تب بر اساس هش
+    const initial = location.hash.replace('#', '') || 'search';
+    window.goTab(initial);
+  });
+
+})();
