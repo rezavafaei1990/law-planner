@@ -1641,8 +1641,16 @@ textarea {
           <select id="calcDlSelect" onchange="computeDeadlineResult()"></select>
         </div>
         <div class="field">
-          <label>تاریخ ابلاغ الکترونیک در سامانه ثنا</label>
-          <input type="date" id="calcDlDate" onchange="computeDeadlineResult()">
+          <div class="row between" style="margin-bottom:6px;">
+            <label style="margin:0;">تاریخ ابلاغ الکترونیک در سامانه ثنا (شمسی)</label>
+            <button type="button" class="btn small" onclick="setJalaliToday()" style="padding:2px 8px; font-size:11px;">امروز</button>
+          </div>
+          <div class="row" style="gap:6px; flex-wrap:nowrap;">
+            <select id="calcDlJDay" onchange="onJalaliDateChange()" aria-label="روز شمسی" style="flex:1; min-width:60px;"></select>
+            <select id="calcDlJMonth" onchange="onJalaliMonthOrYearChange()" aria-label="ماه شمسی" style="flex:1.4; min-width:96px;"></select>
+            <select id="calcDlJYear" onchange="onJalaliMonthOrYearChange()" aria-label="سال شمسی" style="flex:1.1; min-width:74px;"></select>
+          </div>
+          <input type="hidden" id="calcDlDate">
         </div>
         <div class="field" style="grid-column:1/-1;">
           <label class="check" style="cursor:pointer; display:inline-flex; width:auto; border:0; padding:0; background:transparent;">
@@ -3089,17 +3097,25 @@ A('admAddBtn').addEventListener('click',()=>runAdmin(async()=>{const sel=A('admA
 </script>
 
 <script>
-// PWA: register service worker for offline support
+// PWA: register service worker with automatic fresh update handling
 if ('serviceWorker' in navigator) {
+  const hadController = !!navigator.serviceWorker.controller;
+  let swReloaded = false;
+  navigator.serviceWorker.addEventListener('controllerchange', () => {
+    if (hadController && !swReloaded) {
+      swReloaded = true;
+      window.location.reload();
+    }
+  });
   window.addEventListener('load', () => {
-    navigator.serviceWorker.register('./sw.js').then(reg => {
-      console.log('Baraat PWA service worker registered');
+    navigator.serviceWorker.register('./sw.js', { updateViaCache: 'none' }).then(reg => {
+      reg.update().catch(() => {});
     }).catch(err => {
       console.warn('PWA service worker registration notice:', err);
     });
   });
 }
 </script>
-<script src="./baraat_engine.js"></script>
+<script src="./baraat_engine.js?v=20261112_2"></script>
 </body>
 </html>

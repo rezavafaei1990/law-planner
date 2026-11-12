@@ -472,44 +472,261 @@
     }
   };
 
+  // -------------------------------------------------------------------
+  // ابزار تقویم شمسی (جلالی) دقیق و ثبت آلارم در تقویم گوشی (.ics / Google Calendar)
+  // -------------------------------------------------------------------
+  const JALALI_MONTHS = [
+    'فروردین', 'اردیبهشت', 'خرداد', 'تیر', 'مرداد', 'شهریور',
+    'مهر', 'آبان', 'آذر', 'دی', 'بهمن', 'اسفند'
+  ];
+  const PERSIAN_WEEKDAYS = ['یکشنبه', 'دوشنبه', 'سه‌شنبه', 'چهارشنبه', 'پنج‌شنبه', 'جمعه', 'شنبه'];
+  const pad2 = n => String(n).padStart(2, '0');
+  const divInt = (a, b) => ~~(a / b);
+  const modInt = (a, b) => a - ~~(a / b) * b;
+
+  function jalCal(jy) {
+    const breaks = [-61, 9, 38, 199, 426, 686, 756, 818, 1111, 1181, 1210, 1635, 2060, 2097, 2192, 2262, 2324, 2394, 2456, 3178];
+    const bl = breaks.length, gy = jy + 621;
+    let leapJ = -14, jp = breaks[0], jm, jump, leap, leapG, march, n, i;
+    for (i = 1; i < bl; i += 1) {
+      jm = breaks[i];
+      jump = jm - jp;
+      if (jy < jm) break;
+      leapJ = leapJ + divInt(jump, 33) * 8 + divInt(modInt(jump, 33), 4);
+      jp = jm;
+    }
+    n = jy - jp;
+    leapJ = leapJ + divInt(n, 33) * 8 + divInt(modInt(n, 33) + 3, 4);
+    if (modInt(jump, 33) === 4 && jump - n === 4) leapJ += 1;
+    leapG = divInt(gy, 4) - divInt((divInt(gy, 100) + 1) * 3, 4) - 150;
+    march = 20 + leapJ - leapG;
+    if (jump - n < 6) n = n - jump + divInt(jump + 4, 33) * 33;
+    leap = modInt(modInt(n + 1, 33) - 1, 4);
+    if (leap === -1) leap = 4;
+    return { leap, gy, march };
+  }
+
+  function g2d(gy, gm, gd) {
+    let d = divInt((gy + divInt(gm - 8, 6) + 100100) * 1461, 4) + divInt(153 * modInt(gm + 9, 12) + 2, 5) + gd - 34840408;
+    d = d - divInt(divInt(gy + 100100 + divInt(gm - 8, 6), 100) * 3, 4) + 752;
+    return d;
+  }
+
+  function d2g(jdn) {
+    let j = 4 * jdn + 139361631;
+    j = j + divInt(divInt(4 * jdn + 183187720, 146097) * 3, 4) * 4 - 3908;
+    const i = divInt(modInt(j, 1461), 4) * 5 + 308;
+    const gd = divInt(modInt(i, 153), 5) + 1;
+    const gm = modInt(divInt(i, 153), 12) + 1;
+    const gy = divInt(j, 1461) - 100100 + divInt(8 - gm, 6);
+    return { gy, gm, gd };
+  }
+
+  function j2d(jy, jm, jd) {
+    const r = jalCal(jy);
+    return g2d(r.gy, 3, r.march) + (jm - 1) * 31 - divInt(jm, 7) * (jm - 7) + jd - 1;
+  }
+
+  function d2j(jdn) {
+    const gy = d2g(jdn).gy;
+    let jy = gy - 621;
+    const r = jalCal(jy);
+    const jdn1f = g2d(gy, 3, r.march);
+    let k = jdn - jdn1f, jm, jd;
+    if (k >= 0) {
+      if (k <= 185) {
+        jm = 1 + divInt(k, 31);
+        jd = modInt(k, 31) + 1;
+        return { jy, jm, jd };
+      } else {
+        k -= 186;
+      }
+    } else {
+      jy -= 1;
+      k += 179;
+      if (r.leap === 1) k += 1;
+    }
+    jm = 7 + divInt(k, 30);
+    jd = modInt(k, 30) + 1;
+    return { jy, jm, jd };
+  }
+
+  function g2j(gy, gm, gd) { return d2j(g2d(gy, gm, gd)); }
+  function j2g(jy, jm, jd) { return d2g(j2d(jy, jm, jd)); }
+  function jalaliMonthLength(jy, jm) {
+    if (jm <= 6) return 31;
+    if (jm <= 11) return 30;
+    return jalCal(jy).leap === 0 ? 30 : 29;
+  }
+
+  function parseLocalGregorian(isoStr) {
+    if (!isoStr || !/^\d{4}-\d{2}-\d{2}$/.test(isoStr)) {
+      const now = new Date();
+      return new Date(now.getFullYear(), now.getMonth(), now.getDate(), 12, 0, 0);
+    }
+    const [y, m, d] = isoStr.split('-').map(Number);
+    return new Date(y, m - 1, d, 12, 0, 0);
+  }
+
+  function toLocalIsoDate(dt) {
+    return dt.getFullYear() + '-' + pad2(dt.getMonth() + 1) + '-' + pad2(dt.getDate());
+  }
+
+  function formatJalaliFull(dt) {
+    const j = g2j(dt.getFullYear(), dt.getMonth() + 1, dt.getDate());
+    const wd = PERSIAN_WEEKDAYS[dt.getDay()];
+    const numeric = `${j.jy}/${pad2(j.jm)}/${pad2(j.jd)}`;
+    const named = `${wd} ${toFa(j.jd)} ${JALALI_MONTHS[j.jm - 1]} ${toFa(j.jy)}`;
+    return { jy: j.jy, jm: j.jm, jd: j.jd, numeric, numericFa: toFa(numeric), named, wd };
+  }
+
+  function populateJalaliDayOptions(daySel, jy, jm, selectedDay) {
+    if (!daySel) return;
+    const maxDays = jalaliMonthLength(jy, jm);
+    const targetDay = Math.min(Number(selectedDay) || 1, maxDays);
+    let html = '';
+    for (let d = 1; d <= maxDays; d++) {
+      html += `<option value="${d}" ${d === targetDay ? 'selected' : ''}>${toFa(d)}</option>`;
+    }
+    daySel.innerHTML = html;
+  }
+
+  function syncHiddenDateFromJalaliPicker() {
+    const ySel = document.getElementById('calcDlJYear');
+    const mSel = document.getElementById('calcDlJMonth');
+    const dSel = document.getElementById('calcDlJDay');
+    const hidden = document.getElementById('calcDlDate');
+    if (!ySel || !mSel || !dSel || !hidden) return;
+    const jy = Number(ySel.value);
+    const jm = Number(mSel.value);
+    const jd = Number(dSel.value);
+    const g = j2g(jy, jm, jd);
+    hidden.value = `${g.gy}-${pad2(g.gm)}-${pad2(g.gd)}`;
+  }
+
+  window.initJalaliPicker = function() {
+    const ySel = document.getElementById('calcDlJYear');
+    const mSel = document.getElementById('calcDlJMonth');
+    const dSel = document.getElementById('calcDlJDay');
+    const hidden = document.getElementById('calcDlDate');
+    if (!ySel || !mSel || !dSel || !hidden) return;
+    if (ySel.options.length > 0 && hidden.value) return;
+
+    const now = new Date();
+    const curJ = g2j(now.getFullYear(), now.getMonth() + 1, now.getDate());
+    const minY = curJ.jy - 4;
+    const maxY = curJ.jy + 3;
+
+    let yHtml = '';
+    for (let y = minY; y <= maxY; y++) {
+      yHtml += `<option value="${y}" ${y === curJ.jy ? 'selected' : ''}>${toFa(y)}</option>`;
+    }
+    ySel.innerHTML = yHtml;
+
+    let mHtml = '';
+    for (let m = 1; m <= 12; m++) {
+      mHtml += `<option value="${m}" ${m === curJ.jm ? 'selected' : ''}>${JALALI_MONTHS[m - 1]}</option>`;
+    }
+    mSel.innerHTML = mHtml;
+
+    populateJalaliDayOptions(dSel, curJ.jy, curJ.jm, curJ.jd);
+    syncHiddenDateFromJalaliPicker();
+  };
+
+  window.setJalaliToday = function(skipCompute) {
+    const ySel = document.getElementById('calcDlJYear');
+    const mSel = document.getElementById('calcDlJMonth');
+    const dSel = document.getElementById('calcDlJDay');
+    if (!ySel || !mSel || !dSel) return;
+    if (!ySel.options.length) window.initJalaliPicker();
+
+    const now = new Date();
+    const curJ = g2j(now.getFullYear(), now.getMonth() + 1, now.getDate());
+    ySel.value = String(curJ.jy);
+    mSel.value = String(curJ.jm);
+    populateJalaliDayOptions(dSel, curJ.jy, curJ.jm, curJ.jd);
+    syncHiddenDateFromJalaliPicker();
+    if (!skipCompute) window.computeDeadlineResult();
+  };
+
+  window.onJalaliMonthOrYearChange = function() {
+    const ySel = document.getElementById('calcDlJYear');
+    const mSel = document.getElementById('calcDlJMonth');
+    const dSel = document.getElementById('calcDlJDay');
+    if (!ySel || !mSel || !dSel) return;
+    populateJalaliDayOptions(dSel, Number(ySel.value), Number(mSel.value), Number(dSel.value));
+    syncHiddenDateFromJalaliPicker();
+    window.computeDeadlineResult();
+  };
+
+  window.onJalaliDateChange = function() {
+    syncHiddenDateFromJalaliPicker();
+    window.computeDeadlineResult();
+  };
+
   window.computeDeadlineResult = function() {
+    window.initJalaliPicker();
     const list = window.getDeadlines();
     const selId = document.getElementById('calcDlSelect')?.value;
     const cur = list.find(d => d.id === selId) || list[0];
     if (!cur) return;
 
-    const notifStr = document.getElementById('calcDlDate')?.value || new Date().toISOString().split('T')[0];
+    const notifStr = document.getElementById('calcDlDate')?.value || toLocalIsoDate(new Date());
     const isAbroad = document.getElementById('calcDlAbroad')?.checked || false;
 
     const days = isAbroad ? Number(cur.daysAbroad) : Number(cur.daysIran);
-    const date = new Date(notifStr);
-    
+    const date = parseLocalGregorian(notifStr);
+
     // ماده ۴۴۳-۴۴۵ ق.آ.د.م: روز ابلاغ و اقدام جزو مدت نیست
     date.setDate(date.getDate() + days + 1);
-    
+
     // اگر جمعه بود به روز شنبه موکول می‌شود
     if (date.getDay() === 5) {
       date.setDate(date.getDate() + 1);
     }
 
     const today = new Date();
-    today.setHours(0,0,0,0);
-    const target = new Date(date);
-    target.setHours(0,0,0,0);
+    today.setHours(0, 0, 0, 0);
+    const target = new Date(date.getFullYear(), date.getMonth(), date.getDate(), 0, 0, 0);
     const diffDays = Math.ceil((target - today) / (1000 * 60 * 60 * 24));
+    const jInfo = formatJalaliFull(date);
+    const isoTarget = toLocalIsoDate(date);
+
+    window.__lastDeadlineCalc = {
+      id: cur.id,
+      title: cur.title,
+      law: cur.law,
+      days,
+      isoTarget,
+      gy: date.getFullYear(),
+      gm: date.getMonth() + 1,
+      gd: date.getDate(),
+      jalali: jInfo
+    };
 
     const out = document.getElementById('calcDlOutput');
     if (out) {
       out.innerHTML = `
         <div class="dl-result-card">
-          <div class="row between">
+          <div class="row between" style="gap:8px; flex-wrap:wrap;">
             <span style="font-size:12px; color:var(--muted)">آخرین مهلت قانونی تقدیم دادخواست / لایحه:</span>
             <span class="pill ${diffDays >= 0 ? 'done' : 'danger'} font-mono">${diffDays >= 0 ? toFa(diffDays) + ' روز باقیمانده' : 'مهلت منقضی شده'}</span>
           </div>
-          <div style="font-size:24px; font-weight:800; color:var(--main); margin:10px 0; font-family:monospace">
-            ${toFa(date.toISOString().split('T')[0])}
+          <div class="row between" style="margin:10px 0 6px; gap:10px; flex-wrap:wrap; align-items:center;">
+            <div>
+              <div style="font-size:21px; font-weight:800; color:var(--main); line-height:1.5;">
+                ${jInfo.named}
+              </div>
+              <div style="font-size:13px; color:var(--muted); margin-top:2px;">
+                تاریخ شمسی: <b style="color:var(--text);">${jInfo.numericFa}</b> <span style="margin:0 6px;">·</span> <span dir="ltr" style="font-size:12px;">(${isoTarget})</span>
+              </div>
+            </div>
+            <button type="button" class="btn primary" onclick="openDeadlineAlarmModal()" title="تنظیم آلارم در تقویم گوشی" style="display:inline-flex; align-items:center; gap:7px; padding:9px 14px; border-radius:12px;">
+              <span style="font-size:16px;">🔔</span>
+              <span>آلارم در تقویم گوشی</span>
+            </button>
           </div>
-          <p style="font-size:12.5px; color:var(--text); line-height:1.8; margin:0">
+          <p style="font-size:12.5px; color:var(--text); line-height:1.8; margin:8px 0 0;">
             بر مبنای <b>${toFa(days)} روز قانونی</b> (${esc(cur.law)}) با اعمال قاعده عدم احتساب روز ابلاغ و اقدام و انتقال روز آخر تعطیل به اولین روز کاری پس از تعطیل (مواد ۴۴۳ الی ۴۴۵ ق.آ.د.م).
           </p>
         </div>
@@ -517,7 +734,204 @@
     }
   };
 
+  window.openDeadlineAlarmModal = function(dlId) {
+    if (dlId) {
+      const sel = document.getElementById('calcDlSelect');
+      if (sel) sel.value = dlId;
+      window.computeDeadlineResult();
+    } else if (!window.__lastDeadlineCalc) {
+      window.computeDeadlineResult();
+    }
+    const info = window.__lastDeadlineCalc;
+    const m = document.getElementById('modal');
+    if (!m || !info) return;
+
+    const now = new Date();
+    const curJ = g2j(now.getFullYear(), now.getMonth() + 1, now.getDate());
+    const minY = curJ.jy - 2;
+    const maxY = curJ.jy + 4;
+    let yOpts = '';
+    for (let y = minY; y <= maxY; y++) {
+      yOpts += `<option value="${y}" ${y === info.jalali.jy ? 'selected' : ''}>${toFa(y)}</option>`;
+    }
+    let mOpts = '';
+    for (let mo = 1; mo <= 12; mo++) {
+      mOpts += `<option value="${mo}" ${mo === info.jalali.jm ? 'selected' : ''}>${JALALI_MONTHS[mo - 1]}</option>`;
+    }
+
+    m.innerHTML = `
+      <h2>🔔 تنظیم آلارم موعد قانونی در تقویم گوشی</h2>
+      <p class="muted small" style="margin-bottom:14px; line-height:1.8;">
+        روز و ساعت دلخواه را انتخاب کنید تا آلارم مستقیماً روی تقویم گوشی شما (آیفون یا اندروید) ثبت شود.
+      </p>
+      <div class="form-grid">
+        <div class="field" style="grid-column:1/-1;">
+          <label>عنوان یادآور / نام پرونده</label>
+          <input id="alarmTitleInput" value="${esc('موعد قانونی: ' + info.title)}">
+        </div>
+        <div class="field" style="grid-column:1/-1;">
+          <label>تاریخ آلارم (شمسی)</label>
+          <div class="row" style="gap:6px; flex-wrap:nowrap;">
+            <select id="alarmJDay" onchange="updateAlarmCalendarLinks()" style="flex:1;"></select>
+            <select id="alarmJMonth" onchange="onAlarmMonthOrYearChange()" style="flex:1.4;">${mOpts}</select>
+            <select id="alarmJYear" onchange="onAlarmMonthOrYearChange()" style="flex:1.1;">${yOpts}</select>
+          </div>
+          <div id="alarmDatePreview" class="muted small" style="margin-top:5px;"></div>
+        </div>
+        <div class="field">
+          <label>ساعت آلارم (دلخواه)</label>
+          <input id="alarmTimeInput" type="time" value="09:00" dir="ltr" onchange="updateAlarmCalendarLinks()" oninput="updateAlarmCalendarLinks()">
+        </div>
+        <div class="field">
+          <label>زنگ هشدار یادآور</label>
+          <select id="alarmNotifyOffset" onchange="updateAlarmCalendarLinks()">
+            <option value="0">درست در همین ساعت انتخابی</option>
+            <option value="15">۱۵ دقیقه قبل + همین ساعت</option>
+            <option value="60">۱ ساعت قبل + همین ساعت</option>
+            <option value="1440">۱ روز قبل + همین ساعت</option>
+          </select>
+        </div>
+        <div class="field" style="grid-column:1/-1;">
+          <label style="font-size:11.5px; color:var(--muted);">انتخاب سریع ساعت:</label>
+          <div class="row" style="gap:6px; flex-wrap:wrap;">
+            <button type="button" class="btn small" onclick="setAlarmQuickTime('08:00')">۰۸:۰۰ صبح</button>
+            <button type="button" class="btn small" onclick="setAlarmQuickTime('10:00')">۱۰:۰۰ صبح</button>
+            <button type="button" class="btn small" onclick="setAlarmQuickTime('12:00')">۱۲:۰۰ ظهر</button>
+            <button type="button" class="btn small" onclick="setAlarmQuickTime('15:00')">۱۵:۰۰ عصر</button>
+            <button type="button" class="btn small" onclick="setAlarmQuickTime('18:00')">۱۸:۰۰ عصر</button>
+            <button type="button" class="btn small" onclick="setAlarmQuickTime('20:00')">۲۰:۰۰ شب</button>
+          </div>
+        </div>
+        <div class="field" style="grid-column:1/-1;">
+          <label>توضیحات / مستند قانونی</label>
+          <textarea id="alarmDescInput" rows="2" oninput="updateAlarmCalendarLinks()">${esc('مستند: ' + info.law + ' — ثبت‌شده از سامانه گروه حقوقی برائت')}</textarea>
+        </div>
+      </div>
+      <div class="modal-actions" style="flex-wrap:wrap; gap:8px; justify-content:space-between; margin-top:18px;">
+        <button type="button" class="btn" onclick="closeModal()">بستن</button>
+        <div class="row" style="gap:8px; flex-wrap:wrap;">
+          <a id="alarmGCalLink" href="#" target="_blank" rel="noopener noreferrer" class="btn" style="text-decoration:none;">📅 تقویم گوگل</a>
+          <button type="button" class="btn primary" onclick="downloadDeadlineICS()">🔔 ذخیره در تقویم گوشی (آلارم)</button>
+        </div>
+      </div>
+    `;
+
+    const dSel = document.getElementById('alarmJDay');
+    populateJalaliDayOptions(dSel, info.jalali.jy, info.jalali.jm, info.jalali.jd);
+    window.updateAlarmCalendarLinks();
+    document.getElementById('modalBack').classList.add('show');
+  };
+
+  window.onAlarmMonthOrYearChange = function() {
+    const jy = Number(document.getElementById('alarmJYear')?.value);
+    const jm = Number(document.getElementById('alarmJMonth')?.value);
+    const dSel = document.getElementById('alarmJDay');
+    populateJalaliDayOptions(dSel, jy, jm, Number(dSel?.value));
+    window.updateAlarmCalendarLinks();
+  };
+
+  window.setAlarmQuickTime = function(val) {
+    const t = document.getElementById('alarmTimeInput');
+    if (t) {
+      t.value = val;
+      window.updateAlarmCalendarLinks();
+    }
+  };
+
+  function getAlarmFormData() {
+    const jy = Number(document.getElementById('alarmJYear')?.value) || 1405;
+    const jm = Number(document.getElementById('alarmJMonth')?.value) || 1;
+    const jd = Number(document.getElementById('alarmJDay')?.value) || 1;
+    const g = j2g(jy, jm, jd);
+    const dt = new Date(g.gy, g.gm - 1, g.gd, 12, 0, 0);
+    const jFull = formatJalaliFull(dt);
+    const timeStr = (document.getElementById('alarmTimeInput')?.value || '09:00').trim();
+    const [hh, mm] = (timeStr.match(/^\d{2}:\d{2}$/) ? timeStr : '09:00').split(':').map(Number);
+    const endDt = new Date(g.gy, g.gm - 1, g.gd, hh, mm + 30, 0);
+    const title = (document.getElementById('alarmTitleInput')?.value || 'موعد قانونی برائت').trim();
+    const desc = (document.getElementById('alarmDescInput')?.value || '').trim();
+    const extraOffset = Number(document.getElementById('alarmNotifyOffset')?.value || 0);
+    return { g, jFull, hh, mm, endDt, title, desc, extraOffset };
+  }
+
+  window.updateAlarmCalendarLinks = function() {
+    const data = getAlarmFormData();
+    const prev = document.getElementById('alarmDatePreview');
+    if (prev) {
+      prev.innerHTML = `${data.jFull.named} (${data.jFull.numericFa}) ساعت ${toFa(pad2(data.hh))}:${toFa(pad2(data.mm))}`;
+    }
+    const gLink = document.getElementById('alarmGCalLink');
+    if (gLink) {
+      const startStamp = `${data.g.gy}${pad2(data.g.gm)}${pad2(data.g.gd)}T${pad2(data.hh)}${pad2(data.mm)}00`;
+      const endStamp = `${data.endDt.getFullYear()}${pad2(data.endDt.getMonth() + 1)}${pad2(data.endDt.getDate())}T${pad2(data.endDt.getHours())}${pad2(data.endDt.getMinutes())}00`;
+      const url = 'https://calendar.google.com/calendar/render?action=TEMPLATE'
+        + '&text=' + encodeURIComponent(data.title)
+        + '&dates=' + encodeURIComponent(startStamp + '/' + endStamp)
+        + '&ctz=Asia/Tehran'
+        + '&details=' + encodeURIComponent(data.desc + '\nتاریخ شمسی: ' + data.jFull.numericFa);
+      gLink.href = url;
+    }
+  };
+
+  window.downloadDeadlineICS = function() {
+    const data = getAlarmFormData();
+    const startStamp = `${data.g.gy}${pad2(data.g.gm)}${pad2(data.g.gd)}T${pad2(data.hh)}${pad2(data.mm)}00`;
+    const endStamp = `${data.endDt.getFullYear()}${pad2(data.endDt.getMonth() + 1)}${pad2(data.endDt.getDate())}T${pad2(data.endDt.getHours())}${pad2(data.endDt.getMinutes())}00`;
+    const now = new Date();
+    const utcStamp = `${now.getUTCFullYear()}${pad2(now.getUTCMonth() + 1)}${pad2(now.getUTCDate())}T${pad2(now.getUTCHours())}${pad2(now.getUTCMinutes())}${pad2(now.getUTCSeconds())}Z`;
+    const escIcs = s => String(s || '').replace(/\\/g, '\\\\').replace(/\n/g, '\\n').replace(/,/g, '\\,').replace(/;/g, '\\;');
+
+    const alarms = [
+      'BEGIN:VALARM',
+      'TRIGGER:PT0M',
+      'ACTION:DISPLAY',
+      'DESCRIPTION:' + escIcs(data.title),
+      'END:VALARM'
+    ];
+    if (data.extraOffset > 0) {
+      alarms.push(
+        'BEGIN:VALARM',
+        `TRIGGER:-PT${data.extraOffset}M`,
+        'ACTION:DISPLAY',
+        'DESCRIPTION:' + escIcs('یادآور زودهنگام: ' + data.title),
+        'END:VALARM'
+      );
+    }
+
+    const icsLines = [
+      'BEGIN:VCALENDAR',
+      'VERSION:2.0',
+      'PRODID:-//Baraat Legal Group//Deadlines//FA',
+      'CALSCALE:GREGORIAN',
+      'METHOD:PUBLISH',
+      'BEGIN:VEVENT',
+      `UID:baraat-${Date.now()}@baraat.ir`,
+      `DTSTAMP:${utcStamp}`,
+      `DTSTART:${startStamp}`,
+      `DTEND:${endStamp}`,
+      `SUMMARY:${escIcs(data.title)}`,
+      `DESCRIPTION:${escIcs(data.desc + ' | تاریخ شمسی: ' + data.jFull.numericFa)}`,
+      ...alarms,
+      'END:VEVENT',
+      'END:VCALENDAR'
+    ];
+
+    const blob = new Blob([icsLines.join('\r\n')], { type: 'text/calendar;charset=utf-8' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `baraat-deadline-${data.jFull.jy}-${pad2(data.jFull.jm)}-${pad2(data.jFull.jd)}.ics`;
+    document.body.appendChild(a);
+    a.click();
+    setTimeout(() => {
+      document.body.removeChild(a);
+      URL.revokeObjectURL(url);
+    }, 500);
+    if (typeof toast === 'function') toast('فایل تقویم آماده شد؛ آن را باز کنید تا آلارم در تقویم گوشی ثبت شود.');
+  };
+
   window.renderDeadlines = function() {
+    window.initJalaliPicker();
     const list = window.getDeadlines();
     
     // پر کردن دراپ‌داون محاسبه‌گر ثنا
@@ -541,12 +955,18 @@
           <h4 style="margin:8px 0 4px; font-size:14.5px;">${esc(d.title)}</h4>
           <div style="font-size:12px; color:var(--muted); margin-bottom:8px;">مستند: <b>${esc(d.law)}</b></div>
           <p style="font-size:12.5px; color:var(--text); line-height:1.7; margin:0 0 10px;">${esc(d.desc || '')}</p>
-          ${window.isAdmin ? `
-            <div class="row" style="gap:6px; justify-content:flex-end;">
-              <button class="btn small" onclick="openDeadlineEditor('${d.id}')">✎ ویرایش</button>
-              <button class="btn small danger" onclick="deleteDeadline('${d.id}')">✕ حذف</button>
-            </div>
-          ` : ''}
+          <div class="row between" style="gap:6px; align-items:center;">
+            <button class="btn small" onclick="openDeadlineAlarmModal('${d.id}')" title="تنظیم آلارم در تقویم گوشی" style="display:inline-flex; align-items:center; gap:4px;">
+              <span>🔔</span>
+              <span>آلارم تقویم</span>
+            </button>
+            ${window.isAdmin ? `
+              <div class="row" style="gap:6px;">
+                <button class="btn small" onclick="openDeadlineEditor('${d.id}')">✎ ویرایش</button>
+                <button class="btn small danger" onclick="deleteDeadline('${d.id}')">✕ حذف</button>
+              </div>
+            ` : ''}
+          </div>
         </div>
       `).join('');
     }

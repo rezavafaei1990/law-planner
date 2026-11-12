@@ -1,9 +1,9 @@
 // =====================================================================
 // Service Worker اختصاصی سامانه برائت (گروه حقوقی برائت)
-// قابلیت کارکرد کامل آفلاین و کش‌کردن پوسته برنامه، فونت‌ها و فایل‌های استاتیک
+// قابلیت کارکرد کامل آفلاین + دریافت همیشگی نسخه جدید کدها هنگام آنلاین بودن
 // =====================================================================
 
-const CACHE_NAME = 'baraat-cache-v5';
+const CACHE_NAME = 'baraat-cache-v7';
 
 const ASSETS_TO_CACHE = [
   './',
@@ -21,9 +21,13 @@ self.addEventListener('install', event => {
   self.skipWaiting();
   event.waitUntil(
     caches.open(CACHE_NAME).then(cache => {
-      return cache.addAll(ASSETS_TO_CACHE).catch(err => {
-        console.warn('Pre-cache notice:', err);
-      });
+      return Promise.all(
+        ASSETS_TO_CACHE.map(asset =>
+          cache.add(new Request(asset, { cache: 'reload' })).catch(err => {
+            console.warn('Pre-cache notice for ' + asset + ':', err);
+          })
+        )
+      );
     })
   );
 });
@@ -68,10 +72,17 @@ self.addEventListener('fetch', event => {
     return;
   }
 
-  // Page navigation: Network-first with full offline fallback to cached shell
-  if (req.mode === 'navigate') {
+  // HTML, JS, CSS, and Navigation: Network-First (never serve stale UI/logic when online)
+  const isCodeOrDoc =
+    req.mode === 'navigate' ||
+    url.pathname.endsWith('.html') ||
+    url.pathname.endsWith('.js') ||
+    url.pathname.endsWith('.css') ||
+    url.pathname.endsWith('/');
+
+  if (isCodeOrDoc) {
     event.respondWith(
-      fetch(req).then(res => {
+      fetch(req, { cache: 'no-store' }).then(res => {
         if (res && res.status === 200) {
           const clone = res.clone();
           caches.open(CACHE_NAME).then(cache => cache.put(req, clone));
@@ -85,7 +96,7 @@ self.addEventListener('fetch', event => {
     return;
   }
 
-  // Static internal assets: Stale-While-Revalidate
+  // Static images/icons/manifest: Stale-While-Revalidate
   event.respondWith(
     caches.match(req, { ignoreSearch: true }).then(cachedResponse => {
       const fetchPromise = fetch(req).then(networkResponse => {
