@@ -1,12 +1,27 @@
 import tailwindcss from '@tailwindcss/vite';
 import react from '@vitejs/plugin-react';
 import path from 'path';
-import {defineConfig} from 'vite';
+import {defineConfig, Plugin} from 'vite';
+
+function preservePublicPwaLinks(): Plugin {
+  return {
+    name: 'preserve-public-pwa-links',
+    transformIndexHtml: {
+      order: 'post',
+      handler(html) {
+        return html
+          .replace(/href=["'][^"']*manifest[^"']*\.json["']/gi, 'href="./manifest.json"')
+          .replace(/href=["'][^"']*apple-touch-icon[^"']*\.png["']/gi, 'href="./icons/apple-touch-icon.png"')
+          .replace(/href=["'][^"']*icon[^"']*\.svg["']/gi, 'href="./icons/icon.svg"');
+      },
+    },
+  };
+}
 
 export default defineConfig(() => {
   return {
     base: './',
-    plugins: [react(), tailwindcss()],
+    plugins: [react(), tailwindcss(), preservePublicPwaLinks()],
     resolve: {
       alias: {
         '@': path.resolve(__dirname, '.'),

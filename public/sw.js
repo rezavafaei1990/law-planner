@@ -3,7 +3,7 @@
 // قابلیت کارکرد کامل آفلاین و کش‌کردن پوسته برنامه، فونت‌ها و فایل‌های استاتیک
 // =====================================================================
 
-const CACHE_NAME = 'baraat-cache-v3';
+const CACHE_NAME = 'baraat-cache-v4';
 
 const ASSETS_TO_CACHE = [
   './',
@@ -14,9 +14,7 @@ const ASSETS_TO_CACHE = [
   './icons/icon-512.png',
   './icons/icon-maskable-512.png',
   './icons/apple-touch-icon.png',
-  './icons/icon.svg',
-  'https://fonts.googleapis.com/css2?family=Vazirmatn:wght@300;400;500;600;700;800;900&display=swap',
-  'https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.110.9/dist/umd/supabase.js'
+  './icons/icon.svg'
 ];
 
 self.addEventListener('install', event => {
@@ -24,7 +22,7 @@ self.addEventListener('install', event => {
   event.waitUntil(
     caches.open(CACHE_NAME).then(cache => {
       return cache.addAll(ASSETS_TO_CACHE).catch(err => {
-        console.warn('Pre-cache warning (some remote asset may be cached on demand):', err);
+        console.warn('Pre-cache notice:', err);
       });
     })
   );
@@ -54,8 +52,10 @@ self.addEventListener('fetch', event => {
       caches.match(req).then(cached => {
         if (cached) return cached;
         return fetch(req).then(res => {
-          const resClone = res.clone();
-          caches.open(CACHE_NAME).then(cache => cache.put(req, resClone));
+          if (res && (res.status === 200 || res.type === 'opaque')) {
+            const resClone = res.clone();
+            caches.open(CACHE_NAME).then(cache => cache.put(req, resClone));
+          }
           return res;
         }).catch(() => cached);
       })
@@ -63,23 +63,38 @@ self.addEventListener('fetch', event => {
     return;
   }
 
-  // Application shell and internal assets: Stale-While-Revalidate
+  // Only handle same-origin internal requests below
+  if (url.origin !== self.location.origin) {
+    return;
+  }
+
+  // Page navigation: Network-first with full offline fallback to cached shell
+  if (req.mode === 'navigate') {
+    event.respondWith(
+      fetch(req).then(res => {
+        if (res && res.status === 200) {
+          const clone = res.clone();
+          caches.open(CACHE_NAME).then(cache => cache.put(req, clone));
+        }
+        return res;
+      }).catch(async () => {
+        const cached = await caches.match(req, { ignoreSearch: true });
+        return cached || caches.match('./index.html') || caches.match('./');
+      })
+    );
+    return;
+  }
+
+  // Static internal assets: Stale-While-Revalidate
   event.respondWith(
-    caches.match(req).then(cachedResponse => {
+    caches.match(req, { ignoreSearch: true }).then(cachedResponse => {
       const fetchPromise = fetch(req).then(networkResponse => {
         if (networkResponse && networkResponse.status === 200) {
           const responseToCache = networkResponse.clone();
-          caches.open(CACHE_NAME).then(cache => {
-            cache.put(req, responseToCache);
-          });
+          caches.open(CACHE_NAME).then(cache => cache.put(req, responseToCache));
         }
         return networkResponse;
-      }).catch(() => {
-        return cachedResponse || new Response('حالت آفلاین برائت: این بخش در حافظه موقت در دسترس نیست.', {
-          status: 503,
-          headers: { 'Content-Type': 'text/plain; charset=utf-8' }
-        });
-      });
+      }).catch(() => cachedResponse);
 
       return cachedResponse || fetchPromise;
     })

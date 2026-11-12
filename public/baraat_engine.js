@@ -856,11 +856,12 @@
   // -------------------------------------------------------------------
   // مدیریت نصب PWA (اپلیکیشن برائت) و وضعیت اتصال آنلاین / آفلاین
   // -------------------------------------------------------------------
-  let deferredPWAInstallPrompt = null;
+  let deferredPWAInstallPrompt = window.__deferredPWA || null;
 
   window.addEventListener('beforeinstallprompt', e => {
     e.preventDefault();
     deferredPWAInstallPrompt = e;
+    window.__deferredPWA = e;
     const hBtn = document.getElementById('pwaInstallHeaderBtn');
     const dBtn = document.getElementById('pwaInstallDockBtn');
     if (hBtn) hBtn.style.display = 'inline-flex';
@@ -869,6 +870,7 @@
 
   window.addEventListener('appinstalled', () => {
     deferredPWAInstallPrompt = null;
+    window.__deferredPWA = null;
     const hBtn = document.getElementById('pwaInstallHeaderBtn');
     const dBtn = document.getElementById('pwaInstallDockBtn');
     if (hBtn) hBtn.style.display = 'none';
