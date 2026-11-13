@@ -875,6 +875,16 @@
 
   window.downloadDeadlineICS = function() {
     const data = getAlarmFormData();
+    const startDt = new Date(data.g.gy, data.g.gm - 1, data.g.gd, data.hh, data.mm, 0);
+    if (window.BaraatAndroid && typeof window.BaraatAndroid.addCalendarEvent === 'function') {
+      window.BaraatAndroid.addCalendarEvent(
+        data.title,
+        data.desc + ' | تاریخ شمسی: ' + data.jFull.numericFa,
+        startDt.getTime(),
+        data.endDt.getTime()
+      );
+      return;
+    }
     const startStamp = `${data.g.gy}${pad2(data.g.gm)}${pad2(data.g.gd)}T${pad2(data.hh)}${pad2(data.mm)}00`;
     const endStamp = `${data.endDt.getFullYear()}${pad2(data.endDt.getMonth() + 1)}${pad2(data.endDt.getDate())}T${pad2(data.endDt.getHours())}${pad2(data.endDt.getMinutes())}00`;
     const now = new Date();
@@ -1457,48 +1467,107 @@
     if (typeof toast === 'function') toast('اپلیکیشن «برائت» با موفقیت نصب شد.');
   });
 
+  window.downloadAndroidApk = async function() {
+    const localUrl = './downloads/baraat.apk';
+    const ghPagesUrl = 'https://rezavafaei1990.github.io/law-planner/downloads/baraat.apk';
+    const triggerDownload = (url) => {
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = 'baraat.apk';
+      document.body.appendChild(a);
+      a.click();
+      setTimeout(() => document.body.removeChild(a), 500);
+      if (typeof toast === 'function') toast('دانلود فایل نصبی اندروید (baraat.apk) آغاز شد.');
+    };
+
+    try {
+      const res = await fetch(localUrl, { method: 'HEAD', cache: 'no-store' });
+      if (res.ok) {
+        triggerDownload(localUrl);
+        return;
+      }
+    } catch(e) {}
+
+    try {
+      const resGh = await fetch(ghPagesUrl, { method: 'HEAD', cache: 'no-store' });
+      if (resGh.ok) {
+        triggerDownload(ghPagesUrl);
+        return;
+      }
+    } catch(e) {}
+
+    if (window.showModal) {
+      window.showModal(`
+        <h2>🤖 فایل نصبی اندروید (APK)</h2>
+        <p style="line-height:1.9; font-size:13.5px; margin:14px 0; color:#334155;">
+          فایل <b>baraat.apk</b> پس از آپلود پوشه <b>android</b> و فایل گردش‌کار گیتهاب به صورت خودکار توسط GitHub Actions ساخته می‌شود و مستقیماً از همین دکمه قابل دانلود خواهد بود.
+        </p>
+        <div class="modal-actions">
+          <button class="btn primary" onclick="closeModal()">متوجه شدم</button>
+        </div>
+      `);
+    }
+  };
+
+  window.triggerNativePwaPrompt = async function() {
+    if (!deferredPWAInstallPrompt) return;
+    deferredPWAInstallPrompt.prompt();
+    const { outcome } = await deferredPWAInstallPrompt.userChoice;
+    if (outcome === 'accepted') {
+      deferredPWAInstallPrompt = null;
+      const hBtn = document.getElementById('pwaInstallHeaderBtn');
+      const dBtn = document.getElementById('pwaInstallDockBtn');
+      if (hBtn) hBtn.style.display = 'none';
+      if (dBtn) dBtn.style.display = 'none';
+      if (typeof closeModal === 'function') closeModal();
+    }
+  };
+
   window.promptPWAInstall = async function() {
     const isIOS = /iphone|ipad|ipod/.test(navigator.userAgent.toLowerCase());
-    if (isIOS) {
-      if (window.showModal) {
-        window.showModal(`
-          <h2>📲 نصب اپلیکیشن «برائت» روی آیفون / آیپد</h2>
-          <div style="line-height:2.1; font-size:13.5px; margin:16px 0; color:#334155;">
-            <p>برای نصب سامانه <b>برائت</b> روی صفحه اصلی دستگاه iOS خود:</p>
-            <ol style="padding-right:22px; margin:12px 0;">
-              <li>در نوار ابزار پایین مرورگر Safari، دکمه <b>Share (اشتراک‌گذاری)</b> ⎋ را لمس کنید.</li>
-              <li>صفحه را کمی به پایین اسکرول کرده و گزینه <b>Add to Home Screen (افزودن به صفحه اصلی)</b> ➕ را انتخاب نمایید.</li>
-              <li>در گوشه بالا دکمه <b>Add</b> را لمس کنید تا آیکون رسمی «برائت» به صفحه گوشی افزوده شود.</li>
-            </ol>
+    if (window.showModal) {
+      window.showModal(`
+        <h2>📲 دانلود و نصب اپلیکیشن «برائت»</h2>
+        <div style="display:grid; gap:14px; margin:16px 0;">
+          <div style="background:#f0fdfa; border:1px solid #99f6e4; border-radius:14px; padding:16px;">
+            <div style="font-weight:800; font-size:15px; color:#0f766e; margin-bottom:6px;">🤖 نسخه نصبی مستقیم اندروید (فایل APK)</div>
+            <p style="font-size:13px; color:#334155; line-height:1.8; margin:0 0 12px;">
+              مخصوص گوشی‌های اندروید با قابلیت اجرای تمام‌صفحه، کارکرد آفلاین و ثبت مستقیم آلارم مواعد قانونی در تقویم گوشی.
+            </p>
+            <button type="button" class="btn primary" onclick="downloadAndroidApk()" style="width:100%; justify-content:center;">
+              ⬇️ دانلود اپلیکیشن اندروید (baraat.apk)
+            </button>
           </div>
-          <div class="modal-actions">
-            <button class="btn primary" onclick="closeModal()">متوجه شدم</button>
-          </div>
-        `);
-      }
-      return;
-    }
 
-    if (deferredPWAInstallPrompt) {
-      deferredPWAInstallPrompt.prompt();
-      const { outcome } = await deferredPWAInstallPrompt.userChoice;
-      if (outcome === 'accepted') {
-        deferredPWAInstallPrompt = null;
-        const hBtn = document.getElementById('pwaInstallHeaderBtn');
-        const dBtn = document.getElementById('pwaInstallDockBtn');
-        if (hBtn) hBtn.style.display = 'none';
-        if (dBtn) dBtn.style.display = 'none';
-      }
-    } else {
-      if (window.showModal) {
-        window.showModal(`
-          <h2>📲 نصب نسخه تحت وب «برائت»</h2>
-          <p style="margin:14px 0; line-height:1.9;">برای نصب برنامه برائت، از منوی سه نقطه مرورگر خود (در بالای سمت راست یا چپ)، گزینه <b>Install App</b> یا <b>Add to Home Screen</b> را انتخاب کنید.</p>
-          <div class="modal-actions">
-            <button class="btn primary" onclick="closeModal()">بستن</button>
+          <div style="background:#f8fafc; border:1px solid var(--line); border-radius:14px; padding:16px;">
+            <div style="font-weight:800; font-size:15px; color:#0f172a; margin-bottom:6px;">🌐 نصب نسخه وب اپلیکیشن (PWA)</div>
+            ${isIOS ? `
+              <div style="line-height:2; font-size:13px; color:#334155;">
+                <p style="margin:0 0 6px;">برای نصب روی آیفون و آیپد در مرورگر Safari:</p>
+                <ol style="padding-right:20px; margin:0;">
+                  <li>دکمه <b>Share (اشتراک‌گذاری)</b> ⎋ را لمس کنید.</li>
+                  <li>گزینه <b>Add to Home Screen</b> ➕ را انتخاب کنید.</li>
+                  <li>دکمه <b>Add</b> را بزنید.</li>
+                </ol>
+              </div>
+            ` : (deferredPWAInstallPrompt ? `
+              <p style="font-size:13px; color:#334155; line-height:1.8; margin:0 0 12px;">
+                نصب آنی و سبک بدون نیاز به دانلود فایل نصبی برای گوشی و کامپیوتر.
+              </p>
+              <button type="button" class="btn" onclick="triggerNativePwaPrompt()" style="width:100%; justify-content:center;">
+                📲 نصب فوری نسخه وب (PWA)
+              </button>
+            ` : `
+              <p style="font-size:13px; color:#334155; line-height:1.8; margin:0;">
+                از منوی سه نقطه مرورگر خود گزینه <b>Install App</b> یا <b>Add to Home Screen</b> را انتخاب کنید.
+              </p>
+            `)}
           </div>
-        `);
-      }
+        </div>
+        <div class="modal-actions">
+          <button class="btn" onclick="closeModal()">بستن</button>
+        </div>
+      `);
     }
   };
 
@@ -1527,16 +1596,16 @@
     if (typeof toast === 'function') toast('حالت آفلاین فعال شد؛ تمام اطلاعات و قوانین از حافظه دستگاه خوانده می‌شوند.');
   });
 
-  // Check standalone mode (already running as PWA)
+  // Check standalone mode (already running as PWA or native Android APK)
   function checkStandalone() {
-    const isStandalone = window.matchMedia('(display-mode: standalone)').matches || window.navigator.standalone === true;
+    const isNativeApk = !!window.BaraatAndroid;
+    const isStandalone = isNativeApk || window.matchMedia('(display-mode: standalone)').matches || window.navigator.standalone === true;
     if (isStandalone) {
       const hBtn = document.getElementById('pwaInstallHeaderBtn');
       const dBtn = document.getElementById('pwaInstallDockBtn');
       if (hBtn) hBtn.style.display = 'none';
       if (dBtn) dBtn.style.display = 'none';
     } else {
-      // Show install buttons if browser supports it or on mobile
       const hBtn = document.getElementById('pwaInstallHeaderBtn');
       const dBtn = document.getElementById('pwaInstallDockBtn');
       if (hBtn) hBtn.style.display = 'inline-flex';

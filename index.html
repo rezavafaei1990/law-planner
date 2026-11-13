@@ -1470,9 +1470,9 @@ textarea {
     </button>
   </nav>
     <div class="dock-footer">
-    <button class="dock-btn-auth" id="pwaInstallDockBtn" onclick="promptPWAInstall()" style="margin-bottom:6px; color:#0f766e; background:#f0fdfa;" title="نصب اپلیکیشن برائت روی دستگاه">
+    <button class="dock-btn-auth" id="pwaInstallDockBtn" onclick="promptPWAInstall()" style="margin-bottom:6px; color:#0f766e; background:#f0fdfa;" title="دانلود و نصب اپلیکیشن برائت">
       <span class="dock-icon">📲</span>
-      <span class="dock-label">نصب برائت</span>
+      <span class="dock-label">دانلود اپلیکیشن</span>
     </button>
     <button class="dock-btn-auth" onclick="openAuthModal()">
       <span class="dock-icon">👤</span>
@@ -1489,7 +1489,7 @@ textarea {
     <span class="status-dot green"></span> آنلاین (سینک با Supabase)
   </div>
   <button class="btn" id="pwaInstallHeaderBtn" onclick="promptPWAInstall()" style="color:#0f766e; border-color:#99f6e4; background:#f0fdfa;">
-    <span style="font-size:15px">📲</span> نصب اپلیکیشن برائت
+    <span style="font-size:15px">📲</span> دانلود / نصب اپلیکیشن برائت
   </button>
   <button class="btn primary" id="authBtn" onclick="openAuthModal()">ورود / ثبت‌نام</button>
   <button class="btn hidden" id="outBtn" onclick="logout()">خروج</button>
@@ -3116,6 +3116,6 @@ if ('serviceWorker' in navigator) {
   });
 }
 </script>
-<script src="./baraat_engine.js?v=20261112_2"></script>
+<script src="./baraat_engine.js?v=20261112_3"></script>
 </body>
 </html>

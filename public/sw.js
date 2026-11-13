@@ -3,7 +3,7 @@
 // قابلیت کارکرد کامل آفلاین + دریافت همیشگی نسخه جدید کدها هنگام آنلاین بودن
 // =====================================================================
 
-const CACHE_NAME = 'baraat-cache-v7';
+const CACHE_NAME = 'baraat-cache-v8';
 
 const ASSETS_TO_CACHE = [
   './',
@@ -67,8 +67,8 @@ self.addEventListener('fetch', event => {
     return;
   }
 
-  // Only handle same-origin internal requests below
-  if (url.origin !== self.location.origin) {
+  // Only handle same-origin internal requests below; bypass APK binary downloads
+  if (url.origin !== self.location.origin || url.pathname.endsWith('.apk')) {
     return;
   }
 
