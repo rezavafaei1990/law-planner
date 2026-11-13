@@ -103,6 +103,25 @@
             window.renderCalculators();
           }
         });
+        await syncFromSupabase(ABOUT_KEY, (data) => {
+          if (data && typeof data === 'object') {
+            localStorage.setItem(ABOUT_KEY, JSON.stringify(data));
+            if (window.renderAbout) window.renderAbout();
+          }
+        });
+        await syncFromSupabase(CONTACT_KEY, (data) => {
+          if (data && typeof data === 'object') {
+            localStorage.setItem(CONTACT_KEY, JSON.stringify(data));
+            if (window.renderContact) window.renderContact();
+          }
+        });
+        if (window.isAdmin) {
+          await syncFromSupabase(ASSIGNED_PLANS_KEY, (data) => {
+            if (data && typeof data === 'object') {
+              localStorage.setItem(ASSIGNED_PLANS_KEY, JSON.stringify(data));
+            }
+          });
+        }
         if (typeof renderAdminPanels === 'function') renderAdminPanels();
       } finally {
         _syncPromise = null;
@@ -141,16 +160,20 @@
     const arts = window.getArticles();
     const dls = window.getDeadlines();
     const calcs = window.getCustomCalculators();
+    const aboutData = window.getAboutData ? window.getAboutData() : null;
+    const contactData = window.getContactData ? window.getContactData() : null;
 
     const r1 = await syncToSupabase(ARTICLES_KEY, arts);
     const r2 = await syncToSupabase(DEADLINES_KEY, dls);
     const r3 = await syncToSupabase(CALC_CUSTOM_KEY, calcs);
+    const r4 = aboutData ? await syncToSupabase(ABOUT_KEY, aboutData) : { ok: true };
+    const r5 = contactData ? await syncToSupabase(CONTACT_KEY, contactData) : { ok: true };
 
     if (typeof renderAdminPanels === 'function') renderAdminPanels();
 
-    const errors = [r1, r2, r3].filter(r => !r.ok).map(r => r.error);
+    const errors = [r1, r2, r3, r4, r5].filter(r => !r.ok).map(r => r.error);
     if (errors.length === 0) {
-      if (typeof toast === 'function') toast('همه مقالات و تنظیمات با موفقیت روی سرور منتشر شدند.');
+      if (typeof toast === 'function') toast('همه مقالات و تنظیمات و صفحات گروه با موفقیت روی سرور منتشر شدند.');
     } else {
       const msg = errors[0];
       if (window.showModal) {
@@ -1439,6 +1462,1106 @@
         </div>
       `;
     }
+
+    // رندر لیست اعضا در پنل ادمین
+    const admMemBox = document.getElementById('admAboutMembersList');
+    if (admMemBox && window.getAboutData) {
+      const about = window.getAboutData();
+      const members = about.members || [];
+      admMemBox.innerHTML = !members.length
+        ? '<div class="muted small" style="padding:12px; background:#f8fafc; border-radius:10px;">هنوز عضوی ثبت نشده است. با دکمه «افزودن عضو جدید» می‌توانید اسم و عکس و مشخصات وکلا و اعضای گروه را اضافه کنید.</div>'
+        : `<div style="display:grid; gap:8px;">${members.map((m, idx) => `
+            <div class="row between" style="padding:10px 14px; background:#f8fafc; border:1px solid var(--line); border-radius:10px; font-size:13px;">
+              <div class="row" style="gap:10px; align-items:center;">
+                ${m.photo ? `<img src="${esc(m.photo)}" referrerpolicy="no-referrer" style="width:36px;height:36px;border-radius:10px;object-fit:cover;border:1px solid var(--line);">` : `<div style="width:36px;height:36px;border-radius:10px;background:#f0fdfa;color:#0f766e;display:grid;place-items:center;font-weight:800;">${esc((m.name||'ب').slice(0,2))}</div>`}
+                <div>
+                  <b>${esc(m.name)}</b>
+                  <span class="muted small" style="margin-right:8px;">${esc(m.role || '')}${m.credentials ? ' · ' + esc(m.credentials) : ''}</span>
+                </div>
+              </div>
+              <div class="row" style="gap:6px;">
+                ${idx > 0 ? `<button class="btn small" onclick="moveMember('${m.id}', -1)" title="بالا">↑</button>` : ''}
+                ${idx < members.length - 1 ? `<button class="btn small" onclick="moveMember('${m.id}', 1)" title="پایین">↓</button>` : ''}
+                <button class="btn small" onclick="openMemberEditor('${m.id}')">✎ ویرایش</button>
+                <button class="btn small danger" onclick="deleteMember('${m.id}')">✕ حذف</button>
+              </div>
+            </div>
+          `).join('')}</div>`;
+    }
+
+    // رندر شبکه‌های اجتماعی در پنل ادمین
+    const admSocBox = document.getElementById('admContactSocialsList');
+    if (admSocBox && window.getContactData) {
+      const contact = window.getContactData();
+      const socials = contact.socials || [];
+      admSocBox.innerHTML = !socials.length
+        ? '<div class="muted small" style="padding:12px; background:#f8fafc; border-radius:10px;">هنوز شبکه اجتماعی ثبت نشده است.</div>'
+        : `<div style="display:grid; gap:8px;">${socials.map(s => `
+            <div class="row between" style="padding:10px 14px; background:#f8fafc; border:1px solid var(--line); border-radius:10px; font-size:13px;">
+              <div>
+                <b>${esc(s.title)}</b>
+                <span class="muted small" dir="ltr" style="margin-right:8px;">${esc(s.handle || s.url || '')}</span>
+              </div>
+              <div class="row" style="gap:6px;">
+                <button class="btn small" onclick="openSocialEditor('${s.id}')">✎ ویرایش</button>
+                <button class="btn small danger" onclick="deleteSocial('${s.id}')">✕ حذف</button>
+              </div>
+            </div>
+          `).join('')}</div>`;
+    }
+
+    // رندر برنامه‌های آپلودشده برای کاربران توسط مدیر
+    const admPlanBox = document.getElementById('admAssignedPlansList');
+    if (admPlanBox && window.getAssignedPlansMap) {
+      const map = window.getAssignedPlansMap();
+      const entries = Object.entries(map || {});
+      admPlanBox.innerHTML = !entries.length
+        ? '<div class="muted small" style="padding:12px; background:#f8fafc; border-radius:10px;">هنوز برنامه‌ای برای کاربر دیگری آپلود نشده است.</div>'
+        : `<div style="display:grid; gap:8px;">${entries.map(([email, entry]) => `
+            <div class="row between" style="padding:10px 14px; background:#f8fafc; border:1px solid var(--line); border-radius:10px; font-size:13px; flex-wrap:wrap; gap:8px;">
+              <div>
+                <b dir="ltr">${esc(email)}</b>
+                <span class="muted small" style="margin-right:8px;">${esc(entry.summary || entry.note || 'برنامه مطالعاتی')} · ${esc(entry.dateLabel || '')}</span>
+              </div>
+              <div class="row" style="gap:6px;">
+                <button class="btn small" onclick="openPlanAssignerModal('${esc(email)}')">✎ ارسال مجدد</button>
+                <button class="btn small danger" onclick="deleteAssignedPlan('${esc(email)}')">✕ حذف</button>
+              </div>
+            </div>
+          `).join('')}</div>`;
+    }
+  };
+
+  // -------------------------------------------------------------------
+  // ۴-الف. ماژول معرفی گروه حقوقی و اعضای تیم (قابل ویرایش و عکس‌گذاری توسط مدیر)
+  // -------------------------------------------------------------------
+  const ABOUT_KEY = 'baraat_about_v1';
+  const DEFAULT_ABOUT = {
+    kicker: 'مؤسسه و گروه حقوقی برائت',
+    title: 'دفاع تخصصی، پژوهش حقوقی و برنامه‌ریزی حرفه‌ای وکالت',
+    description: 'گروه حقوقی برائت با تمرکز بر پرونده‌های تخصصی حقوقی، کیفری، ثبتی و قراردادها، هم‌زمان در دو حوزه خدمات وکالت و آموزش نظام‌مند داوطلبان آزمون‌های حقوقی فعالیت می‌کند. ساختار ما بر دقت مستند به نص قانون، تحلیل رویه قضایی و همراهی شفاف با موکلین و پژوهشگران استوار است.',
+    motto: 'عدالت بر پایه مستند قانونی، دقت در مواعد و پیگیری مستمر تا حصول نتیجه',
+    heroCaption: 'گروه حقوقی برائت · دفتر پژوهش، مشاوره و پیگیری دعاوی',
+    heroImage: './images/baraat-law-hero.jpg',
+    pillars: [
+      { title: 'دعاوی مدنی و ملکی', desc: 'تنظیم و دفاع تخصصی در پرونده‌های املاک، عقود، الزام به تنظیم سند و خسارات قراردادی.' },
+      { title: 'دفاع کیفری و اقتصادی', desc: 'مشاوره و وکالت دقیق از مرحله تحقیقات مقدماتی دادسرا تا دیوان عالی کشور.' },
+      { title: 'قراردادها و امور شرکت‌ها', desc: 'نگارش، بازبینی و داوری قراردادهای تجاری، مشارکت در ساخت و دعاوی شرکت‌های بازرگانی.' },
+      { title: 'پژوهش و آموزش وکالت', desc: 'تنقیح قوانین، تحلیل آرای وحدت رویه و تدوین برنامه‌های مطالعاتی داوطلبان حقوقی.' }
+    ],
+    members: []
+  };
+
+  window.getAboutData = function() {
+    try {
+      const raw = localStorage.getItem(ABOUT_KEY);
+      if (!raw) return JSON.parse(JSON.stringify(DEFAULT_ABOUT));
+      const parsed = JSON.parse(raw);
+      return Object.assign({}, JSON.parse(JSON.stringify(DEFAULT_ABOUT)), parsed, {
+        pillars: Array.isArray(parsed.pillars) ? parsed.pillars : DEFAULT_ABOUT.pillars,
+        members: Array.isArray(parsed.members) ? parsed.members : []
+      });
+    } catch (e) {
+      return JSON.parse(JSON.stringify(DEFAULT_ABOUT));
+    }
+  };
+
+  async function saveAboutData(data, msg) {
+    if (!window.isAdmin) { if (typeof toast === 'function') toast('فقط مدیر مجاز به ویرایش معرفی گروه است'); return; }
+    localStorage.setItem(ABOUT_KEY, JSON.stringify(data));
+    window.renderAbout();
+    if (typeof window.renderAdminPanels === 'function') window.renderAdminPanels();
+    const res = await syncToSupabase(ABOUT_KEY, data);
+    if (res.ok) {
+      if (typeof toast === 'function') toast(msg || 'اطلاعات معرفی گروه در سرور ذخیره شد.');
+    } else {
+      if (typeof toast === 'function') toast('ذخیره محلی انجام شد اما خطای سرور رخ داد: ' + res.error);
+    }
+  }
+
+  function compressImageFileToDataUrl(file, maxSide, quality) {
+    return new Promise((resolve, reject) => {
+      const reader = new FileReader();
+      reader.onerror = () => reject(new Error('خطا در خواندن فایل تصویر'));
+      reader.onload = () => {
+        const img = new Image();
+        img.onerror = () => reject(new Error('فرمت تصویر معتبر نیست'));
+        img.onload = () => {
+          let w = img.width, h = img.height;
+          if (w > maxSide || h > maxSide) {
+            if (w >= h) { h = Math.round(h * maxSide / w); w = maxSide; }
+            else { w = Math.round(w * maxSide / h); h = maxSide; }
+          }
+          const canvas = document.createElement('canvas');
+          canvas.width = w;
+          canvas.height = h;
+          const ctx = canvas.getContext('2d');
+          ctx.drawImage(img, 0, 0, w, h);
+          try {
+            const url = canvas.toDataURL('image/jpeg', quality || 0.82);
+            resolve(url);
+          } catch (err) {
+            reject(err);
+          }
+        };
+        img.src = reader.result;
+      };
+      reader.readAsDataURL(file);
+    });
+  }
+
+  function socialSmallLinkHtml(label, url) {
+    if (!url) return '';
+    const href = /^https?:\/\//i.test(url) ? url : 'https://' + url;
+    return `<a class="member-social-link" href="${esc(href)}" target="_blank" rel="noopener noreferrer">${esc(label)} ↗</a>`;
+  }
+
+  window.renderAbout = function() {
+    const root = document.getElementById('aboutPageRoot');
+    if (!root) return;
+    const d = window.getAboutData();
+    const members = d.members || [];
+    const heroImg = d.heroImage || './images/baraat-law-hero.jpg';
+
+    root.innerHTML = `
+      <div class="baraat-editorial-shell">
+        <div class="baraat-about-hero">
+          <div class="baraat-about-copy">
+            <div>
+              <div class="baraat-kicker">${esc(d.kicker || 'گروه حقوقی برائت')}</div>
+              <h2 class="baraat-editorial-title" style="margin-top:10px;">${esc(d.title)}</h2>
+              <p class="baraat-editorial-sub" style="margin-top:14px;">${esc(d.description)}</p>
+            </div>
+            <div>
+              ${d.motto ? `<div class="baraat-motto-bar">${esc(d.motto)}</div>` : ''}
+              <div class="row" style="gap:10px; margin-top:16px; flex-wrap:wrap;">
+                <button class="btn primary" onclick="go('contact')">📞 ارتباط مستقیم و شبکه‌های اجتماعی</button>
+                <button class="btn" onclick="go('articles')">📚 مقالات و پژوهش‌های گروه</button>
+                ${window.isAdmin ? `<button class="btn" onclick="openAboutInfoEditor()">✏️ ویرایش معرفی گروه</button>` : ''}
+              </div>
+            </div>
+          </div>
+          <div class="baraat-about-visual">
+            <img src="${esc(heroImg)}" alt="${esc(d.title)}" referrerpolicy="no-referrer" onerror="this.style.display='none';">
+            <div class="baraat-about-visual-caption">
+              <span>${esc(d.heroCaption || 'گروه حقوقی برائت')}</span>
+              <span>⚖️</span>
+            </div>
+          </div>
+        </div>
+
+        ${(d.pillars && d.pillars.length) ? `
+          <div>
+            <div class="baraat-section-bar" style="margin-bottom:16px;">
+              <div>
+                <h3>محورهای تخصصی و حوزه‌های فعالیت</h3>
+                <p>ساختار خدمات حقوقی، پژوهش دکترین و هدایت پرونده‌ها</p>
+              </div>
+            </div>
+            <div class="baraat-pillars-grid">
+              ${d.pillars.map((p, i) => `
+                <div class="baraat-pillar-card">
+                  <div class="baraat-pillar-num">۰${toFa(i + 1)}</div>
+                  <h4>${esc(p.title)}</h4>
+                  <p>${esc(p.desc)}</p>
+                </div>
+              `).join('')}
+            </div>
+          </div>
+        ` : ''}
+
+        <div>
+          <div class="baraat-section-bar" style="margin-bottom:18px;">
+            <div>
+              <h3>اعضای گروه حقوقی، وکلا و پژوهشگران</h3>
+              <p>${members.length ? toFa(members.length) + ' عضو فعال در ساختار گروه حقوقی برائت' : 'فهرست وکلا، مشاوران و اعضای گروه حقوقی'}</p>
+            </div>
+            ${window.isAdmin ? `<button class="btn primary" onclick="openMemberEditor()">＋ افزودن عضو جدید</button>` : ''}
+          </div>
+
+          ${members.length === 0 ? `
+            <div class="empty-glass-card" style="margin-top:8px;">
+              <div class="empty-icon">🏛</div>
+              <h3>هنوز مشخصات اعضا ثبت نشده است</h3>
+              <p>مدیر سامانه می‌تواند از این بخش نام، عکس، سمت، شماره پروانه، سوابق و لینک شبکه‌های اجتماعی اعضای گروه را اضافه کند تا برای همه کاربران نمایش داده شود.</p>
+              ${window.isAdmin ? `<div style="margin-top:16px;"><button class="btn primary" onclick="openMemberEditor()">＋ افزودن اولین عضو گروه</button></div>` : ''}
+            </div>
+          ` : `
+            <div class="baraat-team-grid">
+              ${members.map((m, idx) => {
+                const initials = (m.name || 'ب').trim().split(/\s+/).slice(0, 2).map(w => w[0]).join('‌');
+                const metaParts = [m.role, m.credentials].filter(Boolean).map(esc);
+                return `
+                  <article class="member-card">
+                    <div class="member-photo-wrap">
+                      ${m.photo
+                        ? `<img src="${esc(m.photo)}" alt="${esc(m.name)}" referrerpolicy="no-referrer" onerror="this.outerHTML='<div class=\\'member-monogram\\'><div class=\\'member-monogram-circle\\'>${esc(initials)}</div></div>'">`
+                        : `<div class="member-monogram"><div class="member-monogram-circle">${esc(initials)}</div></div>`
+                      }
+                    </div>
+                    <div class="member-card-body">
+                      <h4 class="member-name">${esc(m.name)}</h4>
+                      ${metaParts.length ? `<div class="member-meta-line">${metaParts.join(' · ')}</div>` : ''}
+                      ${m.bio ? `<p class="member-bio">${esc(m.bio)}</p>` : '<div style="flex:1"></div>'}
+                      ${(m.instagram || m.xUrl || m.telegram || m.phone || window.isAdmin) ? `
+                        <div class="member-links-row">
+                          <div class="member-social-btns">
+                            ${socialSmallLinkHtml('اینستاگرام', m.instagram)}
+                            ${socialSmallLinkHtml('ایکس (X)', m.xUrl)}
+                            ${socialSmallLinkHtml('تلگرام', m.telegram)}
+                            ${m.phone ? `<a class="member-social-link" href="tel:${esc(m.phone)}">تماس ↗</a>` : ''}
+                          </div>
+                          ${window.isAdmin ? `
+                            <div class="row" style="gap:4px;">
+                              ${idx > 0 ? `<button class="btn small" onclick="moveMember('${m.id}', -1)" title="جابه جایی">↑</button>` : ''}
+                              ${idx < members.length - 1 ? `<button class="btn small" onclick="moveMember('${m.id}', 1)" title="جابه جایی">↓</button>` : ''}
+                              <button class="btn small" onclick="openMemberEditor('${m.id}')" title="ویرایش">✎</button>
+                              <button class="btn small danger" onclick="deleteMember('${m.id}')" title="حذف">✕</button>
+                            </div>
+                          ` : ''}
+                        </div>
+                      ` : ''}
+                    </div>
+                  </article>
+                `;
+              }).join('')}
+            </div>
+          `}
+        </div>
+      </div>
+    `;
+  };
+
+  window.openAboutInfoEditor = function() {
+    if (!window.isAdmin) return typeof toast === 'function' && toast('فقط مدیر مجاز است');
+    const d = window.getAboutData();
+    const m = document.getElementById('modal');
+    if (!m) return;
+    window.__tmpAboutHeroImg = d.heroImage || './images/baraat-law-hero.jpg';
+    const pillarsText = (d.pillars || []).map(p => `${p.title} | ${p.desc}`).join('\n');
+
+    m.innerHTML = `
+      <h2>✏️ ویرایش معرفی و مشخصات گروه حقوقی</h2>
+      <div class="form-grid">
+        <div class="field">
+          <label>برچسب بالای عنوان</label>
+          <input id="edAbKicker" value="${esc(d.kicker || '')}">
+        </div>
+        <div class="field">
+          <label>زیرنویس روی تصویر</label>
+          <input id="edAbHeroCap" value="${esc(d.heroCaption || '')}">
+        </div>
+        <div class="field" style="grid-column:1/-1;">
+          <label>تیتر اصلی معرفی گروه</label>
+          <input id="edAbTitle" value="${esc(d.title || '')}">
+        </div>
+        <div class="field" style="grid-column:1/-1;">
+          <label>توضیحات کامل معرفی گروه</label>
+          <textarea id="edAbDesc" rows="4">${esc(d.description || '')}</textarea>
+        </div>
+        <div class="field" style="grid-column:1/-1;">
+          <label>شعار یا خط‌مشی گروه</label>
+          <input id="edAbMotto" value="${esc(d.motto || '')}">
+        </div>
+        <div class="field" style="grid-column:1/-1;">
+          <label>تصویر شاخص صفحه معرفی (آپلود عکس یا لینک)</label>
+          <div class="baraat-photo-upload-box">
+            <img id="edAbHeroPreview" class="baraat-photo-preview" src="${esc(window.__tmpAboutHeroImg)}" onerror="this.style.opacity='0.3'">
+            <div style="flex:1; display:grid; gap:6px;">
+              <input type="file" id="edAbHeroFile" accept="image/*" style="font-size:12px;">
+              <input id="edAbHeroUrl" dir="ltr" value="${esc(window.__tmpAboutHeroImg)}" placeholder="./images/baraat-law-hero.jpg">
+            </div>
+          </div>
+        </div>
+        <div class="field" style="grid-column:1/-1;">
+          <label>محورهای تخصصی (هر سطر به قالب: عنوان | توضیح)</label>
+          <textarea id="edAbPillars" rows="4">${esc(pillarsText)}</textarea>
+        </div>
+      </div>
+      <div class="modal-actions">
+        <button class="btn" onclick="closeModal()">انصراف</button>
+        <button class="btn primary" onclick="submitAboutInfo()">ذخیره و انتشار</button>
+      </div>
+    `;
+    const fileInput = document.getElementById('edAbHeroFile');
+    const urlInput = document.getElementById('edAbHeroUrl');
+    const preview = document.getElementById('edAbHeroPreview');
+    if (fileInput) {
+      fileInput.onchange = async (e) => {
+        const f = e.target.files && e.target.files[0];
+        if (!f) return;
+        try {
+          const dataUrl = await compressImageFileToDataUrl(f, 960, 0.8);
+          window.__tmpAboutHeroImg = dataUrl;
+          if (urlInput) urlInput.value = dataUrl;
+          if (preview) { preview.src = dataUrl; preview.style.opacity = '1'; }
+          if (typeof toast === 'function') toast('تصویر آماده ذخیره شد.');
+        } catch (err) {
+          alert('خواندن تصویر ناموفق بود');
+        }
+      };
+    }
+    if (urlInput) {
+      urlInput.oninput = () => {
+        window.__tmpAboutHeroImg = urlInput.value.trim();
+        if (preview) preview.src = window.__tmpAboutHeroImg;
+      };
+    }
+    document.getElementById('modalBack').classList.add('show');
+  };
+
+  window.submitAboutInfo = function() {
+    const cur = window.getAboutData();
+    const pillars = (document.getElementById('edAbPillars')?.value || '').split('\n').map(l => l.trim()).filter(Boolean).map(l => {
+      const idx = l.indexOf('|');
+      return idx >= 0 ? { title: l.slice(0, idx).trim(), desc: l.slice(idx + 1).trim() } : { title: l, desc: '' };
+    });
+    const next = Object.assign({}, cur, {
+      kicker: (document.getElementById('edAbKicker')?.value || '').trim(),
+      heroCaption: (document.getElementById('edAbHeroCap')?.value || '').trim(),
+      title: (document.getElementById('edAbTitle')?.value || '').trim() || cur.title,
+      description: (document.getElementById('edAbDesc')?.value || '').trim(),
+      motto: (document.getElementById('edAbMotto')?.value || '').trim(),
+      heroImage: (document.getElementById('edAbHeroUrl')?.value || '').trim() || './images/baraat-law-hero.jpg',
+      pillars
+    });
+    closeModal();
+    saveAboutData(next, 'مشخصات معرفی گروه با موفقیت ذخیره و منتشر شد.');
+  };
+
+  window.openMemberEditor = function(id) {
+    if (!window.isAdmin) return typeof toast === 'function' && toast('فقط مدیر مجاز به افزودن یا ویرایش اعضاست');
+    const cur = window.getAboutData();
+    let mem = { id: 'mem_' + Date.now(), name: '', role: '', credentials: '', bio: '', photo: '', instagram: '', xUrl: '', telegram: '', phone: '' };
+    if (id) {
+      const f = (cur.members || []).find(x => x.id === id);
+      if (f) mem = Object.assign({}, mem, f);
+    }
+    window.__tmpMemberPhoto = mem.photo || '';
+    const m = document.getElementById('modal');
+    if (!m) return;
+
+    m.innerHTML = `
+      <h2>${id ? 'ویرایش مشخصات عضو گروه' : 'افزودن عضو جدید به گروه حقوقی'}</h2>
+      <div class="form-grid">
+        <div class="field">
+          <label>نام و نام خانوادگی *</label>
+          <input id="edMemName" value="${esc(mem.name)}" placeholder="مثلاً: دکتر رضا وفایی">
+        </div>
+        <div class="field">
+          <label>سمت / جایگاه در گروه</label>
+          <input id="edMemRole" value="${esc(mem.role)}" placeholder="مثلاً: وکیل پایه یک دادگستری و مدیر گروه">
+        </div>
+        <div class="field" style="grid-column:1/-1;">
+          <label>تحصیلات / شماره پروانه / تخصص کلیدی</label>
+          <input id="edMemCred" value="${esc(mem.credentials)}" placeholder="مثلاً: کانون وکلای مرکز · پروانه ۱۲۳۴۵ · متخصص دعاوی ملکی و قراردادها">
+        </div>
+        <div class="field" style="grid-column:1/-1;">
+          <label>عکس عضو (آپلود مستقیم از گوشی/کامپیوتر یا لینک عکس)</label>
+          <div class="baraat-photo-upload-box">
+            <img id="edMemPhotoPreview" class="baraat-photo-preview" src="${esc(mem.photo || '')}" style="${mem.photo ? '' : 'display:none;'}">
+            <div style="flex:1; display:grid; gap:6px;">
+              <div class="row" style="gap:6px; flex-wrap:wrap;">
+                <input type="file" id="edMemPhotoFile" accept="image/*" style="font-size:12px; flex:1;">
+                <button type="button" class="btn small danger" onclick="clearMemberPhotoModal()">حذف عکس</button>
+              </div>
+              <input id="edMemPhotoUrl" dir="ltr" value="${esc(mem.photo || '')}" placeholder="یا آدرس اینترنتی عکس را وارد کنید (اختیاری)">
+            </div>
+          </div>
+        </div>
+        <div class="field" style="grid-column:1/-1;">
+          <label>معرفی، سوابق و مشخصات کامل</label>
+          <textarea id="edMemBio" rows="4" placeholder="سوابق وکالت، تالیفات، دپارتمان تخصصی و افتخارات علمی و حرفه‌ای...">${esc(mem.bio || '')}</textarea>
+        </div>
+        <div class="field">
+          <label>لینک اینستاگرام (اختیاری)</label>
+          <input id="edMemIg" dir="ltr" value="${esc(mem.instagram || '')}" placeholder="https://instagram.com/...">
+        </div>
+        <div class="field">
+          <label>لینک ایکس / X (اختیاری)</label>
+          <input id="edMemX" dir="ltr" value="${esc(mem.xUrl || '')}" placeholder="https://x.com/...">
+        </div>
+        <div class="field">
+          <label>لینک تلگرام (اختیاری)</label>
+          <input id="edMemTg" dir="ltr" value="${esc(mem.telegram || '')}" placeholder="https://t.me/...">
+        </div>
+        <div class="field">
+          <label>شماره تماس مستقیم (اختیاری)</label>
+          <input id="edMemPhone" dir="ltr" value="${esc(mem.phone || '')}" placeholder="0912...">
+        </div>
+      </div>
+      <div class="modal-actions">
+        <button class="btn" onclick="closeModal()">انصراف</button>
+        <button class="btn primary" onclick="submitMember('${mem.id}')">ذخیره و انتشار عضو</button>
+      </div>
+    `;
+
+    const fileIn = document.getElementById('edMemPhotoFile');
+    const urlIn = document.getElementById('edMemPhotoUrl');
+    const prev = document.getElementById('edMemPhotoPreview');
+    if (fileIn) {
+      fileIn.onchange = async (e) => {
+        const f = e.target.files && e.target.files[0];
+        if (!f) return;
+        try {
+          const dataUrl = await compressImageFileToDataUrl(f, 440, 0.82);
+          window.__tmpMemberPhoto = dataUrl;
+          if (urlIn) urlIn.value = dataUrl;
+          if (prev) { prev.src = dataUrl; prev.style.display = 'block'; }
+          if (typeof toast === 'function') toast('عکس عضو فشرده‌سازی و آماده ذخیره شد.');
+        } catch (err) {
+          alert('خطا در بارگذاری تصویر');
+        }
+      };
+    }
+    if (urlIn) {
+      urlIn.oninput = () => {
+        window.__tmpMemberPhoto = urlIn.value.trim();
+        if (prev) {
+          prev.src = window.__tmpMemberPhoto;
+          prev.style.display = window.__tmpMemberPhoto ? 'block' : 'none';
+        }
+      };
+    }
+    document.getElementById('modalBack').classList.add('show');
+  };
+
+  window.clearMemberPhotoModal = function() {
+    window.__tmpMemberPhoto = '';
+    const u = document.getElementById('edMemPhotoUrl');
+    const f = document.getElementById('edMemPhotoFile');
+    const p = document.getElementById('edMemPhotoPreview');
+    if (u) u.value = '';
+    if (f) f.value = '';
+    if (p) { p.src = ''; p.style.display = 'none'; }
+  };
+
+  window.submitMember = function(id) {
+    const name = (document.getElementById('edMemName')?.value || '').trim();
+    if (!name) return alert('لطفاً نام عضو را وارد کنید.');
+    const cur = window.getAboutData();
+    const members = cur.members || [];
+    const item = {
+      id,
+      name,
+      role: (document.getElementById('edMemRole')?.value || '').trim(),
+      credentials: (document.getElementById('edMemCred')?.value || '').trim(),
+      bio: (document.getElementById('edMemBio')?.value || '').trim(),
+      photo: (document.getElementById('edMemPhotoUrl')?.value || window.__tmpMemberPhoto || '').trim(),
+      instagram: (document.getElementById('edMemIg')?.value || '').trim(),
+      xUrl: (document.getElementById('edMemX')?.value || '').trim(),
+      telegram: (document.getElementById('edMemTg')?.value || '').trim(),
+      phone: (document.getElementById('edMemPhone')?.value || '').trim()
+    };
+    const idx = members.findIndex(x => x.id === id);
+    if (idx >= 0) members[idx] = item;
+    else members.push(item);
+    cur.members = members;
+    closeModal();
+    saveAboutData(cur, 'اطلاعات عضو با موفقیت ذخیره و منتشر شد.');
+  };
+
+  window.deleteMember = function(id) {
+    if (!window.isAdmin) return;
+    if (!confirm('این عضو از لیست معرفی گروه حذف شود؟')) return;
+    const cur = window.getAboutData();
+    cur.members = (cur.members || []).filter(m => m.id !== id);
+    saveAboutData(cur, 'عضو از لیست گروه حذف شد.');
+  };
+
+  window.moveMember = function(id, dir) {
+    if (!window.isAdmin) return;
+    const cur = window.getAboutData();
+    const list = cur.members || [];
+    const i = list.findIndex(m => m.id === id);
+    const j = i + dir;
+    if (i < 0 || j < 0 || j >= list.length) return;
+    const tmp = list[i];
+    list[i] = list[j];
+    list[j] = tmp;
+    cur.members = list;
+    saveAboutData(cur, 'ترتیب نمایش اعضا به‌روزرسانی شد.');
+  };
+
+  // -------------------------------------------------------------------
+  // ۴-ب. ماژول تماس با ما و شبکه‌های اجتماعی (اینستاگرام، ایکس، تلگرام، واتساپ...)
+  // -------------------------------------------------------------------
+  const CONTACT_KEY = 'baraat_contact_v1';
+  const DEFAULT_CONTACT = {
+    headline: 'ارتباط مستقیم با گروه حقوقی برائت',
+    subheadline: 'برای دریافت وقت مشاوره تخصصی، پیگیری پرونده‌ها یا همراهی با تحلیل‌های حقوقی روز از راه‌های ارتباطی زیر و شبکه‌های اجتماعی رسمی ما استفاده کنید.',
+    phone: '',
+    whatsappPhone: '',
+    email: '',
+    address: 'دفتر مرکزی: اطلاعات دقیق نشانی توسط مدیر سامانه تکمیل می‌شود',
+    hours: 'شنبه تا چهارشنبه · ساعت ۹ الی ۱۸ (پنج‌شنبه‌ها با هماهنگی قبلی)',
+    mapUrl: '',
+    socials: [
+      { id: 'soc_ig', platform: 'instagram', title: 'اینستاگرام رسمی برائت', handle: '@baraat_law', url: 'https://instagram.com/', desc: 'ویدیوهای آموزشی، نکات کاربردی دعاوی و تحلیل آرای روز' },
+      { id: 'soc_x', platform: 'x', title: 'ایکس (توییتر سابق)', handle: '@baraat_law', url: 'https://x.com/', desc: 'یادداشت‌های سریع حقوقی، نقد قوانین جدید و رویه قضایی' },
+      { id: 'soc_tg', platform: 'telegram', title: 'کانال تلگرام برائت', handle: '@baraat_law', url: 'https://t.me/', desc: 'فایل قوانین تنقیح‌شده، آرای وحدت رویه و اطلاعیه‌های آزمون' }
+    ]
+  };
+
+  window.getContactData = function() {
+    try {
+      const raw = localStorage.getItem(CONTACT_KEY);
+      if (!raw) return JSON.parse(JSON.stringify(DEFAULT_CONTACT));
+      const parsed = JSON.parse(raw);
+      return Object.assign({}, JSON.parse(JSON.stringify(DEFAULT_CONTACT)), parsed, {
+        socials: Array.isArray(parsed.socials) ? parsed.socials : DEFAULT_CONTACT.socials
+      });
+    } catch (e) {
+      return JSON.parse(JSON.stringify(DEFAULT_CONTACT));
+    }
+  };
+
+  async function saveContactData(data, msg) {
+    if (!window.isAdmin) { if (typeof toast === 'function') toast('فقط مدیر مجاز به ویرایش تماس با ما است'); return; }
+    localStorage.setItem(CONTACT_KEY, JSON.stringify(data));
+    window.renderContact();
+    if (typeof window.renderAdminPanels === 'function') window.renderAdminPanels();
+    const res = await syncToSupabase(CONTACT_KEY, data);
+    if (res.ok) {
+      if (typeof toast === 'function') toast(msg || 'اطلاعات تماس و شبکه‌های اجتماعی روی سرور ذخیره شد.');
+    } else {
+      if (typeof toast === 'function') toast('ذخیره محلی انجام شد اما خطای سرور رخ داد: ' + res.error);
+    }
+  }
+
+  window.copyTextSafe = function(txt, label) {
+    if (!txt) return;
+    try {
+      navigator.clipboard.writeText(txt);
+      if (typeof toast === 'function') toast((label || 'متن') + ' کپی شد.');
+    } catch (e) {
+      if (typeof toast === 'function') toast(txt);
+    }
+  };
+
+  function getSocialSvgIcon(platform) {
+    switch (platform) {
+      case 'instagram':
+        return '<svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="2" width="20" height="20" rx="5" ry="5"/><path d="M16 11.37A4 4 0 1 1 12.63 8 4 4 0 0 1 16 11.37z"/><line x1="17.5" y1="6.5" x2="17.51" y2="6.5"/></svg>';
+      case 'x':
+        return '<svg width="22" height="22" viewBox="0 0 24 24" fill="currentColor"><path d="M18.244 2.25h3.308l-7.227 8.26 8.502 11.24H16.17l-5.214-6.817L4.99 21.75H1.68l7.73-8.835L1.254 2.25H8.08l4.713 6.231zm-1.161 17.52h1.833L7.084 4.126H5.117z"/></svg>';
+      case 'telegram':
+        return '<svg width="23" height="23" viewBox="0 0 24 24" fill="currentColor"><path d="M21.9 3.6c-.4-.3-1-.4-1.6-.1L2.6 10.6c-.7.3-1.1.8-1 1.4.1.6.5 1.1 1.2 1.3l4.3 1.4 1.7 5.3c.2.6.7 1 1.3 1 .5 0 1-.2 1.3-.6l2.5-2.7 4.4 3.2c.4.3.8.4 1.2.4.7 0 1.3-.5 1.5-1.3l3.1-14.9c.2-.6 0-1.2-.2-1.5zM9.8 14.3l8.1-6.9-6.3 7.9-.3 3.1-1.5-4.1z"/></svg>';
+      case 'whatsapp':
+        return '<svg width="23" height="23" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 11.5a8.38 8.38 0 0 1-.9 3.8 8.5 8.5 0 0 1-7.6 4.7 8.38 8.38 0 0 1-3.8-.9L3 21l1.9-5.7a8.38 8.38 0 0 1-.9-3.8 8.5 8.5 0 0 1 4.7-7.6 8.38 8.38 0 0 1 3.8-.9h.5a8.48 8.48 0 0 1 8 8v.5z"/></svg>';
+      case 'linkedin':
+        return '<svg width="22" height="22" viewBox="0 0 24 24" fill="currentColor"><path d="M19 3a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h14m-.5 15.5v-5.3a3.26 3.26 0 0 0-3.26-3.26c-.85 0-1.84.52-2.28 1.3v-1.11h-2.79v8.37h2.79v-4.93c0-.77.62-1.4 1.39-1.4a1.4 1.4 0 0 1 1.4 1.4v4.93h2.75M6.88 8.56a1.68 1.68 0 0 0 1.68-1.68c0-.93-.75-1.69-1.68-1.69a1.69 1.69 0 0 0-1.69 1.69c0 .93.76 1.68 1.69 1.68m1.39 9.94v-8.37H5.5v8.37h2.77z"/></svg>';
+      case 'youtube':
+        return '<svg width="23" height="23" viewBox="0 0 24 24" fill="currentColor"><path d="M23.5 6.2a3 3 0 0 0-2.1-2.1C19.5 3.5 12 3.5 12 3.5s-7.5 0-9.4.6A3 3 0 0 0 .5 6.2 31.3 31.3 0 0 0 0 12a31.3 31.3 0 0 0 .5 5.8 3 3 0 0 0 2.1 2.1c1.9.6 9.4.6 9.4.6s7.5 0 9.4-.6a3 3 0 0 0 2.1-2.1A31.3 31.3 0 0 0 24 12a31.3 31.3 0 0 0-.5-5.8zM9.6 15.6V8.4l6.3 3.6-6.3 3.6z"/></svg>';
+      default:
+        return '<svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><line x1="2" y1="12" x2="22" y2="12"/><path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"/></svg>';
+    }
+  }
+
+  window.renderContact = function() {
+    const root = document.getElementById('contactPageRoot');
+    if (!root) return;
+    const c = window.getContactData();
+    const socials = c.socials || [];
+
+    root.innerHTML = `
+      <div class="baraat-editorial-shell">
+        <div class="baraat-contact-hero">
+          <div>
+            <div style="font-size:12px; font-weight:700; color:#99f6e4;">تماس با گروه حقوقی برائت</div>
+            <h2>${esc(c.headline)}</h2>
+            <p>${esc(c.subheadline)}</p>
+          </div>
+          ${window.isAdmin ? `
+            <div class="row" style="gap:8px;">
+              <button class="btn" onclick="openContactEditor()" style="background:rgba(255,255,255,0.14); color:#ffffff; border-color:rgba(255,255,255,0.28);">✏️ ویرایش اطلاعات تماس</button>
+              <button class="btn primary" onclick="openSocialEditor()">＋ افزودن شبکه اجتماعی</button>
+            </div>
+          ` : ''}
+        </div>
+
+        <div class="contact-info-grid">
+          <div class="contact-info-tile">
+            <div>
+              <div class="contact-tile-top">
+                <div class="contact-tile-icon">📞</div>
+                <div class="contact-tile-label">تلفن تماس و هماهنگی مشاوره</div>
+              </div>
+              <div class="contact-tile-val" dir="ltr" style="margin-top:12px; text-align:right;">${esc(c.phone || 'در انتظار ثبت توسط مدیر')}</div>
+            </div>
+            ${c.phone ? `
+              <div class="contact-tile-actions">
+                <a class="btn small primary" href="tel:${esc(c.phone)}">تماس مستقیم</a>
+                <button class="btn small" onclick="copyTextSafe('${esc(c.phone)}', 'شماره تماس')">کپی شماره</button>
+              </div>
+            ` : ''}
+          </div>
+
+          <div class="contact-info-tile">
+            <div>
+              <div class="contact-tile-top">
+                <div class="contact-tile-icon">✉️</div>
+                <div class="contact-tile-label">ایمیل رسمی گروه</div>
+              </div>
+              <div class="contact-tile-val" dir="ltr" style="margin-top:12px; text-align:right;">${esc(c.email || 'در انتظار ثبت توسط مدیر')}</div>
+            </div>
+            ${c.email ? `
+              <div class="contact-tile-actions">
+                <a class="btn small primary" href="mailto:${esc(c.email)}">ارسال ایمیل</a>
+                <button class="btn small" onclick="copyTextSafe('${esc(c.email)}', 'ایمیل')">کپی ایمیل</button>
+              </div>
+            ` : ''}
+          </div>
+
+          <div class="contact-info-tile">
+            <div>
+              <div class="contact-tile-top">
+                <div class="contact-tile-icon">📍</div>
+                <div class="contact-tile-label">نشانی دفتر گروه حقوقی</div>
+              </div>
+              <div class="contact-tile-val" style="margin-top:12px; font-size:14px;">${esc(c.address || 'ثبت نشده')}</div>
+            </div>
+            ${(c.address || c.mapUrl) ? `
+              <div class="contact-tile-actions">
+                ${c.mapUrl ? `<a class="btn small primary" href="${esc(c.mapUrl)}" target="_blank" rel="noopener noreferrer">مشاهده روی نقشه ↗</a>` : ''}
+                ${c.address ? `<button class="btn small" onclick="copyTextSafe('${esc(c.address)}', 'نشانی')">کپی نشانی</button>` : ''}
+              </div>
+            ` : ''}
+          </div>
+
+          <div class="contact-info-tile">
+            <div>
+              <div class="contact-tile-top">
+                <div class="contact-tile-icon">🕒</div>
+                <div class="contact-tile-label">ساعات پاسخگویی و مشاوره</div>
+              </div>
+              <div class="contact-tile-val" style="margin-top:12px; font-size:14px;">${esc(c.hours || 'هماهنگی با وقت قبلی')}</div>
+            </div>
+            ${c.whatsappPhone ? `
+              <div class="contact-tile-actions">
+                <a class="btn small primary" href="https://wa.me/${esc(c.whatsappPhone.replace(/\D/g,''))}" target="_blank" rel="noopener noreferrer">پیام در واتساپ ↗</a>
+              </div>
+            ` : ''}
+          </div>
+        </div>
+
+        <div>
+          <div class="baraat-section-bar" style="margin-bottom:18px;">
+            <div>
+              <h3>شبکه‌های اجتماعی رسمی گروه حقوقی برائت</h3>
+              <p>اینستاگرام، ایکس (X)، تلگرام و سایر بسترهای ارتباطی برای دنبال کردن مطالب و تحلیل‌های حقوقی</p>
+            </div>
+            ${window.isAdmin ? `<button class="btn primary" onclick="openSocialEditor()">＋ افزودن شبکه اجتماعی</button>` : ''}
+          </div>
+
+          ${socials.length === 0 ? `
+            <div class="empty-glass-card">
+              <div class="empty-icon">🌐</div>
+              <h3>هنوز لینک شبکه اجتماعی ثبت نشده است</h3>
+              <p>مدیر سامانه می‌تواند لینک صفحه اینستاگرام، ایکس و تلگرام را از اینجا اضافه کند.</p>
+            </div>
+          ` : `
+            <div class="baraat-social-grid">
+              ${socials.map(s => {
+                const safeHref = s.url && /^https?:\/\//i.test(s.url) ? s.url : ('https://' + (s.url || ''));
+                return `
+                  <div class="social-card">
+                    <div>
+                      <div class="social-card-head">
+                        <div class="social-brand-icon ${esc(s.platform || 'other')}">${getSocialSvgIcon(s.platform)}</div>
+                        <div>
+                          <h4 class="social-title">${esc(s.title)}</h4>
+                          ${s.handle ? `<div class="social-handle" dir="ltr">${esc(s.handle)}</div>` : ''}
+                        </div>
+                      </div>
+                      ${s.desc ? `<p class="social-desc" style="margin-top:12px;">${esc(s.desc)}</p>` : ''}
+                    </div>
+                    <div class="social-card-foot">
+                      <a class="btn small primary" href="${esc(safeHref)}" target="_blank" rel="noopener noreferrer" style="text-decoration:none;">مشاهده صفحه ↗</a>
+                      <div class="row" style="gap:6px;">
+                        ${s.handle ? `<button class="btn small" onclick="copyTextSafe('${esc(s.handle)}', 'شناسه')">کپی آیدی</button>` : ''}
+                        ${window.isAdmin ? `
+                          <button class="btn small" onclick="openSocialEditor('${s.id}')" title="ویرایش">✎</button>
+                          <button class="btn small danger" onclick="deleteSocial('${s.id}')" title="حذف">✕</button>
+                        ` : ''}
+                      </div>
+                    </div>
+                  </div>
+                `;
+              }).join('')}
+            </div>
+          `}
+        </div>
+      </div>
+    `;
+  };
+
+  window.openContactEditor = function() {
+    if (!window.isAdmin) return typeof toast === 'function' && toast('فقط مدیر مجاز است');
+    const c = window.getContactData();
+    const m = document.getElementById('modal');
+    if (!m) return;
+    m.innerHTML = `
+      <h2>✏️ ویرایش اطلاعات تماس با ما</h2>
+      <div class="form-grid">
+        <div class="field" style="grid-column:1/-1;">
+          <label>تیتر صفحه تماس با ما</label>
+          <input id="edCtHeadline" value="${esc(c.headline || '')}">
+        </div>
+        <div class="field" style="grid-column:1/-1;">
+          <label>توضیح کوتاه بالای صفحه</label>
+          <textarea id="edCtSub" rows="2">${esc(c.subheadline || '')}</textarea>
+        </div>
+        <div class="field">
+          <label>شماره تماس مستقیم</label>
+          <input id="edCtPhone" dir="ltr" value="${esc(c.phone || '')}" placeholder="02188000000 یا 0912...">
+        </div>
+        <div class="field">
+          <label>شماره واتساپ (با کد کشور مثل 98912...)</label>
+          <input id="edCtWa" dir="ltr" value="${esc(c.whatsappPhone || '')}" placeholder="989120000000">
+        </div>
+        <div class="field">
+          <label>ایمیل رسمی</label>
+          <input id="edCtEmail" dir="ltr" value="${esc(c.email || '')}" placeholder="info@baraat.ir">
+        </div>
+        <div class="field">
+          <label>ساعات کاری و مشاوره</label>
+          <input id="edCtHours" value="${esc(c.hours || '')}">
+        </div>
+        <div class="field" style="grid-column:1/-1;">
+          <label>نشانی دفتر</label>
+          <textarea id="edCtAddr" rows="2">${esc(c.address || '')}</textarea>
+        </div>
+        <div class="field" style="grid-column:1/-1;">
+          <label>لینک نقشه (Google Maps / نشان - اختیاری)</label>
+          <input id="edCtMap" dir="ltr" value="${esc(c.mapUrl || '')}" placeholder="https://maps.google.com/...">
+        </div>
+      </div>
+      <div class="modal-actions">
+        <button class="btn" onclick="closeModal()">انصراف</button>
+        <button class="btn primary" onclick="submitContactInfo()">ذخیره و انتشار</button>
+      </div>
+    `;
+    document.getElementById('modalBack').classList.add('show');
+  };
+
+  window.submitContactInfo = function() {
+    const cur = window.getContactData();
+    const next = Object.assign({}, cur, {
+      headline: (document.getElementById('edCtHeadline')?.value || '').trim() || cur.headline,
+      subheadline: (document.getElementById('edCtSub')?.value || '').trim(),
+      phone: (document.getElementById('edCtPhone')?.value || '').trim(),
+      whatsappPhone: (document.getElementById('edCtWa')?.value || '').trim(),
+      email: (document.getElementById('edCtEmail')?.value || '').trim(),
+      hours: (document.getElementById('edCtHours')?.value || '').trim(),
+      address: (document.getElementById('edCtAddr')?.value || '').trim(),
+      mapUrl: (document.getElementById('edCtMap')?.value || '').trim()
+    });
+    closeModal();
+    saveContactData(next, 'اطلاعات تماس گروه با موفقیت منتشر شد.');
+  };
+
+  window.openSocialEditor = function(id) {
+    if (!window.isAdmin) return typeof toast === 'function' && toast('فقط مدیر مجاز است');
+    const cur = window.getContactData();
+    let s = { id: 'soc_' + Date.now(), platform: 'instagram', title: 'اینستاگرام', handle: '@', url: 'https://', desc: '' };
+    if (id) {
+      const f = (cur.socials || []).find(x => x.id === id);
+      if (f) s = Object.assign({}, f);
+    }
+    const m = document.getElementById('modal');
+    if (!m) return;
+    m.innerHTML = `
+      <h2>${id ? 'ویرایش شبکه اجتماعی' : 'افزودن شبکه اجتماعی جدید'}</h2>
+      <div class="form-grid">
+        <div class="field">
+          <label>پلتفرم</label>
+          <select id="edSocPlat">
+            <option value="instagram" ${s.platform==='instagram'?'selected':''}>اینستاگرام (Instagram)</option>
+            <option value="x" ${s.platform==='x'?'selected':''}>ایکس (X / Twitter)</option>
+            <option value="telegram" ${s.platform==='telegram'?'selected':''}>تلگرام (Telegram)</option>
+            <option value="whatsapp" ${s.platform==='whatsapp'?'selected':''}>واتساپ (WhatsApp)</option>
+            <option value="linkedin" ${s.platform==='linkedin'?'selected':''}>لینکدین (LinkedIn)</option>
+            <option value="youtube" ${s.platform==='youtube'?'selected':''}>یوتیوب (YouTube)</option>
+            <option value="aparat" ${s.platform==='aparat'?'selected':''}>آپارات</option>
+            <option value="eitaa" ${s.platform==='eitaa'?'selected':''}>ایتا</option>
+            <option value="bale" ${s.platform==='bale'?'selected':''}>بله</option>
+            <option value="website" ${s.platform==='website'?'selected':''}>وب‌سایت</option>
+            <option value="other" ${s.platform==='other'?'selected':''}>سایر</option>
+          </select>
+        </div>
+        <div class="field">
+          <label>عنوان نمایشی کارت</label>
+          <input id="edSocTitle" value="${esc(s.title)}" placeholder="مثلاً: صفحه رسمی اینستاگرام">
+        </div>
+        <div class="field">
+          <label>شناسه کاربری (آیدی)</label>
+          <input id="edSocHandle" dir="ltr" value="${esc(s.handle || '')}" placeholder="@baraat_law">
+        </div>
+        <div class="field">
+          <label>آدرس لینک صفحه *</label>
+          <input id="edSocUrl" dir="ltr" value="${esc(s.url || '')}" placeholder="https://instagram.com/baraat_law">
+        </div>
+        <div class="field" style="grid-column:1/-1;">
+          <label>توضیح کوتاه محتوا</label>
+          <textarea id="edSocDesc" rows="2" placeholder="چه مطالبی در این شبکه منتشر می‌شود...">${esc(s.desc || '')}</textarea>
+        </div>
+      </div>
+      <div class="modal-actions">
+        <button class="btn" onclick="closeModal()">انصراف</button>
+        <button class="btn primary" onclick="submitSocial('${s.id}')">ذخیره و انتشار</button>
+      </div>
+    `;
+    document.getElementById('modalBack').classList.add('show');
+  };
+
+  window.submitSocial = function(id) {
+    const title = (document.getElementById('edSocTitle')?.value || '').trim();
+    const url = (document.getElementById('edSocUrl')?.value || '').trim();
+    if (!title || !url) return alert('عنوان و لینک صفحه را وارد کنید.');
+    const cur = window.getContactData();
+    const item = {
+      id,
+      platform: document.getElementById('edSocPlat')?.value || 'other',
+      title,
+      handle: (document.getElementById('edSocHandle')?.value || '').trim(),
+      url: /^https?:\/\//i.test(url) ? url : 'https://' + url,
+      desc: (document.getElementById('edSocDesc')?.value || '').trim()
+    };
+    const list = cur.socials || [];
+    const idx = list.findIndex(x => x.id === id);
+    if (idx >= 0) list[idx] = item;
+    else list.push(item);
+    cur.socials = list;
+    closeModal();
+    saveContactData(cur, 'شبکه اجتماعی با موفقیت ذخیره شد.');
+  };
+
+  window.deleteSocial = function(id) {
+    if (!window.isAdmin) return;
+    if (!confirm('این شبکه اجتماعی حذف شود؟')) return;
+    const cur = window.getContactData();
+    cur.socials = (cur.socials || []).filter(x => x.id !== id);
+    saveContactData(cur, 'شبکه اجتماعی حذف شد.');
+  };
+
+  // -------------------------------------------------------------------
+  // ۴-ج. آپلود و ارسال برنامه مطالعاتی برای کاربران (اختصاصی مدیر)
+  // -------------------------------------------------------------------
+  const ASSIGNED_PLANS_KEY = 'baraat_assigned_plans_v1';
+
+  window.getAssignedPlansMap = function() {
+    try {
+      const raw = localStorage.getItem(ASSIGNED_PLANS_KEY);
+      return raw ? JSON.parse(raw) : {};
+    } catch (e) {
+      return {};
+    }
+  };
+
+  window.openPlanAssignerModal = async function(prefillEmail) {
+    if (!window.isAdmin) {
+      if (typeof toast === 'function') toast('فقط مدیر سامانه می‌تواند برای کاربران برنامه آپلود کند.');
+      return;
+    }
+    const helpers = window.BARAAT_PLANNER_HELPERS || { LIB: [] };
+    const names = window.LAWDB && window.LAWDB.names ? window.LAWDB.names() : [];
+    const m = document.getElementById('modal');
+    if (!m) return;
+    window.__tmpAssignedJson = null;
+
+    m.innerHTML = `
+      <h2>📤 آپلود و ارسال برنامه مطالعاتی برای کاربر</h2>
+      <p class="muted small" style="line-height:1.8;">
+        ایمیل کاربر دریافت‌کننده را وارد کنید و برنامه را انتخاب یا فایل پشتیبان را آپلود کنید. به محض ورود کاربر به بخش برنامه مطالعاتی، برنامه خودکار برای او بارگذاری می‌شود.
+      </p>
+      <div class="form-grid" style="margin-top:10px;">
+        <div class="field" style="grid-column:1/-1;">
+          <label>ایمیل کاربر دریافت‌کننده *</label>
+          <input id="paEmail" type="email" dir="ltr" value="${esc(prefillEmail || '')}" placeholder="user@example.com">
+        </div>
+        <div class="field">
+          <label>منبع برنامه</label>
+          <select id="paKind" onchange="togglePlanAssignKind()">
+            <option value="lib">انتخاب از کتابخانه برنامه‌های استاندارد</option>
+            <option value="json">آپلود فایل یا متن پشتیبان (JSON)</option>
+            <option value="text">ورود برنامه متنی اختصاصی (روز ۱ ـ ...)</option>
+          </select>
+        </div>
+        <div class="field">
+          <label>نحوه اعمال در حساب کاربر</label>
+          <select id="paMode">
+            <option value="merge">ادغام با برنامه فعلی کاربر (حفظ پیشرفت قبلی)</option>
+            <option value="replace">جایگزینی کامل برنامه کاربر</option>
+          </select>
+        </div>
+        <div class="field" style="grid-column:1/-1;">
+          <label>یادداشت یا عنوان پیام برای کاربر (اختیاری)</label>
+          <input id="paNote" placeholder="مثلاً: برنامه مطالعاتی هفته اول تا سوم · گروه برائت">
+        </div>
+      </div>
+
+      <div id="paBoxLib" style="margin-top:14px; padding:12px; border:1px solid var(--line); border-radius:12px; background:#f8fafc;">
+        <label style="font-size:12.5px; font-weight:700; display:block; margin-bottom:8px;">انتخاب دروس کتابخانه استاندارد:</label>
+        <div style="display:grid; gap:6px;">
+          ${(helpers.LIB || []).map(p => `
+            <label class="check" style="margin:0; cursor:pointer;">
+              <input type="checkbox" name="paLibId" value="${esc(p.id)}">
+              <span>${esc(p.name)}</span>
+            </label>
+          `).join('')}
+        </div>
+      </div>
+
+      <div id="paBoxJson" class="hidden" style="margin-top:14px; padding:12px; border:1px solid var(--line); border-radius:12px; background:#f8fafc;">
+        <div class="field">
+          <label>انتخاب فایل JSON برنامه (خروجی پشتیبان)</label>
+          <input type="file" id="paJsonFile" accept=".json,application/json">
+        </div>
+        <div class="field" style="margin-top:8px;">
+          <label>یا چسباندن متن JSON برنامه</label>
+          <textarea id="paJsonText" rows="5" dir="ltr" placeholder='{"subjects":[...],"days":[...]}'></textarea>
+        </div>
+      </div>
+
+      <div id="paBoxText" class="hidden" style="margin-top:14px; padding:12px; border:1px solid var(--line); border-radius:12px; background:#f8fafc;">
+        <div class="form-grid">
+          <div class="field">
+            <label>عنوان درس</label>
+            <input id="paTxtSub" placeholder="مثلاً: حقوق مدنی">
+          </div>
+          <div class="field">
+            <label>منبع / قانون مرتبط در پایگاه</label>
+            <select id="paTxtDb">
+              <option value="">— بدون اتصال به پایگاه —</option>
+              ${names.map(n => `<option value="${esc(n)}">${esc(n)}</option>`).join('')}
+            </select>
+          </div>
+          <div class="field" style="grid-column:1/-1;">
+            <label>نام منبع نمایشی</label>
+            <input id="paTxtLaw" placeholder="مثلاً: قانون مدنی">
+          </div>
+          <div class="field" style="grid-column:1/-1;">
+            <label>متن برنامه (قالب: روز ۱ ـ عنوان)</label>
+            <textarea id="paTxtBody" rows="6" placeholder="روز ۱ ـ کلیات قراردادها&#10;- مواد ۱۸۳ تا ۱۹۰&#10;- ۲۰ تست"></textarea>
+          </div>
+        </div>
+      </div>
+
+      <div class="modal-actions" style="margin-top:18px;">
+        <button class="btn" onclick="closeModal()">انصراف</button>
+        <button class="btn primary" onclick="submitPlanAssigner()">☁️ آپلود و ارسال برای کاربر</button>
+      </div>
+    `;
+
+    const fileEl = document.getElementById('paJsonFile');
+    if (fileEl) {
+      fileEl.onchange = async (e) => {
+        const f = e.target.files && e.target.files[0];
+        if (!f) return;
+        try {
+          const txt = await f.text();
+          const area = document.getElementById('paJsonText');
+          if (area) area.value = txt;
+          if (typeof toast === 'function') toast('فایل برنامه خوانده شد.');
+        } catch (err) {
+          alert('خواندن فایل ناموفق بود');
+        }
+      };
+    }
+
+    document.getElementById('modalBack').classList.add('show');
+  };
+
+  window.togglePlanAssignKind = function() {
+    const k = document.getElementById('paKind')?.value || 'lib';
+    document.getElementById('paBoxLib')?.classList.toggle('hidden', k !== 'lib');
+    document.getElementById('paBoxJson')?.classList.toggle('hidden', k !== 'json');
+    document.getElementById('paBoxText')?.classList.toggle('hidden', k !== 'text');
+  };
+
+  window.submitPlanAssigner = async function() {
+    if (!window.isAdmin) return;
+    const email = (document.getElementById('paEmail')?.value || '').trim().toLowerCase();
+    if (!email || !email.includes('@')) return alert('لطفاً ایمیل معتبر کاربر را وارد کنید.');
+
+    const kind = document.getElementById('paKind')?.value || 'lib';
+    const mode = document.getElementById('paMode')?.value || 'merge';
+    const note = (document.getElementById('paNote')?.value || '').trim();
+    const helpers = window.BARAAT_PLANNER_HELPERS;
+
+    let payload = {
+      mode,
+      note,
+      planKind: kind,
+      updatedAt: Date.now(),
+      dateLabel: new Date().toLocaleDateString('fa-IR')
+    };
+
+    if (kind === 'lib') {
+      const ids = [...document.querySelectorAll('input[name="paLibId"]:checked')].map(c => c.value);
+      if (!ids.length) return alert('حداقل یک برنامه از کتابخانه انتخاب کنید.');
+      payload.libIds = ids;
+      payload.summary = 'کتابخانه (' + ids.map(id => ((helpers?.LIB || []).find(p => p.id === id)?.name || id)).join(' و ') + ')';
+    } else if (kind === 'json') {
+      const raw = (document.getElementById('paJsonText')?.value || '').trim();
+      if (!raw) return alert('فایل یا متن JSON برنامه را وارد کنید.');
+      let parsed;
+      try {
+        parsed = JSON.parse(raw);
+        if (!Array.isArray(parsed.days) || !Array.isArray(parsed.subjects)) throw new Error();
+      } catch (e) {
+        return alert('ساختار فایل JSON معتبر نیست.');
+      }
+      payload.jsonState = parsed;
+      payload.summary = 'فایل برنامه (' + toFa(parsed.days.length) + ' روز)';
+    } else if (kind === 'text') {
+      const text = (document.getElementById('paTxtBody')?.value || '').trim();
+      const subjectName = (document.getElementById('paTxtSub')?.value || '').trim() || 'برنامه اختصاصی';
+      const dbLaw = (document.getElementById('paTxtDb')?.value || '').trim();
+      const lawName = (document.getElementById('paTxtLaw')?.value || '').trim() || dbLaw || subjectName;
+      const parsedDays = helpers && helpers.parsePlanText ? helpers.parsePlanText(text) : [];
+      if (!parsedDays.length) return alert('در متن واردشده هیچ روزی با قالب «روز ۱ ـ عنوان» پیدا نشد.');
+      payload.text = text;
+      payload.subjectName = subjectName;
+      payload.lawName = lawName;
+      payload.dbLaw = dbLaw;
+      payload.summary = subjectName + ' (' + toFa(parsedDays.length) + ' روز)';
+    }
+
+    const latestServer = await syncFromSupabase(ASSIGNED_PLANS_KEY);
+    const map = (latestServer && latestServer.exists && typeof latestServer.data === 'object')
+      ? latestServer.data
+      : window.getAssignedPlansMap();
+
+    map[email] = payload;
+    localStorage.setItem(ASSIGNED_PLANS_KEY, JSON.stringify(map));
+    const res = await syncToSupabase(ASSIGNED_PLANS_KEY, map);
+    closeModal();
+    if (typeof window.renderAdminPanels === 'function') window.renderAdminPanels();
+
+    if (res.ok) {
+      if (window.me && window.me.email && window.me.email.trim().toLowerCase() === email && window.refreshAssignedPlannerForMe) {
+        await window.refreshAssignedPlannerForMe();
+      }
+      if (typeof toast === 'function') toast('برنامه مطالعاتی برای کاربر ' + email + ' روی سرور آپلود شد.');
+    } else {
+      if (typeof toast === 'function') toast('خطا در ارسال برنامه روی سرور: ' + res.error);
+    }
+  };
+
+  window.deleteAssignedPlan = async function(email) {
+    if (!window.isAdmin) return;
+    if (!confirm('برنامه آپلودشده برای ' + email + ' از فهرست ارسال حذف شود؟')) return;
+    const latestServer = await syncFromSupabase(ASSIGNED_PLANS_KEY);
+    const map = (latestServer && latestServer.exists && typeof latestServer.data === 'object')
+      ? latestServer.data
+      : window.getAssignedPlansMap();
+    delete map[email];
+    localStorage.setItem(ASSIGNED_PLANS_KEY, JSON.stringify(map));
+    await syncToSupabase(ASSIGNED_PLANS_KEY, map);
+    if (typeof window.renderAdminPanels === 'function') window.renderAdminPanels();
+    if (typeof toast === 'function') toast('مورد از فهرست برنامه‌های ارسالی حذف شد.');
   };
 
 
@@ -1616,7 +2739,7 @@
   // -------------------------------------------------------------------
   // ۵. ناوبری سراسری و تضمین سوییچ آنی تب‌ها
   // -------------------------------------------------------------------
-  const ALL_TABS = ['search', 'planner', 'articles', 'deadlines', 'calculator', 'admin'];
+  const ALL_TABS = ['search', 'planner', 'articles', 'deadlines', 'calculator', 'about', 'contact', 'admin'];
 
   window.go = function(tab) {
     if (!ALL_TABS.includes(tab)) tab = 'search';
@@ -1648,6 +2771,14 @@
     }
     if (tab === 'calculator') {
       window.renderCalculators();
+      window.syncAllFromSupabase();
+    }
+    if (tab === 'about') {
+      window.renderAbout();
+      window.syncAllFromSupabase();
+    }
+    if (tab === 'contact') {
+      window.renderContact();
       window.syncAllFromSupabase();
     }
 

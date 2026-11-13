@@ -1464,6 +1464,14 @@ textarea {
       <span class="dock-icon">🧮</span>
       <span class="dock-label">محاسبه‌گر حقوقی</span>
     </button>
+    <button class="dock-btn" data-tab="about" onclick="go('about')" title="معرفی گروه حقوقی و اعضا">
+      <span class="dock-icon">🏛</span>
+      <span class="dock-label">معرفی گروه</span>
+    </button>
+    <button class="dock-btn" data-tab="contact" onclick="go('contact')" title="تماس با ما و شبکه‌های اجتماعی">
+      <span class="dock-icon">📞</span>
+      <span class="dock-label">تماس با ما</span>
+    </button>
     <button class="dock-btn" id="dockAdminBtn" data-tab="admin" onclick="go('admin')" title="مدیریت سیستم">
       <span class="dock-icon">🛠</span>
       <span class="dock-label">مدیریت سیستم</span>
@@ -1502,6 +1510,8 @@ textarea {
   <button data-tab="articles" onclick="go('articles')">📚 مقالات و پژوهش‌ها</button>
   <button data-tab="deadlines" onclick="go('deadlines')">⚖️ مواعد قانونی</button>
   <button data-tab="calculator" onclick="go('calculator')">🧮 محاسبه‌گر حقوقی</button>
+  <button data-tab="about" onclick="go('about')">🏛 معرفی گروه</button>
+  <button data-tab="contact" onclick="go('contact')">📞 تماس با ما</button>
   <button data-tab="admin" onclick="go('admin')">🛠 مدیریت سیستم</button>
 </nav>
 
@@ -1542,11 +1552,13 @@ textarea {
  <div id="plannerGate" class="panel"><h2>برنامه مطالعاتی شخصی</h2><p class="muted">برای ساخت و ذخیره‌ی برنامه‌ی مطالعاتی خودت وارد حساب شو. اطلاعات هر نفر جداست و از هر دستگاهی در دسترس است.</p><button class="btn primary" onclick="openAuthModal()">ورود / ثبت‌نام</button></div>
  <div id="plannerApp" class="hidden">
   <div class="actions" style="margin-bottom:14px">
-   <button class="btn primary" onclick="openAddPlanModal()">＋ افزودن برنامه</button>
+   <button class="btn primary adm-only" onclick="openAddPlanModal()">＋ افزودن / آپلود برنامه</button>
+   <button class="btn adm-only" onclick="if(window.openPlanAssignerModal)openPlanAssignerModal()">📤 آپلود برنامه برای کاربر</button>
    <button class="btn" id="quickAdd">＋ افزودن واحد</button>
    <button class="btn" id="exportBtn">پشتیبان</button>
-   <button class="btn" id="importBtn">بازیابی</button>
+   <button class="btn adm-only" id="importBtn">بازیابی فایل برنامه</button>
   </div>
+  <div id="plannerAdminNotice" class="muted small" style="margin-bottom:12px;"></div>
   <div class="layout">
   <aside class="sidebar">
    <div class="nav-title">فضای مطالعاتی</div>
@@ -1572,7 +1584,7 @@ textarea {
    <section id="daysView" class="hidden">
     <div class="panel">
      <div class="panel-head"><div><h2>روزهای مطالعاتی</h2><div class="muted small">روز اول، روز دوم و ... بدون وابستگی به تاریخ</div></div>
-      <div class="row"><button class="btn" onclick="setAll(false)">بستن همه</button><button class="btn primary" onclick="openAddPlanModal()">＋ افزودن برنامه</button><button class="btn primary" onclick="openDayModal()">＋ افزودن روز</button><button class="btn danger" onclick="openClearModal()">حذف همه‌ی روزها</button><button class="btn danger" onclick="openResetModal()">بازنشانی کامل</button></div></div>
+      <div class="row"><button class="btn" onclick="setAll(false)">بستن همه</button><button class="btn primary adm-only" onclick="openAddPlanModal()">＋ افزودن / آپلود برنامه</button><button class="btn primary" onclick="openDayModal()">＋ افزودن روز</button><button class="btn danger" onclick="openClearModal()">حذف همه‌ی روزها</button><button class="btn danger" onclick="openResetModal()">بازنشانی کامل</button></div></div>
      <div id="allDays" class="day-list"></div>
     </div>
    </section>
@@ -1739,13 +1751,21 @@ textarea {
     <div class="articles-grid" id="customCalculatorsGrid"></div>
   </div>
 </section>
+<section id="tab-about" class="hidden">
+  <div id="aboutPageRoot"></div>
+</section>
+
+<section id="tab-contact" class="hidden">
+  <div id="contactPageRoot"></div>
+</section>
+
 <section id="tab-admin" class="hidden">
   <!-- گیت امنیتی دسترسی مدیران -->
   <div id="adminAccessGate" class="panel text-center" style="padding: 48px 24px; text-align: center;">
     <div style="font-size: 52px; margin-bottom: 14px;">🔒</div>
     <h2 style="font-size: 20px; font-weight: 800; color: #0f172a; margin-bottom: 10px;">بخش مدیریت سامانه برائت</h2>
     <p class="muted" style="max-width: 540px; margin: 0 auto 22px; font-size: 14px; line-height: 2;">
-      دسترسی به بخش مدیریت سامانه، انتشار مقالات پژوهشی، تغییر مواعد قانونی، فرمول‌ها و تنقیح قوانین، <b>منحصراً برای مدیرانی است که ایمیل آن‌ها در پایگاه داده Supabase ثبت شده باشد</b>.
+      دسترسی به بخش مدیریت سامانه، انتشار مقالات پژوهشی، معرفی گروه و اعضا، تغییر مواعد قانونی، آپلود برنامه برای کاربران و تنقیح قوانین، <b>منحصراً برای مدیرانی است که ایمیل آن‌ها در پایگاه داده Supabase ثبت شده باشد</b>.
     </p>
     <div class="row" style="justify-content: center; gap: 10px;">
       <button class="btn primary" onclick="openAuthModal()">ورود با حساب مدیریت</button>
@@ -1755,6 +1775,49 @@ textarea {
 
   <div id="adminSuiteContent" style="display: none;">
   <div id="admSyncStatusCard" class="panel" style="background:#f0fdfa; border:1px solid #99f6e4;"></div>
+
+  <!-- پنل آپلود برنامه مطالعاتی برای کاربران -->
+  <div class="panel" id="admPlanAssignCard">
+    <div class="panel-head">
+      <div>
+        <h2>📤 آپلود و ارسال برنامه مطالعاتی برای کاربران</h2>
+        <div class="muted small">فقط مدیر می‌تواند برنامه مطالعاتی استاندارد یا اختصاصی را برای ایمیل هر کاربر آپلود کند</div>
+      </div>
+      <button class="btn primary" onclick="if(window.openPlanAssignerModal)openPlanAssignerModal()">📤 آپلود برنامه جدید برای کاربر</button>
+    </div>
+    <div id="admAssignedPlansList"></div>
+  </div>
+
+  <!-- پنل مدیریت معرفی گروه و اعضای تیم -->
+  <div class="panel">
+    <div class="panel-head">
+      <div>
+        <h2>🏛 مدیریت صفحه معرفی گروه حقوقی و اعضا</h2>
+        <div class="muted small">ویرایش توضیحات گروه حقوقی برائت و افزودن یا ویرایش نام و عکس و مشخصات اعضا</div>
+      </div>
+      <div class="row" style="gap:6px;">
+        <button class="btn" onclick="if(window.openAboutInfoEditor)openAboutInfoEditor()">✏️ ویرایش مشخصات گروه</button>
+        <button class="btn primary" onclick="if(window.openMemberEditor)openMemberEditor()">＋ افزودن عضو جدید</button>
+      </div>
+    </div>
+    <div id="admAboutMembersList"></div>
+  </div>
+
+  <!-- پنل مدیریت تماس با ما و شبکه‌های اجتماعی -->
+  <div class="panel">
+    <div class="panel-head">
+      <div>
+        <h2>📞 مدیریت تماس با ما و شبکه‌های اجتماعی</h2>
+        <div class="muted small">ویرایش شماره تماس و آدرس دفتر و مدیریت لینک‌های اینستاگرام و ایکس و سایر شبکه‌ها</div>
+      </div>
+      <div class="row" style="gap:6px;">
+        <button class="btn" onclick="if(window.openContactEditor)openContactEditor()">✏️ ویرایش اطلاعات تماس</button>
+        <button class="btn primary" onclick="if(window.openSocialEditor)openSocialEditor()">＋ افزودن شبکه اجتماعی</button>
+      </div>
+    </div>
+    <div id="admContactSocialsList"></div>
+  </div>
+
   <!-- پنل مدیریت مقالات و پژوهش‌ها -->
   <div class="panel">
     <div class="panel-head">
@@ -2322,8 +2385,8 @@ function showView(v){document.querySelectorAll(".nav button").forEach(x=>x.class
 document.querySelectorAll(".nav button").forEach(btn=>btn.addEventListener("click",()=>showView(btn.dataset.view)));
 document.getElementById("quickAdd").onclick=()=>state.days.length?openBlockModal(state.days[state.days.length-1].id):openDayModal();
 document.getElementById("exportBtn").onclick=()=>showModal(`<h2>پشتیبان</h2><p class="muted small">این متن را جایی ذخیره کن (مثلاً در یادداشت‌ها).</p><textarea id="bkText" rows="10" readonly>${esc(JSON.stringify(state))}</textarea><div class="modal-actions"><button class="btn" onclick="closeModal()">بستن</button><button class="btn primary" onclick="copyFrom('bkText')">کپی</button></div>`);
-document.getElementById("importBtn").onclick=()=>showModal(`<h2>بازیابی پشتیبان</h2><textarea id="rsText" rows="10" placeholder="متن پشتیبان را اینجا بچسبان"></textarea><div class="modal-actions"><button class="btn" onclick="closeModal()">انصراف</button><button class="btn primary" onclick="restoreBk()">بازیابی</button></div>`);
-function restoreBk(){try{let x=JSON.parse(document.getElementById("rsText").value);if(!Array.isArray(x.days)||!Array.isArray(x.subjects))throw Error();if(confirm("اطلاعات فعلی با پشتیبان جایگزین شود؟")){state=norm(x);closeModal();save()}}catch(e){alert("متن پشتیبان معتبر نیست")}}
+document.getElementById("importBtn").onclick=()=>{if(!isAdmin)return toast("آپلود و بازیابی برنامه مطالعاتی فقط برای مدیر مجاز است");showModal(`<h2>بازیابی پشتیبان</h2><textarea id="rsText" rows="10" placeholder="متن پشتیبان را اینجا بچسبان"></textarea><div class="modal-actions"><button class="btn" onclick="closeModal()">انصراف</button><button class="btn primary" onclick="restoreBk()">بازیابی</button></div>`)};
+function restoreBk(){if(!isAdmin)return toast("آپلود و بازیابی برنامه مطالعاتی فقط برای مدیر مجاز است");try{let x=JSON.parse(document.getElementById("rsText").value);if(!Array.isArray(x.days)||!Array.isArray(x.subjects))throw Error();if(confirm("اطلاعات فعلی با پشتیبان جایگزین شود؟")){state=norm(x);closeModal();save()}}catch(e){alert("متن پشتیبان معتبر نیست")}}
 const DAYC=[["#2f6fed","#eaf1ff"],["#0e9f6e","#e5f7ef"],["#e0801f","#fff1e0"],["#8b5cf6","#f1ebff"],["#e0457b","#ffe9f1"],["#0f9aa8","#e1f6f8"],["#b88a0b","#fff6d6"]];
 function dayStyle(d){let c=DAYC[(d.number-1)%DAYC.length];return `--da:${c[0]};--dt:${c[1]}`}
 function lawObj(sid,name){let s=state.subjects.find(x=>x.id===sid);return s&&s.laws.find(l=>l.name===name)}
@@ -2406,8 +2469,35 @@ function mergePlan1(s){
  s.days.sort((x,y)=>x.number-y.number);return s}
 const LIB=[{id:"mdn",name:"حقوق مدنی (۹۳ روز)",fn:mergePlan1},{id:"tej",name:"حقوق تجارت (۹۰ روز)",fn:mergePlan2},{id:"jaza",name:"جزای عمومی و اختصاصی (۹۰ روز)",fn:mergePlan3},{id:"adm",name:"آیین دادرسی مدنی (۹۰ روز)",fn:mergePlan4}];
 const hasSrc=t=>state.days.some(d=>d.blocks.some(b=>b.src===t));
-function removeSrc(tag){state.days.forEach(d=>{const had=d.blocks.some(b=>b.src===tag);d.blocks=d.blocks.filter(b=>b.src!==tag);d._rm=had&&!d.blocks.length});state.days=state.days.filter(d=>!d._rm);state.imports=state.imports.filter(x=>x.id!==tag);save()}
-function addLib(id){const p=LIB.find(x=>x.id===id);p.fn(state);if(window.LAWDB)LAWDB.autoLink();closeModal();save();toast("برنامه اضافه شد")}
+function removeSrc(tag){if(!isAdmin)return toast("تغییر یا حذف برنامه فقط برای مدیر مجاز است");state.days.forEach(d=>{const had=d.blocks.some(b=>b.src===tag);d.blocks=d.blocks.filter(b=>b.src!==tag);d._rm=had&&!d.blocks.length});state.days=state.days.filter(d=>!d._rm);state.imports=state.imports.filter(x=>x.id!==tag);save()}
+function addLib(id){if(!isAdmin)return toast("افزودن برنامه فقط برای مدیر مجاز است");const p=LIB.find(x=>x.id===id);p.fn(state);if(window.LAWDB)LAWDB.autoLink();closeModal();save();toast("برنامه اضافه شد")}
+window.BARAAT_PLANNER_HELPERS={LIB,uid,norm,fresh,expand,CHECKS,parsePlanText,compressNums,applyCustomTextPlan:function(targetState,opts){
+ const days=parsePlanText(opts.text||"");if(!days.length)return 0;
+ const subName=(opts.subjectName||"درس اختصاصی").trim();
+ const lawName=(opts.lawName||subName).trim();
+ let sub=targetState.subjects.find(x=>x.name===subName);
+ if(!sub){sub={id:uid(),name:subName,laws:[]};targetState.subjects.push(sub);}
+ let L=sub.laws.find(x=>x.name===lawName&&!x.topics);
+ if(!L){L={name:lawName,count:0,unit:"ماده"};sub.laws.push(L);}
+ if(opts.dbLaw&&!L.db)L.db=opts.dbLaw;
+ const tname="مرور و سرفصل‌ها — "+lawName;
+ let T=sub.laws.find(x=>x.name===tname);
+ if(!T){T={name:tname,count:0,unit:"سرفصل",topics:[]};sub.laws.push(T);}
+ const id="adm_imp_"+Date.now().toString(36);
+ days.forEach(p=>{
+   let d=targetState.days.find(x=>x.number===p.num);
+   if(!d){d={id:uid(),number:p.num,group:p.group,blocks:[],open:false};targetState.days.push(d);}
+   else if(!d.group&&p.group)d.group=p.group;
+   let law,spec,title,items;
+   if(p.nums.length){law=lawName;spec=compressNums(p.nums);title=p.title;items=p.nums;}
+   else{const tp=p.title||("روز "+p.num);if(!T.topics.includes(tp))T.topics.push(tp);T.count=T.topics.length;law=tname;spec=tp;title="";items=[tp];}
+   d.blocks.push({id:uid(),subjectId:sub.id,law,spec,title,task:p.task,items,checks:Array(CHECKS.length).fill(false),notes:"",mastery:"نامشخص",refs:[],open:false,src:id});
+ });
+ targetState.days.sort((a,b)=>a.number-b.number);
+ targetState.imports=targetState.imports||[];
+ targetState.imports.push({id,name:sub.name+" — "+lawName+" ("+days.length+" روز)"});
+ return days.length;
+}};
 function parsePlanText(text){
  const lines=String(text).replace(/\r/g,"").split("\n"),days=[],dayRe=/^\s*روز\s*([0-9۰-۹٠-٩]+)\s*[ـ\-–—:.]+\s*(.*?)\s*$/,grpRe=/^\s*(مرحله|بخش|هفته|فصل|گام)(\s|:|$)/;let cur=null,group="";
  lines.forEach(raw=>{const l=raw.trim();if(!l)return;const m=l.match(dayRe);
@@ -2419,11 +2509,13 @@ function parsePlanText(text){
   return {num:d.num,group:d.group,title:d.title,nums:[...new Set(nums)].sort((a,b)=>a-b),task:task.join(" · ")}})}
 function ipPrompt(){return "برای درس «"+(document.getElementById("ipSub").selectedOptions[0]?.text||"…")+"» یک برنامه‌ی مطالعاتی ۹۰ روزه بنویس. فقط با همین قالب و بدون هیچ توضیح اضافه:\n\nمرحله اول: عنوان مرحله\nروز ۱ ـ عنوان موضوع روز\n- مواد ۱ تا ۱۰ (فقط اگر قانون شماره‌ی ماده دارد؛ چند ماده‌ی جدا را با «و» بنویس)\n- توضیح کوتاه موضوعات آن روز\n- ۲۰ تست\nروز ۲ ـ ...\n\nبرای روزهای مرور و آزمون شماره‌ی ماده ننویس و عنوان روز را با «مرور» یا «آزمون» شروع کن."}
 function openAddPlanModal(){
+ if(!isAdmin)return toast("آپلود یا افزودن برنامه مطالعاتی فقط برای مدیر مجاز است");
  const lib=LIB.map(p=>`<div class="row between" style="margin:6px 0"><span>${esc(p.name)}</span>${hasSrc(p.id)?`<button class="btn danger" onclick="removeSrc('${p.id}')">حذف از برنامه</button>`:`<button class="btn primary" onclick="addLib('${p.id}')">افزودن</button>`}</div>`).join("");
  const imps=(state.imports||[]).filter(x=>!LIB.some(p=>p.id===x.id)).map(x=>`<div class="row between" style="margin:6px 0"><span>${esc(x.name)}</span><button class="btn danger" onclick="removeSrc('${x.id}')">حذف از برنامه</button></div>`).join("");
  const names=window.LAWDB?LAWDB.names():[];
- showModal(`<h2>افزودن برنامه</h2><p class="muted small">افزودن برنامه فقط روزها و درس‌های جدید اضافه می‌کند و چیزی از برنامه‌ی فعلی‌ات را عوض یا پاک نمی‌کند.</p>
- <h3 style="font-size:15px">کتابخانه‌ی برنامه‌ها</h3>${lib}${imps?`<h3 style="font-size:15px;margin-top:14px">برنامه‌هایی که خودت اضافه کردی</h3>${imps}`:""}
+ showModal(`<h2>افزودن و آپلود برنامه (اختصاصی مدیر)</h2><p class="muted small">از این بخش می‌توانید برای خودتان برنامه بسازید یا با دکمه زیر، برنامه را مستقیم برای حساب هر کاربر آپلود کنید.</p>
+ <div style="margin:10px 0 14px;"><button class="btn primary" onclick="closeModal();if(window.openPlanAssignerModal)openPlanAssignerModal()">📤 آپلود و ارسال برنامه برای یک کاربر</button></div>
+ <h3 style="font-size:15px">کتابخانه‌ی برنامه‌ها</h3>${lib}${imps?`<h3 style="font-size:15px;margin-top:14px">برنامه‌های اضافه‌شده</h3>${imps}`:""}
  <h3 style="font-size:15px;margin-top:16px">برنامه برای یک درس جدید</h3>
  <p class="muted small">برنامه را (از هوش مصنوعی یا هر جای دیگر) به این قالب بچسبان: «روز ۱ ـ عنوان» و زیرش چند خط که با «-» شروع می‌شود. اگر خطی «مواد ۱ تا ۱۰» داشته باشد، شماره‌ی مواد خودکار تشخیص داده می‌شود.</p>
  <div class="form-grid"><div class="field"><label>درس</label><select id="ipSub">${state.subjects.map(s=>`<option value="${s.id}">${esc(s.name)}</option>`).join("")}<option value="__new">درس جدید…</option></select></div>
@@ -2437,6 +2529,7 @@ function openAddPlanModal(){
 function ipPreview(){const days=parsePlanText(document.getElementById("ipText").value),n=days.filter(d=>d.nums.length).length;
  document.getElementById("ipPrev").innerHTML=days.length?`${fa(days.length)} روز پیدا شد؛ ${fa(n)} روز با شماره‌ی ماده و ${fa(days.length-n)} روز بدون ماده (سرفصل). نمونه: «روز ${fa(days[0].num)} ـ ${esc(days[0].title)}»${days[0].nums.length?" ← مواد "+esc(fa(compressNums(days[0].nums))):""}`:"روزی پیدا نشد. هر روز باید با «روز ۱ ـ عنوان» شروع شود.";return days}
 function ipImport(){
+ if(!isAdmin)return toast("آپلود برنامه مطالعاتی فقط برای مدیر مجاز است");
  const days=ipPreview();if(!days.length)return;
  const g=id=>document.getElementById(id).value.trim();let sub;
  if(g("ipSub")==="__new"){const nm=g("ipSubNew");if(!nm)return toast("نام درس جدید را بنویس");sub={id:uid(),name:nm,laws:[]};state.subjects.push(sub)}else sub=state.subjects.find(x=>x.id===g("ipSub"));
@@ -2492,6 +2585,14 @@ function updateAuthUI(){
   if (window.renderArticles) window.renderArticles();
   if (window.renderDeadlines) window.renderDeadlines();
   if (window.renderCalculators) window.renderCalculators();
+  if (window.renderAbout) window.renderAbout();
+  if (window.renderContact) window.renderContact();
+  const pNotice = document.getElementById("plannerAdminNotice");
+  if (pNotice) {
+    pNotice.textContent = window.isAdmin
+      ? "شما به عنوان مدیر می‌توانید برنامه مطالعاتی را برای خود یا هر کاربر دیگری آپلود و ارسال کنید."
+      : "آپلود و بارگذاری برنامه مطالعاتی منحصراً توسط مدیر سامانه برای حساب شما انجام می‌شود.";
+  }
 }
 
 async function afterAuth(user){
@@ -2513,14 +2614,97 @@ async function afterAuth(user){
   if (window.LAWDB) LAWDB.onAdmin();
   if (!document.getElementById("tab-planner").classList.contains("hidden")) enterPlanner();
 }
-async function loadPlanner(){const r=await sb.from("planner").select("data").eq("user_id",me.id).maybeSingle();
- if(r.error){document.getElementById("plannerApp").innerHTML='<div class="panel">خطا در دریافت برنامه: '+esc(r.error.message)+"</div>";return}
- let payload=null;if(r.data){if(r.data.data!==undefined&&r.data.data!==null)payload=r.data.data;else if(r.data.subjects||r.data.days)payload=r.data;}state=payload?norm(payload):fresh();ready=true;if(window.LAWDB)LAWDB.autoLink();showView("dashboard");render()}
+async function applyAdminAssignedPlans(currentState){
+  if (!sb || !me || !me.email) return { state: currentState, updated: false };
+  try {
+    const ar = await sb.from("meta").select("value").eq("key", "baraat_assigned_plans_v1").maybeSingle();
+    if (!ar || ar.error || !ar.data || !ar.data.value) return { state: currentState, updated: false };
+    const map = typeof ar.data.value === "string" ? JSON.parse(ar.data.value) : ar.data.value;
+    const emailKey = me.email.trim().toLowerCase();
+    const entry = map && map[emailKey];
+    if (!entry || !entry.updatedAt || currentState._lastAssignedAt === entry.updatedAt) {
+      return { state: currentState, updated: false };
+    }
+    let next = entry.mode === "replace" ? fresh() : currentState;
+    if (entry.planKind === "json" && entry.jsonState) {
+      if (entry.mode === "replace") {
+        next = norm(JSON.parse(JSON.stringify(entry.jsonState)));
+      } else {
+        const inc = norm(JSON.parse(JSON.stringify(entry.jsonState)));
+        const subIdMap = {};
+        inc.subjects.forEach(s => {
+          let ex = next.subjects.find(x => x.name === s.name);
+          if (!ex) { ex = { id: uid(), name: s.name, laws: s.laws || [] }; next.subjects.push(ex); }
+          subIdMap[s.id] = ex.id;
+        });
+        inc.days.forEach(d => {
+          let td = next.days.find(x => x.number === d.number);
+          if (!td) { td = { id: uid(), number: d.number, group: d.group || "", blocks: [], open: false }; next.days.push(td); }
+          (d.blocks || []).forEach(b => {
+            const mappedSid = subIdMap[b.subjectId] || b.subjectId;
+            if (!td.blocks.some(eb => eb.title === b.title && eb.spec === b.spec && eb.law === b.law)) {
+              td.blocks.push(Object.assign({}, b, { id: uid(), subjectId: mappedSid, checks: Array(CHECKS.length).fill(false) }));
+            }
+          });
+        });
+        next.days.sort((a, b) => a.number - b.number);
+      }
+    } else if (entry.planKind === "lib" && Array.isArray(entry.libIds)) {
+      entry.libIds.forEach(lid => {
+        const p = LIB.find(x => x.id === lid);
+        if (p) p.fn(next);
+      });
+    } else if (entry.planKind === "text" && entry.text) {
+      window.BARAAT_PLANNER_HELPERS.applyCustomTextPlan(next, {
+        text: entry.text,
+        subjectName: entry.subjectName,
+        lawName: entry.lawName,
+        dbLaw: entry.dbLaw
+      });
+    }
+    next._lastAssignedAt = entry.updatedAt;
+    next._lastAssignedNote = entry.note || "";
+    return { state: next, updated: true, note: entry.note || "" };
+  } catch (e) {
+    console.warn("Assigned plan sync notice:", e);
+    return { state: currentState, updated: false };
+  }
+}
+window.refreshAssignedPlannerForMe = async function(){
+  if (!me || !sb) return;
+  const res = await applyAdminAssignedPlans(state);
+  if (res.updated) {
+    state = res.state;
+    if (window.LAWDB) LAWDB.autoLink();
+    await sb.from("planner").upsert({ user_id: me.id, data: state, updated_at: new Date().toISOString() });
+    if (ready) { showView("dashboard"); render(); }
+    toast("برنامه مطالعاتی جدید از طرف مدیر برای شما فعال شد" + (res.note ? ": " + res.note : ""));
+  }
+};
+async function loadPlanner(){
+  const r=await sb.from("planner").select("data").eq("user_id",me.id).maybeSingle();
+  if(r.error){document.getElementById("plannerApp").innerHTML='<div class="panel">خطا در دریافت برنامه: '+esc(r.error.message)+"</div>";return}
+  let payload=null;if(r.data){if(r.data.data!==undefined&&r.data.data!==null)payload=r.data.data;else if(r.data.subjects||r.data.days)payload=r.data;}
+  state=payload?norm(payload):fresh();
+  if(payload && payload._lastAssignedAt) state._lastAssignedAt = payload._lastAssignedAt;
+  const assignedRes = await applyAdminAssignedPlans(state);
+  if(assignedRes.updated){
+    state = assignedRes.state;
+    if(window.LAWDB) LAWDB.autoLink();
+    await sb.from("planner").upsert({user_id:me.id,data:state,updated_at:new Date().toISOString()});
+    toast("برنامه مطالعاتی جدید از طرف مدیر برای شما بارگذاری شد");
+  }
+  ready=true;
+  if(window.LAWDB)LAWDB.autoLink();
+  showView("dashboard");
+  render();
+  updateAuthUI();
+}
 function cloudSave(){clearTimeout(saveT);saveT=setTimeout(async()=>{const r=await sb.from("planner").upsert({user_id:me.id,data:state,updated_at:new Date().toISOString()});if(r.error)toast("ذخیره روی سرور ناموفق بود")},500)}
 async function logout(){await sb.auth.signOut();location.reload()}
 function initAuth(){sb.auth.getSession().then(async r=>{if(r.data&&r.data.session)await afterAuth(r.data.session.user);else updateAuthUI();}).catch(()=>updateAuthUI());}
-function enterPlanner(){const ok=!!me;document.getElementById("plannerGate").classList.toggle("hidden",ok);document.getElementById("plannerApp").classList.toggle("hidden",!ok);if(ok&&!ready)loadPlanner()}
-const ALL_TABS=["search","planner","articles","deadlines","calculator","admin"];
+function enterPlanner(){const ok=!!me;document.getElementById("plannerGate").classList.toggle("hidden",ok);document.getElementById("plannerApp").classList.toggle("hidden",!ok);if(ok&&!ready)loadPlanner();else if(ok&&ready&&window.refreshAssignedPlannerForMe)window.refreshAssignedPlannerForMe();}
+const ALL_TABS=["search","planner","articles","deadlines","calculator","about","contact","admin"];
 function go(tab){
   if(window.go && window.go !== go){ return window.go(tab); }
   if(!ALL_TABS.includes(tab)) tab="search";
@@ -2538,6 +2722,8 @@ function go(tab){
   if(tab==="articles" && window.renderArticles) window.renderArticles();
   if(tab==="deadlines" && window.renderDeadlines) window.renderDeadlines();
   if(tab==="calculator" && window.renderCalculators) window.renderCalculators();
+  if(tab==="about" && window.renderAbout) window.renderAbout();
+  if(tab==="contact" && window.renderContact) window.renderContact();
   window.scrollTo({top:0,behavior:"smooth"});
 }
 
@@ -3116,6 +3302,6 @@ if ('serviceWorker' in navigator) {
   });
 }
 </script>
-<script src="./baraat_engine.js?v=20261112_3"></script>
+<script src="./baraat_engine.js?v=20261113_1"></script>
 </body>
 </html>
