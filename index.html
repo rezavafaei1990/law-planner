@@ -1444,13 +1444,21 @@ textarea {
     <div class="dock-brand-text">گروه حقوقی برائت</div>
   </div>
   <nav class="dock-nav">
-    <button class="dock-btn active" data-tab="search" onclick="go('search')" title="جستجوی مواد و قوانین">
+    <button class="dock-btn active" data-tab="search" data-mobile-primary="1" onclick="go('search')" title="جستجوی مواد و قوانین">
       <span class="dock-icon">🔎</span>
-      <span class="dock-label">جستجوی مواد</span>
+      <span class="dock-label">جستجو</span>
     </button>
-    <button class="dock-btn" data-tab="planner" onclick="go('planner')" title="برنامه مطالعاتی و لایتنر">
+    <button class="dock-btn" data-tab="planner" data-mobile-primary="1" onclick="go('planner')" title="برنامه مطالعاتی و لایتنر">
       <span class="dock-icon">📅</span>
-      <span class="dock-label">برنامه مطالعاتی</span>
+      <span class="dock-label">برنامه</span>
+    </button>
+    <button class="dock-btn" data-tab="cases" data-mobile-primary="1" onclick="go('cases')" title="دفتر کار و زمانبندی پرونده‌های وکیل">
+      <span class="dock-icon">💼</span>
+      <span class="dock-label">دفتر وکالت</span>
+    </button>
+    <button class="dock-btn" data-tab="calculator" data-mobile-primary="1" onclick="go('calculator')" title="محاسبه‌گر ارث، مهریه، دیه و هزینه دادرسی">
+      <span class="dock-icon">🧮</span>
+      <span class="dock-label">محاسبه‌گر</span>
     </button>
     <button class="dock-btn" data-tab="articles" onclick="go('articles')" title="مقالات و پژوهش‌های حقوقی">
       <span class="dock-icon">📚</span>
@@ -1459,10 +1467,6 @@ textarea {
     <button class="dock-btn" data-tab="deadlines" onclick="go('deadlines')" title="مواعد قانونی و قضایی">
       <span class="dock-icon">⚖️</span>
       <span class="dock-label">مواعد قانونی</span>
-    </button>
-    <button class="dock-btn" data-tab="calculator" onclick="go('calculator')" title="محاسبه‌گر هزینه دادرسی و خسارت">
-      <span class="dock-icon">🧮</span>
-      <span class="dock-label">محاسبه‌گر حقوقی</span>
     </button>
     <button class="dock-btn" data-tab="about" onclick="go('about')" title="معرفی گروه حقوقی و اعضا">
       <span class="dock-icon">🏛</span>
@@ -1476,6 +1480,10 @@ textarea {
       <span class="dock-icon">🛠</span>
       <span class="dock-label">مدیریت سیستم</span>
     </button>
+    <button type="button" class="dock-btn mobile-only-more" id="mobileMoreDockBtn" onclick="toggleMobileDockDrawer(true)" title="سایر بخش‌ها">
+      <span class="dock-icon">☰</span>
+      <span class="dock-label">منو</span>
+    </button>
   </nav>
     <div class="dock-footer">
     <button class="dock-btn-auth" id="pwaInstallDockBtn" onclick="promptPWAInstall()" style="margin-bottom:6px; color:#0f766e; background:#f0fdfa;" title="دانلود و نصب اپلیکیشن برائت">
@@ -1488,6 +1496,30 @@ textarea {
     </button>
   </div>
 </aside>
+
+<div class="mobile-dock-drawer-back hidden" id="mobileDockDrawerBack" onclick="if(event.target===this)toggleMobileDockDrawer(false)">
+  <div class="mobile-dock-drawer">
+    <div class="row between" style="margin-bottom:12px;">
+      <strong style="font-size:15px; color:#0f172a;">دسترسی سریع بخش‌های سامانه</strong>
+      <button type="button" class="btn small" onclick="toggleMobileDockDrawer(false)">✕ بستن</button>
+    </div>
+    <div class="mobile-drawer-grid">
+      <button type="button" class="mobile-drawer-tile" data-tab="search" onclick="go('search');toggleMobileDockDrawer(false)"><span>🔎</span><b>جستجوی مواد</b></button>
+      <button type="button" class="mobile-drawer-tile" data-tab="planner" onclick="go('planner');toggleMobileDockDrawer(false)"><span>📅</span><b>برنامه مطالعاتی</b></button>
+      <button type="button" class="mobile-drawer-tile" data-tab="cases" onclick="go('cases');toggleMobileDockDrawer(false)"><span>💼</span><b>دفتر کار وکیل</b></button>
+      <button type="button" class="mobile-drawer-tile" data-tab="articles" onclick="go('articles');toggleMobileDockDrawer(false)"><span>📚</span><b>مقالات و پژوهش</b></button>
+      <button type="button" class="mobile-drawer-tile" data-tab="deadlines" onclick="go('deadlines');toggleMobileDockDrawer(false)"><span>⚖️</span><b>مواعد قانونی</b></button>
+      <button type="button" class="mobile-drawer-tile" data-tab="calculator" onclick="go('calculator');toggleMobileDockDrawer(false)"><span>🧮</span><b>محاسبه‌گرها</b></button>
+      <button type="button" class="mobile-drawer-tile" data-tab="about" onclick="go('about');toggleMobileDockDrawer(false)"><span>🏛</span><b>معرفی گروه</b></button>
+      <button type="button" class="mobile-drawer-tile" data-tab="contact" onclick="go('contact');toggleMobileDockDrawer(false)"><span>📞</span><b>تماس با ما</b></button>
+      <button type="button" class="mobile-drawer-tile" data-tab="admin" onclick="go('admin');toggleMobileDockDrawer(false)"><span>🛠</span><b>مدیریت سیستم</b></button>
+    </div>
+    <div class="row" style="gap:8px; margin-top:12px;">
+      <button type="button" class="btn primary" style="flex:1;" onclick="toggleMobileDockDrawer(false);openAuthModal()">👤 حساب کاربری</button>
+      <button type="button" class="btn" style="flex:1;" onclick="toggleMobileDockDrawer(false);promptPWAInstall()">📲 نصب اپلیکیشن</button>
+    </div>
+  </div>
+</div>
 
 <div class="app">
 <header>
@@ -1504,15 +1536,16 @@ textarea {
  </div>
 </header>
 <div class="warn hidden" id="cfgWarn">تنظیمات Supabase کامل نیست: دو مقدار <b>SUPA_URL</b> و <b>SUPA_KEY</b> را اول فایل برنامه عوض کن.</div>
-<nav class="tabs">
-  <button class="active" data-tab="search" onclick="go('search')">🔎 جستجوی مواد</button>
+<nav class="tabs glass-tabs-nav">
+  <button class="active" data-tab="search" onclick="go('search')">🔎 قوانین</button>
   <button data-tab="planner" onclick="go('planner')">📅 برنامه مطالعاتی</button>
-  <button data-tab="articles" onclick="go('articles')">📚 مقالات و پژوهش‌ها</button>
+  <button data-tab="cases" onclick="go('cases')">💼 دفتر وکالت</button>
+  <button data-tab="articles" onclick="go('articles')">📚 مقالات</button>
   <button data-tab="deadlines" onclick="go('deadlines')">⚖️ مواعد قانونی</button>
-  <button data-tab="calculator" onclick="go('calculator')">🧮 محاسبه‌گر حقوقی</button>
+  <button data-tab="calculator" onclick="go('calculator')">🧮 محاسبه‌گر</button>
   <button data-tab="about" onclick="go('about')">🏛 معرفی گروه</button>
   <button data-tab="contact" onclick="go('contact')">📞 تماس با ما</button>
-  <button data-tab="admin" onclick="go('admin')">🛠 مدیریت سیستم</button>
+  <button data-tab="admin" onclick="go('admin')">🛠 مدیریت</button>
 </nav>
 
 <section id="tab-search" class="law-ui">
@@ -1554,6 +1587,7 @@ textarea {
   <div class="actions" style="margin-bottom:14px">
    <button class="btn primary adm-only" onclick="openAddPlanModal()">＋ افزودن / آپلود برنامه</button>
    <button class="btn adm-only" onclick="if(window.openPlanAssignerModal)openPlanAssignerModal()">📤 آپلود برنامه برای کاربر</button>
+   <button class="btn adm-only" onclick="go('admin');setTimeout(()=>{const e=document.getElementById('admProgressMonitorCard');if(e)e.scrollIntoView({behavior:'smooth'});},120)">📊 مانیتورینگ پیشرفت کاربران</button>
    <button class="btn" id="quickAdd">＋ افزودن واحد</button>
    <button class="btn" id="exportBtn">پشتیبان</button>
    <button class="btn adm-only" id="importBtn">بازیابی فایل برنامه</button>
@@ -1566,6 +1600,7 @@ textarea {
     <button class="active" data-view="dashboard">▦　داشبورد</button>
     <button data-view="days">☷　روزهای مطالعاتی</button>
     <button data-view="subjects">§　درس‌ها و قوانین</button>
+    <button data-view="progress">📊　پیگیری پیشرفت و سوال</button>
    </nav>
    <div class="side-note">اطلاعات روی سرور و در حساب خودت ذخیره می‌شود.</div>
   </aside>
@@ -1591,9 +1626,15 @@ textarea {
    <section id="subjectsView" class="hidden">
     <div class="panel"><div class="panel-head"><div><h2>درس‌ها و قوانین</h2><div class="muted small">درس و قانون جدید اضافه کن یا فهرست را ویرایش کن.</div></div><button class="btn primary" onclick="openSubjectModal()">＋ افزودن درس</button></div><div id="subjectsList" class="subject-grid"></div></div>
    </section>
+   <section id="progressView" class="hidden">
+    <div id="studentProgressRoot"></div>
+   </section>
   </main>
   </div>
  </div>
+</section>
+<section id="tab-cases" class="hidden">
+ <div id="casesWorkspaceRoot"></div>
 </section>
 <section id="tab-articles" class="hidden">
   <div class="panel">
@@ -1684,71 +1725,15 @@ textarea {
   <div class="panel">
     <div class="panel-head">
       <div>
-        <h2>🧮 محاسبه‌گرهای حقوقی، خسارت و تعرفه‌ها</h2>
-        <div class="muted small">محاسبه دقیق هزینه دادرسی، خسارت تأخیر تأدیه و تعرفه قانونی حق‌الوکاله</div>
+        <h2>🧮 محاسبه‌گرهای جامع حقوقی</h2>
+        <div class="muted small">ابزار محاسبه مورد نظر را انتخاب کنید تا باکس اختصاصی همان محاسبه نمایش داده شود</div>
       </div>
       <div class="row" style="gap:8px;">
-        <button class="btn primary adm-only" onclick="openCustomCalcEditor()">＋ افزودن محاسبه‌گر جدید</button>
+        <button class="btn primary adm-only" onclick="openCustomCalcEditor()">＋ افزودن فرمول سفارشی</button>
       </div>
     </div>
-
-    <div class="form-grid" style="gap:20px;">
-      <!-- Court fees calculator -->
-      <div class="calculator-card">
-        <h3 style="margin:0 0 6px; font-size:16px; color:#0f766e;">۱. محاسبه هزینه دادرسی دعاوی مالی و غیرمالی</h3>
-        <p style="font-size:12.5px; color:var(--muted); margin:0 0 14px;">محاسبه بر مبنای قانون وصول برخی از درآمدهای دولت و جدول تعرفه مصوب قوه قضائیه</p>
-        <div class="field">
-          <label>مرحله رسیدگی قضایی</label>
-          <select id="cfStage" onchange="calcCourtFees()">
-            <option value="first">مرحله نخستین / بدوی (۲.۵٪ تا ۲۰ میلیون تومان، مازاد ۳.۵٪)</option>
-            <option value="appeal">مرحله تجدیدنظر و واخواهی (۴.۵٪ مبلغ خواسته)</option>
-            <option value="supreme">مرحله فرجام‌خواهی و اعاده دادرسی (۵.۵٪ مبلغ خواسته)</option>
-            <option value="exec">اجرای احکام مدنی (۵٪ مبلغ محکوم‌به - نیم‌عشر دولتی)</option>
-          </select>
-        </div>
-        <div class="field" style="margin-top:12px;">
-          <label>بهای خواسته یا مبلغ مورد مطالبه (تومان)</label>
-          <input type="text" id="cfAmount" value="50,000,000" oninput="calcCourtFees()">
-        </div>
-        <div id="cfResult"></div>
-      </div>
-
-      <!-- Attorney fees calculator -->
-      <div class="calculator-card">
-        <h3 style="margin:0 0 6px; font-size:16px; color:#0f766e;">۲. محاسبه تعرفه قانونی حق‌الوکاله وکیل</h3>
-        <p style="font-size:12.5px; color:var(--muted); margin:0 0 14px;">طبق آیین‌نامه تعرفه حق‌الوکاله و هزینه سفر وکلای دادگستری مصوب قوه قضائیه</p>
-        <div class="field">
-          <label>بهای خواسته یا مبلغ محکوم‌به (تومان)</label>
-          <input type="text" id="atAmount" value="100,000,000" oninput="calcAttorneyFees()">
-        </div>
-        <div id="atResult"></div>
-      </div>
-
-      <!-- Late payment interest -->
-      <div class="calculator-card" style="grid-column:1/-1;">
-        <h3 style="margin:0 0 6px; font-size:16px; color:#0f766e;">۳. محاسبه خسارت تأخیر تأدیه (ماده ۵۲۲ قانون آیین دادرسی مدنی)</h3>
-        <p style="font-size:12.5px; color:var(--muted); margin:0 0 14px;">بر اساس فرمول شاخص بهای کالاها و خدمات مصرفی بانک مرکزی جمهوری اسلامی ایران</p>
-        <div class="form-grid">
-          <div class="field">
-            <label>مبلغ اصل دین / طلب (تومان)</label>
-            <input type="text" id="lpAmount" value="100,000,000" oninput="calcLatePayment()">
-          </div>
-          <div class="field">
-            <label>سال سررسید دین (زمان استحقاق)</label>
-            <input type="number" id="lpYearDue" value="1399" oninput="calcLatePayment()">
-          </div>
-          <div class="field">
-            <label>سال پرداخت یا مطالبه</label>
-            <input type="number" id="lpYearPay" value="1403" oninput="calcLatePayment()">
-          </div>
-        </div>
-        <div id="lpResult"></div>
-      </div>
-    </div>
-
-    <!-- Custom calculators -->
-    <h3 style="margin:26px 0 12px; font-size:16px;">محاسبه‌گرهای اختصاصی و فرمول‌های سفارشی (قابل تنظیم و ویرایش)</h3>
-    <div class="articles-grid" id="customCalculatorsGrid"></div>
+    <div id="calcSelectorGrid" class="calc-selector-grid"></div>
+    <div id="calcActiveStage" class="calc-single-stage"></div>
   </div>
 </section>
 <section id="tab-about" class="hidden">
@@ -1775,6 +1760,18 @@ textarea {
 
   <div id="adminSuiteContent" style="display: none;">
   <div id="admSyncStatusCard" class="panel" style="background:#f0fdfa; border:1px solid #99f6e4;"></div>
+
+  <!-- پنل مانیتورینگ پیشرفت کاربران و پاسخ به سوالات داوطلبان -->
+  <div class="panel" id="admProgressMonitorCard">
+    <div class="panel-head">
+      <div>
+        <h2>📊 مانیتورینگ پیشرفت کاربران و سوالات داوطلبان</h2>
+        <div class="muted small">مشاهده درصد پیشرفت هر کاربر در برنامه مطالعاتی، بررسی دروس ضعیف و پاسخ به سوالات ثبت‌شده</div>
+      </div>
+      <button class="btn primary" onclick="if(window.refreshAdminMonitor)refreshAdminMonitor()">🔄 بروزرسانی گزارش کاربران</button>
+    </div>
+    <div id="admMonitorRoot"></div>
+  </div>
 
   <!-- پنل آپلود برنامه مطالعاتی برای کاربران -->
   <div class="panel" id="admPlanAssignCard">
@@ -2381,7 +2378,37 @@ function generateDays(){let g=id=>document.getElementById(id).value,sid=g("genSu
  for(let i=0;i<count;i++){let items,spec;if(list){items=list.slice(i*chunk,(i+1)*chunk);spec=items.join("، ")}else{let a=from+i*chunk,z=Math.min(to,a+chunk-1);spec=a===z?String(a):a+"-"+z;items=expand(spec)}state.days.push({id:uid(),number:start+i,blocks:[{id:uid(),subjectId:sid,law,spec,title:"",items,checks:Array(CHECKS.length).fill(false),notes:"",mastery:"نامشخص",refs:[]}]})}
  state.days.sort((a,b)=>a.number-b.number);closeModal();save();toast(fa(count)+" روز ساخته شد")}
 function copyFrom(id){let t=document.getElementById(id);t.select();try{navigator.clipboard.writeText(t.value);toast("کپی شد")}catch(e){try{document.execCommand("copy");toast("کپی شد")}catch(x){toast("متن را دستی کپی کن")}}}
-function showView(v){document.querySelectorAll(".nav button").forEach(x=>x.classList.toggle("active",x.dataset.view===v));["dashboard","days","subjects"].forEach(n=>document.getElementById(n+"View").classList.toggle("hidden",n!==v))}
+function showView(v){
+  document.querySelectorAll(".nav button").forEach(x=>x.classList.toggle("active",x.dataset.view===v));
+  ["dashboard","days","subjects","progress"].forEach(n=>{
+    const el=document.getElementById(n+"View");
+    if(el) el.classList.toggle("hidden",n!==v);
+  });
+  if(v==="progress" && window.renderStudentProgressView) window.renderStudentProgressView();
+}
+window.BARAAT_PLANNER_API={
+  getState:()=>state,
+  setState:(s)=>{state=s;},
+  isReady:()=>ready,
+  ensureLoaded:async()=>{if(!me||!sb)return false;if(!ready)await loadPlanner();return ready;},
+  saveImmediate:async()=>{
+    if(!me||!sb)return false;
+    if(!ready)await loadPlanner();
+    if(me&&me.email)state._userEmail=me.email;
+    state._summary=buildProgressSnapshot(state);
+    const r=await sb.from("planner").upsert({user_id:me.id,data:state,updated_at:new Date().toISOString()});
+    return !r.error;
+  },
+  save,
+  persist,
+  render,
+  showView,
+  CHECKS,
+  allBlocks,
+  percent,
+  uid,
+  fa
+};
 document.querySelectorAll(".nav button").forEach(btn=>btn.addEventListener("click",()=>showView(btn.dataset.view)));
 document.getElementById("quickAdd").onclick=()=>state.days.length?openBlockModal(state.days[state.days.length-1].id):openDayModal();
 document.getElementById("exportBtn").onclick=()=>showModal(`<h2>پشتیبان</h2><p class="muted small">این متن را جایی ذخیره کن (مثلاً در یادداشت‌ها).</p><textarea id="bkText" rows="10" readonly>${esc(JSON.stringify(state))}</textarea><div class="modal-actions"><button class="btn" onclick="closeModal()">بستن</button><button class="btn primary" onclick="copyFrom('bkText')">کپی</button></div>`);
@@ -2587,6 +2614,8 @@ function updateAuthUI(){
   if (window.renderCalculators) window.renderCalculators();
   if (window.renderAbout) window.renderAbout();
   if (window.renderContact) window.renderContact();
+  if (window.renderCases) window.renderCases();
+  if (window.renderStudentProgressView) window.renderStudentProgressView();
   const pNotice = document.getElementById("plannerAdminNotice");
   if (pNotice) {
     pNotice.textContent = window.isAdmin
@@ -2612,6 +2641,7 @@ async function afterAuth(user){
     await window.autoSyncAdminArticlesOnLogin();
   }
   if (window.LAWDB) LAWDB.onAdmin();
+  await loadPlanner();
   if (!document.getElementById("tab-planner").classList.contains("hidden")) enterPlanner();
 }
 async function applyAdminAssignedPlans(currentState){
@@ -2699,12 +2729,45 @@ async function loadPlanner(){
   showView("dashboard");
   render();
   updateAuthUI();
+  if(window.renderCases) window.renderCases();
+  if(window.renderStudentProgressView) window.renderStudentProgressView();
 }
-function cloudSave(){clearTimeout(saveT);saveT=setTimeout(async()=>{const r=await sb.from("planner").upsert({user_id:me.id,data:state,updated_at:new Date().toISOString()});if(r.error)toast("ذخیره روی سرور ناموفق بود")},500)}
+function buildProgressSnapshot(s){
+  const bs=(s.days||[]).flatMap(d=>d.blocks||[]);
+  const totChecks=bs.length*CHECKS.length;
+  const doneChecks=bs.reduce((a,b)=>a+(b.checks||[]).filter(Boolean).length,0);
+  const doneBlocks=bs.filter(b=>percent(b)===100).length;
+  const pct=totChecks?Math.round(doneChecks/totChecks*100):0;
+  const subjRows=(s.subjects||[]).map(sub=>{
+    const sbs=bs.filter(b=>b.subjectId===sub.id);
+    if(!sbs.length)return null;
+    const sc=sbs.length*CHECKS.length;
+    const sd=sbs.reduce((a,b)=>a+(b.checks||[]).filter(Boolean).length,0);
+    return {name:sub.name,blocks:sbs.length,pct:sc?Math.round(sd/sc*100):0};
+  }).filter(Boolean);
+  return {
+    days:(s.days||[]).length,
+    blocks:bs.length,
+    doneBlocks,
+    pct,
+    weakCount:bs.filter(b=>b.mastery==="ضعیف").length,
+    midCount:bs.filter(b=>b.mastery==="متوسط").length,
+    goodCount:bs.filter(b=>b.mastery==="خوب").length,
+    subjects:subjRows,
+    updatedAt:new Date().toISOString()
+  };
+}
+function cloudSave(){clearTimeout(saveT);saveT=setTimeout(async()=>{
+  if(me&&me.email)state._userEmail=me.email;
+  state._summary=buildProgressSnapshot(state);
+  const r=await sb.from("planner").upsert({user_id:me.id,data:state,updated_at:new Date().toISOString()});
+  if(r.error)toast("ذخیره روی سرور ناموفق بود");
+  if(window.syncStudentSnapshotToReport && me) window.syncStudentSnapshotToReport(me, state);
+},500)}
 async function logout(){await sb.auth.signOut();location.reload()}
 function initAuth(){sb.auth.getSession().then(async r=>{if(r.data&&r.data.session)await afterAuth(r.data.session.user);else updateAuthUI();}).catch(()=>updateAuthUI());}
 function enterPlanner(){const ok=!!me;document.getElementById("plannerGate").classList.toggle("hidden",ok);document.getElementById("plannerApp").classList.toggle("hidden",!ok);if(ok&&!ready)loadPlanner();else if(ok&&ready&&window.refreshAssignedPlannerForMe)window.refreshAssignedPlannerForMe();}
-const ALL_TABS=["search","planner","articles","deadlines","calculator","about","contact","admin"];
+const ALL_TABS=["search","planner","cases","articles","deadlines","calculator","about","contact","admin"];
 function go(tab){
   if(window.go && window.go !== go){ return window.go(tab); }
   if(!ALL_TABS.includes(tab)) tab="search";
@@ -2715,6 +2778,7 @@ function go(tab){
   document.querySelectorAll("[data-tab]").forEach(b=>b.classList.toggle("active",b.dataset.tab===tab));
   try{history.replaceState(null,"","#"+tab)}catch(e){}
   if(tab==="planner") enterPlanner();
+  if(tab==="cases" && window.renderCases) window.renderCases();
   if(tab==="admin"){
     if(window.LAWDB && LAWDB.admRefresh) LAWDB.admRefresh();
     if(window.renderAdminPanels) window.renderAdminPanels();
@@ -3302,6 +3366,6 @@ if ('serviceWorker' in navigator) {
   });
 }
 </script>
-<script src="./baraat_engine.js?v=20261113_1"></script>
+<script src="./baraat_engine.js?v=20261113_2"></script>
 </body>
 </html>
