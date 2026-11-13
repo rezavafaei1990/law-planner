@@ -1,4 +1,4 @@
-name: Deploy Baraat to GitHub Pages
+name: Deploy Baraat to GitHub Pages & Build Android APK
 
 on:
   push:
@@ -32,10 +32,47 @@ jobs:
       - name: Build production bundle
         run: npm run build
 
+      - name: Setup Java 17
+        if: hashFiles('android/build.gradle') != ''
+        uses: actions/setup-java@v4
+        with:
+          distribution: 'temurin'
+          java-version: '17'
+
+      - name: Setup Gradle 8.7
+        if: hashFiles('android/build.gradle') != ''
+        uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: '8.7'
+
+      - name: Build signed Android APK
+        if: hashFiles('android/build.gradle') != ''
+        working-directory: android
+        env:
+          BARAAT_KEYSTORE_PATH: /tmp/baraat-release.jks
+          BARAAT_KEYSTORE_PASS: baraat2026
+          BARAAT_KEY_ALIAS: baraat
+          BARAAT_KEY_PASS: baraat2026
+        run: |
+          if [ -n "$ANDROID_HOME" ] && [ -x "$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager" ]; then
+            yes | "$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager" --licenses >/dev/null 2>&1 || true
+          fi
+          keytool -genkeypair -noprompt -keystore /tmp/baraat-release.jks -alias baraat -keyalg RSA -keysize 2048 -validity 10000 -storepass baraat2026 -keypass baraat2026 -dname "CN=Baraat Legal Group, O=Baraat, C=IR"
+          gradle assembleRelease --no-daemon
+          mkdir -p ../dist/downloads
+          cp app/build/outputs/apk/release/app-release.apk ../dist/downloads/baraat.apk
+
+      - name: Upload Android APK artifact
+        if: hashFiles('dist/downloads/baraat.apk') != ''
+        uses: actions/upload-artifact@v4
+        with:
+          name: baraat-android-apk
+          path: dist/downloads/baraat.apk
+
       - name: Add .nojekyll for GitHub Pages
         run: touch dist/.nojekyll
 
-      - name: Upload artifact
+      - name: Upload Pages artifact
         uses: actions/upload-pages-artifact@v3
         with:
           path: ./dist
