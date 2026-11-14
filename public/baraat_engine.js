@@ -121,6 +121,12 @@
             if (window.renderStudentProgressView) window.renderStudentProgressView();
           }
         });
+        await syncFromSupabase(EXAMS_KEY, (data) => {
+          if (Array.isArray(data)) {
+            localStorage.setItem(EXAMS_KEY, JSON.stringify(data));
+            if (window.renderExamsHub) window.renderExamsHub();
+          }
+        });
         await syncFromSupabase(CASES_KEY, (data) => {
           if (Array.isArray(data) && window.isAdmin) {
             localStorage.setItem(CASES_KEY, JSON.stringify(data));
@@ -177,6 +183,7 @@
     const contactData = window.getContactData ? window.getContactData() : null;
     const repliesData = window.getQuestionRepliesMap ? window.getQuestionRepliesMap() : null;
     const casesData = window.getCases ? window.getCases() : null;
+    const examsData = window.getExams ? window.getExams() : null;
 
     const r1 = await syncToSupabase(ARTICLES_KEY, arts);
     const r2 = await syncToSupabase(DEADLINES_KEY, dls);
@@ -185,12 +192,13 @@
     const r5 = contactData ? await syncToSupabase(CONTACT_KEY, contactData) : { ok: true };
     const r6 = repliesData ? await syncToSupabase(QUESTION_REPLIES_KEY, repliesData) : { ok: true };
     const r7 = (window.isAdmin && casesData) ? await syncToSupabase(CASES_KEY, casesData) : { ok: true };
+    const r8 = examsData ? await syncToSupabase(EXAMS_KEY, examsData) : { ok: true };
 
     if (typeof renderAdminPanels === 'function') renderAdminPanels();
 
-    const errors = [r1, r2, r3, r4, r5, r6, r7].filter(r => !r.ok).map(r => r.error);
+    const errors = [r1, r2, r3, r4, r5, r6, r7, r8].filter(r => !r.ok).map(r => r.error);
     if (errors.length === 0) {
-      if (typeof toast === 'function') toast('همه مقالات و تنظیمات و صفحات گروه با موفقیت روی سرور منتشر شدند.');
+      if (typeof toast === 'function') toast('همه مقالات، آزمون‌ها و تنظیمات با موفقیت روی سرور منتشر شدند.');
     } else {
       const msg = errors[0];
       if (window.showModal) {
@@ -1194,8 +1202,32 @@
     return html;
   }
 
+  let calcDropdownOpen = false;
+
+  window.toggleCalcDropdown = function(ev) {
+    if (ev && ev.stopPropagation) ev.stopPropagation();
+    calcDropdownOpen = !calcDropdownOpen;
+    const trig = document.getElementById('calcDdTrigger');
+    const menu = document.getElementById('calcDdMenu');
+    if (trig) trig.classList.toggle('open', calcDropdownOpen);
+    if (menu) menu.classList.toggle('show', calcDropdownOpen);
+  };
+
+  document.addEventListener('click', function(ev) {
+    if (!calcDropdownOpen) return;
+    const wrap = document.getElementById('calcDropdownWrap');
+    if (wrap && !wrap.contains(ev.target)) {
+      calcDropdownOpen = false;
+      const trig = document.getElementById('calcDdTrigger');
+      const menu = document.getElementById('calcDdMenu');
+      if (trig) trig.classList.remove('open');
+      if (menu) menu.classList.remove('show');
+    }
+  });
+
   window.selectCalcType = function(typeId) {
     activeCalcType = typeId || 'mehrieh';
+    calcDropdownOpen = false;
     window.renderCalculators();
   };
 
@@ -1646,17 +1678,37 @@
   };
 
   window.renderCalculators = function() {
-    const grid = document.getElementById('calcSelectorGrid');
+    const ddWrap = document.getElementById('calcDropdownWrap');
     const stage = document.getElementById('calcActiveStage');
-    if (!grid || !stage) return;
+    if (!ddWrap || !stage) return;
 
-    grid.innerHTML = CALC_TYPES.map(t => `
-      <button type="button" class="calc-type-btn ${activeCalcType === t.id ? 'active' : ''}" onclick="selectCalcType('${t.id}')">
-        <span class="c-icon">${t.icon}</span>
-        <span class="c-title">${esc(t.title)}</span>
-        <span class="c-sub">${esc(t.sub)}</span>
+    const current = CALC_TYPES.find(t => t.id === activeCalcType) || CALC_TYPES[0];
+    ddWrap.innerHTML = `
+      <button type="button" id="calcDdTrigger" class="calc-dd-trigger ${calcDropdownOpen ? 'open' : ''}" onclick="toggleCalcDropdown(event)" aria-expanded="${calcDropdownOpen ? 'true' : 'false'}">
+        <div class="calc-dd-current">
+          <div class="calc-dd-ico">${current.icon}</div>
+          <div>
+            <div class="calc-dd-title">${esc(current.title)}</div>
+            <div class="calc-dd-sub">${esc(current.sub)}</div>
+          </div>
+        </div>
+        <span class="calc-dd-chevron">▾</span>
       </button>
-    `).join('');
+      <div id="calcDdMenu" class="calc-dd-menu ${calcDropdownOpen ? 'show' : ''}">
+        ${CALC_TYPES.map(t => `
+          <button type="button" class="calc-dd-item ${activeCalcType === t.id ? 'active' : ''}" onclick="selectCalcType('${t.id}')">
+            <div class="calc-dd-current">
+              <span style="font-size:19px;">${t.icon}</span>
+              <div>
+                <div class="calc-dd-title" style="${activeCalcType === t.id ? 'color:#fff;' : ''}">${esc(t.title)}</div>
+                <div class="calc-dd-sub">${esc(t.sub)}</div>
+              </div>
+            </div>
+            <span style="font-size:12px; font-weight:700;">${activeCalcType === t.id ? '✓ فعال' : 'انتخاب'}</span>
+          </button>
+        `).join('')}
+      </div>
+    `;
 
     if (activeCalcType === 'mehrieh') {
       stage.innerHTML = `
@@ -2166,6 +2218,7 @@
             </div>
           `).join('')}</div>`;
     }
+    if (window.renderAdminExamsList) window.renderAdminExamsList();
     if (window.isAdmin && window.renderAdminMonitor) window.renderAdminMonitor();
   };
 
@@ -3021,6 +3074,7 @@
           <label>منبع برنامه</label>
           <select id="paKind" onchange="togglePlanAssignKind()">
             <option value="lib">انتخاب از کتابخانه برنامه‌های استاندارد</option>
+            <option value="subjectSplit">برنامه بر اساس درس (بخش‌بندی خودکار ماده تا ماده)</option>
             <option value="json">آپلود فایل یا متن پشتیبان (JSON)</option>
             <option value="text">ورود برنامه متنی اختصاصی (روز ۱ ـ ...)</option>
           </select>
@@ -3047,6 +3101,46 @@
               <span>${esc(p.name)}</span>
             </label>
           `).join('')}
+        </div>
+      </div>
+
+      <div id="paBoxSubjectSplit" class="hidden" style="margin-top:14px; padding:12px; border:1px solid var(--line); border-radius:12px; background:#f8fafc;">
+        <div class="form-grid">
+          <div class="field">
+            <label>عنوان درس *</label>
+            <input id="paSubName" value="حقوق مدنی" placeholder="مثلاً: حقوق مدنی">
+          </div>
+          <div class="field">
+            <label>قانون مرتبط در پایگاه</label>
+            <select id="paSubDb">
+              <option value="">— انتخاب یا نوشتن دستی —</option>
+              ${names.map(n => `<option value="${esc(n)}">${esc(n)}</option>`).join('')}
+            </select>
+          </div>
+          <div class="field">
+            <label>نام منبع نمایشی</label>
+            <input id="paSubLaw" placeholder="مثلاً: قانون مدنی">
+          </div>
+          <div class="field">
+            <label>عنوان پیش‌فرض بخش‌ها</label>
+            <input id="paSubPrefix" placeholder="مثلاً: مبحث حقوق مدنی">
+          </div>
+          <div class="field">
+            <label>از ماده شماره</label>
+            <input id="paSubFrom" type="number" min="1" value="1">
+          </div>
+          <div class="field">
+            <label>تا ماده شماره</label>
+            <input id="paSubTo" type="number" min="1" value="200">
+          </div>
+          <div class="field">
+            <label>تعداد ماده در هر بخش</label>
+            <input id="paSubChunk" type="number" min="1" value="25">
+          </div>
+          <div class="field">
+            <label>تکلیف هر بخش (اختیاری)</label>
+            <input id="paSubTask" placeholder="مثلاً: مطالعه نص + نکات و تست">
+          </div>
         </div>
       </div>
 
@@ -3113,6 +3207,7 @@
   window.togglePlanAssignKind = function() {
     const k = document.getElementById('paKind')?.value || 'lib';
     document.getElementById('paBoxLib')?.classList.toggle('hidden', k !== 'lib');
+    document.getElementById('paBoxSubjectSplit')?.classList.toggle('hidden', k !== 'subjectSplit');
     document.getElementById('paBoxJson')?.classList.toggle('hidden', k !== 'json');
     document.getElementById('paBoxText')?.classList.toggle('hidden', k !== 'text');
   };
@@ -3140,18 +3235,37 @@
       if (!ids.length) return alert('حداقل یک برنامه از کتابخانه انتخاب کنید.');
       payload.libIds = ids;
       payload.summary = 'کتابخانه (' + ids.map(id => ((helpers?.LIB || []).find(p => p.id === id)?.name || id)).join(' و ') + ')';
+    } else if (kind === 'subjectSplit') {
+      const subjectName = (document.getElementById('paSubName')?.value || '').trim() || 'درس اختصاصی';
+      const dbLaw = (document.getElementById('paSubDb')?.value || '').trim();
+      const lawName = (document.getElementById('paSubLaw')?.value || '').trim() || dbLaw || subjectName;
+      const fromNum = Math.max(1, Number(document.getElementById('paSubFrom')?.value || 1));
+      const toNum = Math.max(fromNum, Number(document.getElementById('paSubTo')?.value || fromNum));
+      const chunkSize = Math.max(1, Number(document.getElementById('paSubChunk')?.value || 25));
+      const sectionTitlePrefix = (document.getElementById('paSubPrefix')?.value || '').trim();
+      const taskText = (document.getElementById('paSubTask')?.value || '').trim();
+      payload.subjectName = subjectName;
+      payload.dbLaw = dbLaw;
+      payload.lawName = lawName;
+      payload.fromNum = fromNum;
+      payload.toNum = toNum;
+      payload.chunkSize = chunkSize;
+      payload.sectionTitlePrefix = sectionTitlePrefix;
+      payload.taskText = taskText;
+      const secCount = Math.ceil((toNum - fromNum + 1) / chunkSize);
+      payload.summary = `برنامه درسی ${subjectName} (مواد ${toFa(fromNum)} تا ${toFa(toNum)} · ${toFa(secCount)} بخش)`;
     } else if (kind === 'json') {
       const raw = (document.getElementById('paJsonText')?.value || '').trim();
       if (!raw) return alert('فایل یا متن JSON برنامه را وارد کنید.');
       let parsed;
       try {
         parsed = JSON.parse(raw);
-        if (!Array.isArray(parsed.days) || !Array.isArray(parsed.subjects)) throw new Error();
+        if (!Array.isArray(parsed.subjects) || (!Array.isArray(parsed.days) && !Array.isArray(parsed.subjectSections))) throw new Error();
       } catch (e) {
         return alert('ساختار فایل JSON معتبر نیست.');
       }
       payload.jsonState = parsed;
-      payload.summary = 'فایل برنامه (' + toFa(parsed.days.length) + ' روز)';
+      payload.summary = 'فایل برنامه (' + toFa((parsed.days || []).length) + ' روز و ' + toFa((parsed.subjectSections || []).length) + ' بخش درسی)';
     } else if (kind === 'text') {
       const text = (document.getElementById('paTxtBody')?.value || '').trim();
       const subjectName = (document.getElementById('paTxtSub')?.value || '').trim() || 'برنامه اختصاصی';
@@ -3719,9 +3833,15 @@
       (d.blocks || []).forEach(b => {
         if (b.mastery === 'ضعیف' || b.mastery === 'متوسط') {
           const s = (st.subjects || []).find(x => x.id === b.subjectId);
-          weakUnits.push({ dayId: d.id, dayNum: d.number, subj: s?.name || '', law: b.law, title: b.title || b.spec, mastery: b.mastery, notes: b.notes || '' });
+          weakUnits.push({ kind: 'day', dayId: d.id, dayNum: d.number, subj: s?.name || '', law: b.law, title: b.title || b.spec, mastery: b.mastery, notes: b.notes || '' });
         }
       });
+    });
+    (st.subjectSections || []).forEach(b => {
+      if (b.mastery === 'ضعیف' || b.mastery === 'متوسط') {
+        const s = (st.subjects || []).find(x => x.id === b.subjectId);
+        weakUnits.push({ kind: 'sec', blockId: b.id, label: b.sectionLabel || 'بخش درسی', subj: s?.name || '', law: b.law, title: b.title || b.spec, mastery: b.mastery, notes: b.notes || '' });
+      }
     });
 
     const subjRows = (st.subjects || []).map(sub => {
@@ -3793,10 +3913,10 @@
               ${weakUnits.slice(0, 12).map(u => `
                 <div class="row between" style="padding:8px 10px; border:1px solid var(--line); border-radius:10px; background:#f8fafc; gap:8px;">
                   <div style="font-size:12.5px;">
-                    <b>روز ${toFa(u.dayNum)} · ${esc(u.subj)}</b>
+                    <b>${u.kind === 'day' ? 'روز ' + toFa(u.dayNum) : esc(u.label)} · ${esc(u.subj)}</b>
                     <div class="muted small">${esc(u.law)} · ${esc(u.title)} (${esc(u.mastery)})</div>
                   </div>
-                  <button class="btn small" onclick="jumpToStudyDay('${u.dayId}')">باز کردن</button>
+                  <button class="btn small" onclick="${u.kind === 'day' ? `jumpToStudyDay('${u.dayId}')` : `jumpToSubjectSection('${u.blockId}')`}">باز کردن</button>
                 </div>
               `).join('')}
             </div>
@@ -3885,6 +4005,7 @@
             email: d._userEmail || ('کاربر ' + String(row.user_id).slice(0, 8)),
             summary: d._summary || null,
             days: Array.isArray(d.days) ? d.days : [],
+            subjectSections: Array.isArray(d.subjectSections) ? d.subjectSections : [],
             subjects: Array.isArray(d.subjects) ? d.subjects : [],
             questions: Array.isArray(d.questions) ? d.questions : [],
             updatedAt: row.updated_at || (d._summary && d._summary.updatedAt) || ''
@@ -3909,6 +4030,7 @@
             email: r.email || ('کاربر ' + String(r.user_id).slice(0, 8)),
             summary: r.summary || null,
             days: [],
+            subjectSections: [],
             subjects: [],
             questions: Array.isArray(r.questions) ? r.questions : [],
             updatedAt: r.updatedAt || ''
@@ -3929,6 +4051,7 @@
             email,
             summary: null,
             days: [],
+            subjectSections: [],
             subjects: [],
             questions: [],
             assignedSummary: entry.summary || '',
@@ -3946,15 +4069,17 @@
       localStorage.setItem(QUESTION_REPLIES_KEY, JSON.stringify(qrRes.data));
     }
 
+    const chkLen = (window.BARAAT_PLANNER_API && window.BARAAT_PLANNER_API.CHECKS) ? window.BARAAT_PLANNER_API.CHECKS.length : 7;
     monitorUsersCache = [...userMap.values()].map(u => {
       let summary = u.summary;
-      if (!summary && Array.isArray(u.days) && u.days.length) {
-        const blocks = u.days.flatMap(d => d.blocks || []);
-        const total = blocks.length * 6;
+      if (!summary && ((Array.isArray(u.days) && u.days.length) || (Array.isArray(u.subjectSections) && u.subjectSections.length))) {
+        const blocks = [...(u.days || []).flatMap(d => d.blocks || []), ...(u.subjectSections || [])];
+        const total = blocks.length * chkLen;
         const doneC = blocks.reduce((a, b) => a + (b.checks || []).filter(Boolean).length, 0);
         const doneB = blocks.filter(b => (b.checks || []).filter(Boolean).length === (b.checks || []).length && b.checks.length > 0).length;
         summary = {
-          days: u.days.length,
+          days: (u.days || []).length,
+          subjectSections: (u.subjectSections || []).length,
           blocks: blocks.length,
           doneBlocks: doneB,
           pct: total ? Math.round((doneC / total) * 100) : 0,
@@ -4007,6 +4132,9 @@
     (u.days || []).forEach(d => (d.blocks || []).forEach(b => {
       if (b.mastery === 'ضعیف') weakList.push(`روز ${toFa(d.number)}: ${b.law} (${b.title || b.spec})`);
     }));
+    (u.subjectSections || []).forEach(b => {
+      if (b.mastery === 'ضعیف') weakList.push(`${b.sectionLabel || 'بخش درسی'}: ${b.law} (${b.title || b.spec})`);
+    });
 
     window.showModal(`
       <h2>گزارش تفصیلی داوطلب</h2>
@@ -4140,6 +4268,1412 @@
       </div>
     `;
   };
+
+  // -------------------------------------------------------------------
+  // ۴-ز. ماژول جامع آزمون‌های حقوقی (بارگذاری مدیر + محیط امتحانی تمام‌صفحه)
+  // -------------------------------------------------------------------
+  const EXAMS_KEY = 'baraat_exams_v1';
+  const EXAM_RESULTS_LOCAL_KEY = 'baraat_exam_results_v1';
+  const EXAM_ORGS = [
+    'کانون وکلا (اسکودا)',
+    'مرکز وکلای قوه قضاییه',
+    'آزمون قضاوت',
+    'آزمون سردفتری',
+    'کارشناسی ارشد حقوق',
+    'آزمون آزمایشی گروه برائت'
+  ];
+  const EXAM_LETTERS = ['الف', 'ب', 'ج', 'د'];
+
+  window.jumpToSubjectSection = function(blockId) {
+    const api = window.BARAAT_PLANNER_API;
+    if (!api) return;
+    const st = api.getState();
+    const blk = (st.subjectSections || []).find(b => b.id === blockId);
+    if (!blk) return;
+    blk.open = true;
+    api.showView('subjectPlan');
+    api.render();
+    setTimeout(() => {
+      const el = document.getElementById('blk-' + blockId);
+      if (el) el.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    }, 80);
+  };
+
+  window.getExams = function() {
+    try {
+      const raw = localStorage.getItem(EXAMS_KEY);
+      const list = raw ? JSON.parse(raw) : [];
+      return Array.isArray(list) ? list : [];
+    } catch (e) {
+      return [];
+    }
+  };
+
+  async function persistExamsList(list, successMsg) {
+    localStorage.setItem(EXAMS_KEY, JSON.stringify(list));
+    if (window.renderExamsHub) window.renderExamsHub();
+    if (typeof renderAdminPanels === 'function') renderAdminPanels();
+    const res = await syncToSupabase(EXAMS_KEY, list);
+    if (res.ok) {
+      if (typeof toast === 'function') toast(successMsg || 'آزمون در سرور ذخیره شد.');
+    } else {
+      if (typeof toast === 'function') toast('ذخیره محلی انجام شد اما خطای سرور رخ داد: ' + res.error);
+    }
+  }
+
+  function getExamResults() {
+    try {
+      const api = window.BARAAT_PLANNER_API;
+      if (api && window.me && api.isReady()) {
+        const st = api.getState();
+        if (Array.isArray(st.examResults) && st.examResults.length > 0) return st.examResults;
+      }
+      const raw = localStorage.getItem(EXAM_RESULTS_LOCAL_KEY);
+      const list = raw ? JSON.parse(raw) : [];
+      return Array.isArray(list) ? list : [];
+    } catch (e) {
+      return [];
+    }
+  }
+
+  async function saveExamResultRecord(rec) {
+    try {
+      const localList = (() => {
+        try { return JSON.parse(localStorage.getItem(EXAM_RESULTS_LOCAL_KEY) || '[]'); } catch (e) { return []; }
+      })();
+      localList.unshift(rec);
+      localStorage.setItem(EXAM_RESULTS_LOCAL_KEY, JSON.stringify(localList.slice(0, 40)));
+
+      const api = window.BARAAT_PLANNER_API;
+      if (api && window.me && api.isReady()) {
+        const st = api.getState();
+        st.examResults = Array.isArray(st.examResults) ? st.examResults : [];
+        st.examResults.unshift(rec);
+        st.examResults = st.examResults.slice(0, 40);
+        await api.saveImmediate();
+      }
+    } catch (e) {
+      console.warn('Exam result save notice:', e);
+    }
+  }
+
+  function totalQuestionsCount(ex) {
+    return (ex.subjects || []).reduce((sum, s) => sum + ((s.questions || []).length), 0);
+  }
+
+  let examHubFilterOrg = 'all';
+  let examHubFilterYear = 'all';
+  let examHubQuery = '';
+
+  window.setExamHubFilters = function(kind, val) {
+    if (kind === 'org') examHubFilterOrg = val || 'all';
+    if (kind === 'year') examHubFilterYear = val || 'all';
+    if (kind === 'q') examHubQuery = String(val || '');
+    window.renderExamsHub();
+  };
+
+  window.renderExamsHub = function() {
+    const root = document.getElementById('studentExamsRoot');
+    if (!root) return;
+
+    const exams = window.getExams();
+    const orgSet = [...new Set([...EXAM_ORGS, ...exams.map(e => e.org).filter(Boolean)])];
+    const yearSet = [...new Set(exams.map(e => Number(e.year)).filter(Boolean))].sort((a, b) => b - a);
+    const qNorm = examHubQuery.trim().toLowerCase();
+
+    const filtered = exams.filter(e => {
+      if (examHubFilterOrg !== 'all' && e.org !== examHubFilterOrg) return false;
+      if (examHubFilterYear !== 'all' && String(e.year) !== String(examHubFilterYear)) return false;
+      if (!qNorm) return true;
+      return (
+        (e.title || '').toLowerCase().includes(qNorm) ||
+        (e.org || '').toLowerCase().includes(qNorm) ||
+        String(e.year || '').includes(qNorm) ||
+        (e.subjects || []).some(s => (s.name || '').toLowerCase().includes(qNorm))
+      );
+    });
+
+    const results = getExamResults();
+
+    root.innerHTML = `
+      <div class="panel">
+        <div class="panel-head">
+          <div>
+            <h2>📚 بانک سوالات و آزمون‌های حقوقی</h2>
+            <div class="muted small">مرور درس به درس سوالات با دکمه نمایش پاسخ زیر هر سوال، و امکان فعال‌سازی اختیاری تایمر و نمره</div>
+          </div>
+          <div class="row" style="gap:8px;">
+            ${window.isAdmin ? `<button type="button" class="btn primary" onclick="openExamMetaModal()">＋ بارگذاری / ایجاد آزمون جدید</button>` : ''}
+            <button type="button" class="btn" onclick="if(window.syncAllFromSupabase)syncAllFromSupabase().then(()=>{if(typeof toast==='function')toast('فهرست آزمون‌ها بروزرسانی شد.');})">🔄 بروزرسانی</button>
+          </div>
+        </div>
+
+        <div class="form-grid" style="grid-template-columns:repeat(auto-fit, minmax(190px, 1fr)); gap:10px;">
+          <div class="field">
+            <label>جستجو در نام آزمون یا درس</label>
+            <input id="examHubSearchInp" value="${esc(examHubQuery)}" placeholder="مثلاً: کانون ۱۴۰۵، مدنی..." oninput="setExamHubFilters('q', this.value)">
+          </div>
+          <div class="field">
+            <label>نهاد برگزارکننده</label>
+            <select onchange="setExamHubFilters('org', this.value)">
+              <option value="all" ${examHubFilterOrg === 'all' ? 'selected' : ''}>همه نهادها و دوره‌ها</option>
+              ${orgSet.map(o => `<option value="${esc(o)}" ${examHubFilterOrg === o ? 'selected' : ''}>${esc(o)}</option>`).join('')}
+            </select>
+          </div>
+          <div class="field">
+            <label>سال برگزاری</label>
+            <select onchange="setExamHubFilters('year', this.value)">
+              <option value="all" ${examHubFilterYear === 'all' ? 'selected' : ''}>همه سال‌ها</option>
+              ${yearSet.map(y => `<option value="${y}" ${String(examHubFilterYear) === String(y) ? 'selected' : ''}>سال ${toFa(y)}</option>`).join('')}
+            </select>
+          </div>
+        </div>
+
+        ${!filtered.length ? `
+          <div class="empty-glass-card" style="margin:24px auto;">
+            <div class="empty-icon">📝</div>
+            <h3>${exams.length ? 'آزمونی با این فیلتر پیدا نشد' : 'هنوز آزمونی بارگذاری نشده است'}</h3>
+            <p>${exams.length ? 'فیلتر سال یا نهاد را تغییر دهید تا سایر آزمون‌ها نمایش داده شوند.' : 'آزمون‌های سال‌های مختلف (مانند آزمون کانون وکلا، مرکز وکلا و قضاوت) پس از بارگذاری توسط مدیر به صورت درس به درس در این بخش قرار می‌گیرند.'}</p>
+            ${window.isAdmin ? `<div style="margin-top:16px;"><button type="button" class="btn primary" onclick="openExamMetaModal()">＋ ایجاد اولین آزمون</button></div>` : ''}
+          </div>
+        ` : `
+          <div class="exams-grid">
+            ${filtered.map(ex => {
+              const totalQ = totalQuestionsCount(ex);
+              const subjs = (ex.subjects || []).filter(s => (s.questions || []).length > 0);
+              return `
+                <article class="exam-card">
+                  <div class="row between" style="gap:8px; flex-wrap:wrap;">
+                    <span class="art-tag">${esc(ex.org || 'آزمون حقوقی')}</span>
+                    <span class="pill ${totalQ ? 'done' : ''}">سال ${toFa(ex.year || '۱۴۰۵')} · ${toFa(totalQ)} سوال</span>
+                  </div>
+                  <div>
+                    <h3 style="margin:0 0 6px; font-size:17px; font-weight:800; color:#0f172a;">${esc(ex.title)}</h3>
+                    <div class="muted small">
+                      📖 مرور با پاسخ زیر هر سوال · ⏱ زمان آزمون اختیاری: ${toFa(ex.durationMinutes || 60)} دقیقه
+                    </div>
+                    ${ex.description ? `<p style="margin:8px 0 0; font-size:13px; color:#475569; line-height:1.8;">${esc(ex.description)}</p>` : ''}
+                  </div>
+                  <div>
+                    <div style="font-size:12px; font-weight:700; color:#334155; margin-bottom:7px;">مطالعه درس به درس سوالات:</div>
+                    <div class="exam-subj-pills">
+                      ${subjs.length ? subjs.map(s => `
+                        <button type="button" class="exam-subj-btn" onclick="openExamRunner('${ex.id}', '${s.id}', 'study')">
+                          <span>${esc(s.name)}</span>
+                          <small class="muted">(${toFa((s.questions || []).length)})</small>
+                        </button>
+                      `).join('') : '<span class="muted small">هنوز سوالی ثبت نشده است</span>'}
+                    </div>
+                  </div>
+                  <div class="row between" style="gap:8px; flex-wrap:wrap; padding-top:12px; border-top:1px solid var(--line); margin-top:auto;">
+                    <button type="button" class="btn primary" style="flex:1; justify-content:center;" ${totalQ ? `onclick="openExamRunner('${ex.id}', null, 'study')"` : 'disabled'}>
+                      📖 مشاهده سوالات و پاسخ‌ها
+                    </button>
+                    <button type="button" class="btn small" ${totalQ ? `onclick="openExamRunner('${ex.id}', null, 'exam')"` : 'disabled'} title="شروع اختیاری آزمون با تایمر و کارنامه">
+                      ⏱ آزمون زمان‌دار
+                    </button>
+                    ${window.isAdmin ? `<button type="button" class="btn small" onclick="openExamQuestionsEditor('${ex.id}')">✏️</button>` : ''}
+                  </div>
+                </article>
+              `;
+            }).join('')}
+          </div>
+        `}
+      </div>
+
+      ${results.length ? `
+        <div class="panel">
+          <div class="panel-head">
+            <div>
+              <h2>📊 کارنامه‌ها و سوابق آزمون‌های من</h2>
+              <div class="muted small">آخرین نتایج ثبت‌شده به تفکیک درصد خام و درصد با نمره منفی</div>
+            </div>
+          </div>
+          <div style="display:grid; gap:10px;">
+            ${results.slice(0, 8).map(r => `
+              <div class="row between" style="padding:12px 16px; border:1px solid var(--line); border-radius:14px; background:#f8fafc; flex-wrap:wrap; gap:10px;">
+                <div>
+                  <b style="font-size:14.5px; color:#0f172a;">${esc(r.examTitle)} ${r.scopeLabel ? '· ' + esc(r.scopeLabel) : ''}</b>
+                  <div class="muted small" style="margin-top:3px;">
+                    ${esc(r.dateLabel || '')} · صحیح: <b>${toFa(r.correct)}</b> · غلط: <b>${toFa(r.wrong)}</b> · نزده: <b>${toFa(r.blank)}</b> از ${toFa(r.total)}
+                  </div>
+                </div>
+                <div class="row" style="gap:10px;">
+                  <span class="pill">خام: ${toFa(r.rawPct)}٪</span>
+                  <span class="pill done">تراز با منفی: ${toFa(r.netPct)}٪</span>
+                </div>
+              </div>
+            `).join('')}
+          </div>
+        </div>
+      ` : ''}
+    `;
+  };
+
+  // --- محیط اختصاصی مدیر برای مدیریت آزمون‌ها و ورود گروهی سوالات ---
+  window.renderAdminExamsList = function() {
+    const box = document.getElementById('admExamsList');
+    if (!box) return;
+    const exams = window.getExams();
+    if (!exams.length) {
+      box.innerHTML = '<div class="muted small" style="padding:12px; background:#f8fafc; border-radius:10px;">هنوز آزمونی ثبت نشده است. با دکمه «ایجاد آزمون جدید» آزمون کانون، مرکز وکلا یا قضاوت را بسازید.</div>';
+      return;
+    }
+    box.innerHTML = `<div style="display:grid; gap:10px;">${exams.map(ex => {
+      const qCount = totalQuestionsCount(ex);
+      const sCount = (ex.subjects || []).length;
+      return `
+        <div class="row between" style="padding:12px 14px; background:#f8fafc; border:1px solid var(--line); border-radius:12px; font-size:13px; flex-wrap:wrap; gap:8px;">
+          <div>
+            <b style="font-size:14px;">${esc(ex.title)}</b>
+            <span class="pill" style="margin-right:6px;">سال ${toFa(ex.year || '۱۴۰۵')} · ${esc(ex.org || '')}</span>
+            <div class="muted small" style="margin-top:4px;">${toFa(sCount)} درس · ${toFa(qCount)} سوال · مدت: ${toFa(ex.durationMinutes || 60)} دقیقه</div>
+          </div>
+          <div class="row" style="gap:6px; flex-wrap:wrap;">
+            <button type="button" class="btn small primary" onclick="openExamQuestionsEditor('${ex.id}')">📝 سوالات درس به درس</button>
+            <button type="button" class="btn small" onclick="openExamBulkImportModal('${ex.id}')">📥 ورود گروهی (متن / اکسل / JSON)</button>
+            <button type="button" class="btn small" onclick="openExamMetaModal('${ex.id}')">✎ مشخصات</button>
+            <button type="button" class="btn small" onclick="exportExamJson('${ex.id}')">📤 JSON</button>
+            <button type="button" class="btn small danger" onclick="deleteExam('${ex.id}')">✕ حذف</button>
+          </div>
+        </div>
+      `;
+    }).join('')}</div>`;
+  };
+
+  window.openExamMetaModal = function(examId) {
+    if (!window.isAdmin) { if (typeof toast === 'function') toast('فقط مدیر مجاز به مدیریت آزمون‌هاست.'); return; }
+    const existing = examId ? window.getExams().find(x => x.id === examId) : null;
+    const ex = existing || {
+      id: 'ex_' + Date.now(),
+      title: '',
+      org: EXAM_ORGS[0],
+      year: 1405,
+      durationMinutes: 120,
+      negativeMarking: true,
+      description: '',
+      subjects: [
+        { id: 'es_' + Date.now() + '_1', name: 'حقوق مدنی', questions: [] },
+        { id: 'es_' + Date.now() + '_2', name: 'آیین دادرسی مدنی', questions: [] },
+        { id: 'es_' + Date.now() + '_3', name: 'حقوق تجارت', questions: [] },
+        { id: 'es_' + Date.now() + '_4', name: 'حقوق جزای عمومی و اختصاصی', questions: [] },
+        { id: 'es_' + Date.now() + '_5', name: 'آیین دادرسی کیفری', questions: [] },
+        { id: 'es_' + Date.now() + '_6', name: 'اصول فقه', questions: [] }
+      ]
+    };
+
+    const m = document.getElementById('modal');
+    if (!m) return;
+    m.innerHTML = `
+      <h2>${existing ? '✏️ ویرایش مشخصات آزمون' : '📝 ایجاد آزمون جدید'}</h2>
+      <div class="form-grid">
+        <div class="field" style="grid-column:1/-1;">
+          <label>عنوان کامل آزمون *</label>
+          <input id="exMetaTitle" value="${esc(ex.title)}" placeholder="مثلاً: آزمون وکالت کانون وکلای دادگستری ۱۴۰۵">
+        </div>
+        <div class="field">
+          <label>نهاد برگزارکننده</label>
+          <select id="exMetaOrg">
+            ${EXAM_ORGS.map(o => `<option value="${esc(o)}" ${ex.org === o ? 'selected' : ''}>${esc(o)}</option>`).join('')}
+          </select>
+        </div>
+        <div class="field">
+          <label>سال برگزاری (شمسی)</label>
+          <input id="exMetaYear" type="number" min="1370" max="1420" value="${Number(ex.year || 1405)}">
+        </div>
+        <div class="field">
+          <label>مدت زمان استاندارد (دقیقه)</label>
+          <input id="exMetaDur" type="number" min="5" max="600" value="${Number(ex.durationMinutes || 120)}">
+        </div>
+        <div class="field" style="justify-content:end;">
+          <label class="check" style="margin:0; cursor:pointer;">
+            <input type="checkbox" id="exMetaNeg" ${ex.negativeMarking !== false ? 'checked' : ''}>
+            <span>اعمال نمره منفی یک‌سوم (۳ غلط = ۱ درست)</span>
+          </label>
+        </div>
+        <div class="field" style="grid-column:1/-1;">
+          <label>توضیحات یا نکات راهنما (اختیاری)</label>
+          <textarea id="exMetaDesc" rows="2" placeholder="بودجه‌بندی، دفترچه، نکات منابع طرح سوال...">${esc(ex.description || '')}</textarea>
+        </div>
+      </div>
+      <div class="modal-actions">
+        <button class="btn" onclick="closeModal()">انصراف</button>
+        <button class="btn primary" onclick="submitExamMeta('${ex.id}', ${!!existing})">${existing ? 'ذخیره تغییرات' : 'ایجاد و ورود به مدیریت سوالات'}</button>
+      </div>
+    `;
+    window.__tmpNewExamPreset = existing ? null : ex;
+    document.getElementById('modalBack').classList.add('show');
+  };
+
+  window.submitExamMeta = async function(examId, isEdit) {
+    if (!window.isAdmin) return;
+    const title = (document.getElementById('exMetaTitle')?.value || '').trim();
+    if (!title) return alert('عنوان آزمون را وارد کنید.');
+    const org = document.getElementById('exMetaOrg')?.value || EXAM_ORGS[0];
+    const year = Number(toEn(document.getElementById('exMetaYear')?.value || '1405')) || 1405;
+    const durationMinutes = Math.max(5, Number(toEn(document.getElementById('exMetaDur')?.value || '120')) || 120);
+    const negativeMarking = !!document.getElementById('exMetaNeg')?.checked;
+    const description = (document.getElementById('exMetaDesc')?.value || '').trim();
+
+    const list = window.getExams();
+    if (isEdit) {
+      const target = list.find(x => x.id === examId);
+      if (target) Object.assign(target, { title, org, year, durationMinutes, negativeMarking, description, updatedAt: new Date().toISOString() });
+    } else {
+      const created = Object.assign({}, window.__tmpNewExamPreset || { id: examId, subjects: [] }, {
+        id: examId,
+        title, org, year, durationMinutes, negativeMarking, description,
+        updatedAt: new Date().toISOString()
+      });
+      list.unshift(created);
+    }
+    window.__tmpNewExamPreset = null;
+    await persistExamsList(list, isEdit ? 'مشخصات آزمون ذخیره شد.' : 'آزمون ساخته شد.');
+    if (isEdit) closeModal();
+    else window.openExamQuestionsEditor(examId);
+  };
+
+  window.deleteExam = async function(examId) {
+    if (!window.isAdmin) return;
+    if (!confirm('این آزمون و تمام سوالات آن حذف شود؟')) return;
+    const list = window.getExams().filter(x => x.id !== examId);
+    await persistExamsList(list, 'آزمون حذف شد.');
+  };
+
+  window.exportExamJson = function(examId) {
+    const ex = window.getExams().find(x => x.id === examId);
+    if (!ex) return;
+    const blob = new Blob([JSON.stringify(ex, null, 2)], { type: 'application/json' });
+    const a = document.createElement('a');
+    a.href = URL.createObjectURL(blob);
+    a.download = `exam-${ex.year || 'baraat'}-${ex.id}.json`;
+    a.click();
+    setTimeout(() => URL.revokeObjectURL(a.href), 1500);
+  };
+
+  let editingExamSubjId = null;
+  let editingQuestionId = null;
+
+  window.openExamQuestionsEditor = function(examId, subjId) {
+    if (!window.isAdmin) return;
+    const list = window.getExams();
+    const ex = list.find(x => x.id === examId);
+    if (!ex) return;
+    ex.subjects = ex.subjects || [];
+    if (!ex.subjects.length) {
+      ex.subjects.push({ id: 'es_' + Date.now(), name: 'حقوق مدنی', questions: [] });
+    }
+    const curSubj = (subjId && ex.subjects.find(s => s.id === subjId)) || (editingExamSubjId && ex.subjects.find(s => s.id === editingExamSubjId)) || ex.subjects[0];
+    editingExamSubjId = curSubj.id;
+    const curQ = editingQuestionId ? (curSubj.questions || []).find(q => q.id === editingQuestionId) : null;
+
+    const m = document.getElementById('modal');
+    if (!m) return;
+    m.innerHTML = `
+      <div class="row between" style="gap:10px; flex-wrap:wrap; margin-bottom:10px;">
+        <div>
+          <h2 style="margin:0;">📝 مدیریت سوالات: ${esc(ex.title)}</h2>
+          <div class="muted small">سال ${toFa(ex.year)} · ${esc(ex.org)} · کل سوالات: ${toFa(totalQuestionsCount(ex))}</div>
+        </div>
+        <button type="button" class="btn small" onclick="openExamBulkImportModal('${ex.id}')">📥 ورود گروهی سوالات</button>
+      </div>
+
+      <div style="display:flex; flex-wrap:wrap; gap:6px; padding:10px; background:#f8fafc; border:1px solid var(--line); border-radius:12px; margin-bottom:14px;">
+        ${ex.subjects.map(s => `
+          <button type="button" class="btn small ${s.id === curSubj.id ? 'primary' : ''}" onclick="editingQuestionId=null;openExamQuestionsEditor('${ex.id}', '${s.id}')">
+            ${esc(s.name)} (${toFa((s.questions || []).length)})
+          </button>
+        `).join('')}
+        <button type="button" class="btn small" onclick="addExamSubjectPrompt('${ex.id}')">＋ درس جدید</button>
+      </div>
+
+      <div class="row between" style="gap:8px; margin-bottom:12px; flex-wrap:wrap;">
+        <b style="font-size:14.5px; color:#0f766e;">درس فعال: ${esc(curSubj.name)} (${toFa((curSubj.questions || []).length)} سوال)</b>
+        <div class="row" style="gap:6px;">
+          <button type="button" class="btn small" onclick="renameExamSubject('${ex.id}', '${curSubj.id}')">✎ تغییر نام درس</button>
+          ${ex.subjects.length > 1 ? `<button type="button" class="btn small danger" onclick="deleteExamSubject('${ex.id}', '${curSubj.id}')">حذف درس</button>` : ''}
+        </div>
+      </div>
+
+      <div style="padding:14px; border:1px solid #99f6e4; background:#f0fdfa; border-radius:14px; margin-bottom:16px;">
+        <h4 style="margin:0 0 10px; color:#0f766e;">${curQ ? '✎ ویرایش سوال انتخاب‌شده' : '＋ افزودن سوال تکی به «' + esc(curSubj.name) + '»'}</h4>
+        <div class="field">
+          <label>صورت سوال *</label>
+          <textarea id="eqStem" rows="3" placeholder="متن کامل سوال حقوقی...">${esc(curQ ? curQ.q : '')}</textarea>
+        </div>
+        <div class="form-grid" style="margin-top:8px; gap:8px;">
+          ${EXAM_LETTERS.map((lt, idx) => `
+            <div class="field">
+              <label>گزینه ${lt}</label>
+              <input id="eqOpt${idx}" value="${esc(curQ && curQ.options ? (curQ.options[idx] || '') : '')}" placeholder="متن گزینه ${lt}">
+            </div>
+          `).join('')}
+          <div class="field">
+            <label>گزینه صحیح</label>
+            <select id="eqAns">
+              ${EXAM_LETTERS.map((lt, idx) => `<option value="${idx}" ${(curQ && Number(curQ.answer) === idx) ? 'selected' : ''}>گزینه ${lt}</option>`).join('')}
+            </select>
+          </div>
+          <div class="field">
+            <label>ماده قانونی / پاسخ تشریحی</label>
+            <input id="eqExp" value="${esc(curQ ? (curQ.exp || '') : '')}" placeholder="توضیح مختصر یا مستند ماده...">
+          </div>
+        </div>
+        <div class="row" style="gap:8px; margin-top:10px; justify-content:flex-end;">
+          ${curQ ? `<button type="button" class="btn small" onclick="editingQuestionId=null;openExamQuestionsEditor('${ex.id}', '${curSubj.id}')">انصراف از ویرایش</button>` : ''}
+          <button type="button" class="btn primary small" onclick="saveSingleExamQuestion('${ex.id}', '${curSubj.id}', '${curQ ? curQ.id : ''}')">${curQ ? 'بروزرسانی سوال' : 'ذخیره و افزودن سوال'}</button>
+        </div>
+      </div>
+
+      <div style="max-height:260px; overflow:auto; display:grid; gap:8px;">
+        ${!(curSubj.questions || []).length
+          ? '<div class="muted small">هنوز سوالی در این درس ثبت نشده است.</div>'
+          : (curSubj.questions || []).map((q, qi) => `
+            <div style="padding:10px 12px; border:1px solid var(--line); border-radius:10px; background:#fff; font-size:12.5px;">
+              <div class="row between" style="gap:8px; align-items:flex-start;">
+                <div>
+                  <b>${toFa(qi + 1)}.</b> ${esc(q.q)}
+                  <div class="muted small" style="margin-top:4px;">پاسخ: <b>گزینه ${EXAM_LETTERS[Number(q.answer) || 0]}</b>${q.exp ? ' · ' + esc(q.exp.slice(0, 80)) : ''}</div>
+                </div>
+                <div class="row" style="gap:4px; flex-shrink:0;">
+                  <button type="button" class="btn small" onclick="editExamQuestion('${ex.id}', '${curSubj.id}', '${q.id}')">✎</button>
+                  <button type="button" class="btn small danger" onclick="deleteExamQuestion('${ex.id}', '${curSubj.id}', '${q.id}')">✕</button>
+                </div>
+              </div>
+            </div>
+          `).join('')}
+      </div>
+
+      <div class="modal-actions">
+        <button type="button" class="btn primary" onclick="closeModal()">بستن</button>
+      </div>
+    `;
+    document.getElementById('modalBack').classList.add('show');
+  };
+
+  window.addExamSubjectPrompt = async function(examId) {
+    const name = prompt('نام درس جدید را وارد کنید (مثلاً: حقوق ثبت):');
+    if (!name || !name.trim()) return;
+    const list = window.getExams();
+    const ex = list.find(x => x.id === examId);
+    if (!ex) return;
+    const ns = { id: 'es_' + Date.now(), name: name.trim(), questions: [] };
+    ex.subjects = ex.subjects || [];
+    ex.subjects.push(ns);
+    editingExamSubjId = ns.id;
+    editingQuestionId = null;
+    await persistExamsList(list, 'درس جدید به آزمون اضافه شد.');
+    window.openExamQuestionsEditor(examId, ns.id);
+  };
+
+  window.renameExamSubject = async function(examId, subjId) {
+    const list = window.getExams();
+    const ex = list.find(x => x.id === examId);
+    const subj = ex && (ex.subjects || []).find(s => s.id === subjId);
+    if (!subj) return;
+    const n = prompt('نام جدید درس:', subj.name);
+    if (!n || !n.trim()) return;
+    subj.name = n.trim();
+    await persistExamsList(list, 'نام درس ویرایش شد.');
+    window.openExamQuestionsEditor(examId, subjId);
+  };
+
+  window.deleteExamSubject = async function(examId, subjId) {
+    if (!confirm('این درس و تمام سوالات آن از آزمون حذف شود؟')) return;
+    const list = window.getExams();
+    const ex = list.find(x => x.id === examId);
+    if (!ex) return;
+    ex.subjects = (ex.subjects || []).filter(s => s.id !== subjId);
+    editingExamSubjId = ex.subjects[0] ? ex.subjects[0].id : null;
+    editingQuestionId = null;
+    await persistExamsList(list, 'درس حذف شد.');
+    window.openExamQuestionsEditor(examId, editingExamSubjId);
+  };
+
+  window.editExamQuestion = function(examId, subjId, qId) {
+    editingExamSubjId = subjId;
+    editingQuestionId = qId;
+    window.openExamQuestionsEditor(examId, subjId);
+  };
+
+  window.deleteExamQuestion = async function(examId, subjId, qId) {
+    if (!confirm('این سوال حذف شود؟')) return;
+    const list = window.getExams();
+    const ex = list.find(x => x.id === examId);
+    const subj = ex && (ex.subjects || []).find(s => s.id === subjId);
+    if (!subj) return;
+    subj.questions = (subj.questions || []).filter(q => q.id !== qId);
+    await persistExamsList(list, 'سوال حذف شد.');
+    window.openExamQuestionsEditor(examId, subjId);
+  };
+
+  window.saveSingleExamQuestion = async function(examId, subjId, qId) {
+    const stem = (document.getElementById('eqStem')?.value || '').trim();
+    if (!stem) return alert('صورت سوال را وارد کنید.');
+    const options = EXAM_LETTERS.map((_, i) => (document.getElementById('eqOpt' + i)?.value || '').trim());
+    if (options.filter(Boolean).length < 2) return alert('حداقل دو گزینه وارد کنید.');
+    const answer = Number(document.getElementById('eqAns')?.value || 0);
+    const exp = (document.getElementById('eqExp')?.value || '').trim();
+
+    const list = window.getExams();
+    const ex = list.find(x => x.id === examId);
+    const subj = ex && (ex.subjects || []).find(s => s.id === subjId);
+    if (!subj) return;
+    subj.questions = subj.questions || [];
+    if (qId) {
+      const tq = subj.questions.find(q => q.id === qId);
+      if (tq) Object.assign(tq, { q: stem, options, answer, exp });
+    } else {
+      subj.questions.push({ id: 'eq_' + Date.now() + '_' + Math.random().toString(36).slice(2, 6), q: stem, options, answer, exp });
+    }
+    editingQuestionId = null;
+    await persistExamsList(list, qId ? 'سوال بروزرسانی شد.' : 'سوال به درس اضافه شد.');
+    window.openExamQuestionsEditor(examId, subjId);
+  };
+
+  // --- ورود گروهی هوشمند سوالات (متن ساده، اکسل/CSV، JSON) ---
+  function parseSmartExamText(rawText, defaultSubjName) {
+    const lines = String(rawText || '').replace(/\r\n?/g, '\n').split('\n');
+    const grouped = {};
+    let curSubj = defaultSubjName || 'عمومی';
+    let curQ = null;
+
+    const pushCur = () => {
+      if (curQ && curQ.q && curQ.options.some(Boolean)) {
+        while (curQ.options.length < 4) curQ.options.push('');
+        grouped[curSubj] = grouped[curSubj] || [];
+        grouped[curSubj].push(curQ);
+      }
+      curQ = null;
+    };
+
+    const letterToIdx = (ch) => {
+      const n = toEn(String(ch || '')).trim().replace(/[.)]/g, '');
+      if (n === '1' || n === 'الف' || n.toLowerCase() === 'a') return 0;
+      if (n === '2' || n === 'ب' || n.toLowerCase() === 'b') return 1;
+      if (n === '3' || n === 'ج' || n.toLowerCase() === 'c') return 2;
+      if (n === '4' || n === 'د' || n.toLowerCase() === 'd') return 3;
+      return 0;
+    };
+
+    lines.forEach(rawLine => {
+      const line = rawLine.trim();
+      if (!line) return;
+
+      const subjMatch = line.match(/^(?:درس|مبحث)\s*[:：]\s*(.+)$/);
+      if (subjMatch) {
+        pushCur();
+        curSubj = subjMatch[1].trim() || defaultSubjName;
+        return;
+      }
+
+      const ansMatch = line.match(/^(?:پاسخ\s*صحیح|پاسخ|جواب|کلید)\s*[:：]\s*(.+)$/);
+      if (ansMatch && curQ) {
+        curQ.answer = letterToIdx(ansMatch[1].slice(0, 4));
+        return;
+      }
+
+      const expMatch = line.match(/^(?:تشریح|پاسخ\s*تشریحی|نکته|مستند|توضیح)\s*[:：]\s*(.+)$/);
+      if (expMatch && curQ) {
+        curQ.exp = (curQ.exp ? curQ.exp + ' ' : '') + expMatch[1].trim();
+        return;
+      }
+
+      const optMatch = line.match(/^(?:گزینه\s*)?([الفبجد1-4۱-۴a-dA-D])\s*[).:\-–—]\s*(.+)$/);
+      if (optMatch && curQ) {
+        const idx = letterToIdx(optMatch[1]);
+        curQ.options[idx] = optMatch[2].trim();
+        return;
+      }
+
+      const qStart = line.match(/^(?:سوال\s*)?[0-9۰-۹]+\s*[).:\-–—]\s*(.+)$/);
+      if (qStart) {
+        pushCur();
+        curQ = {
+          id: 'eq_' + Date.now() + '_' + Math.random().toString(36).slice(2, 7),
+          q: qStart[1].trim(),
+          options: ['', '', '', ''],
+          answer: 0,
+          exp: ''
+        };
+        return;
+      }
+
+      if (!curQ) {
+        curQ = {
+          id: 'eq_' + Date.now() + '_' + Math.random().toString(36).slice(2, 7),
+          q: line,
+          options: ['', '', '', ''],
+          answer: 0,
+          exp: ''
+        };
+      } else if (!curQ.options.some(Boolean)) {
+        curQ.q += '\n' + line;
+      }
+    });
+    pushCur();
+    return grouped;
+  }
+
+  window.openExamBulkImportModal = function(examId) {
+    if (!window.isAdmin) return;
+    const ex = window.getExams().find(x => x.id === examId);
+    if (!ex) return;
+    const subjNames = (ex.subjects || []).map(s => s.name);
+
+    const m = document.getElementById('modal');
+    if (!m) return;
+    m.innerHTML = `
+      <h2>📥 ورود گروهی سوالات به «${esc(ex.title)}»</h2>
+      <p class="muted small" style="line-height:1.8;">سوالات را می‌توانید با متن ساده (پاسخ‌برگ/کلید خودکار)، فایل اکسل (.xlsx/.csv) یا فایل JSON به صورت درس به درس بارگذاری کنید.</p>
+
+      <div class="field" style="margin-top:8px;">
+        <label>درس پیش‌فرض (برای سوالاتی که بالای آن‌ها خط «درس: ...» نباشد)</label>
+        <input id="impDefSubj" list="impSubjData" value="${esc(subjNames[0] || 'حقوق مدنی')}">
+        <datalist id="impSubjData">${subjNames.map(n => `<option value="${esc(n)}">`).join('')}</datalist>
+      </div>
+
+      <div style="margin-top:12px; padding:12px; border:1px solid var(--line); border-radius:12px; background:#f8fafc;">
+        <label style="font-size:12.5px; font-weight:700; display:block; margin-bottom:6px;">۱. بارگذاری مستقیم از فایل اکسل، CSV یا JSON:</label>
+        <input type="file" id="impExamFile" accept=".xlsx,.xls,.csv,.json" onchange="handleExamFileImport('${ex.id}', this)">
+        <div class="muted small" style="margin-top:6px;">ستون‌های پیشنهادی اکسل: درس | صورت سوال | الف | ب | ج | د | پاسخ | تشریح</div>
+      </div>
+
+      <div class="field" style="margin-top:14px;">
+        <label>۲. یا چسباندن متن سوالات با فرمت هوشمند:</label>
+        <textarea id="impExamText" rows="9" placeholder="درس: حقوق مدنی&#10;۱. عقدی که به موجب آن یکی از طرفین...&#10;الف) گزینه اول&#10;ب) گزینه دوم&#10;ج) گزینه سوم&#10;د) گزینه چهارم&#10;پاسخ: ب&#10;تشریح: طبق ماده ... قانون مدنی"></textarea>
+      </div>
+
+      <div class="modal-actions">
+        <button type="button" class="btn" onclick="openExamQuestionsEditor('${ex.id}')">بازگشت به سوالات</button>
+        <button type="button" class="btn primary" onclick="submitExamTextBulkImport('${ex.id}')">⚡ تحلیل و افزودن سوالات متن</button>
+      </div>
+    `;
+    document.getElementById('modalBack').classList.add('show');
+  };
+
+  window.submitExamTextBulkImport = async function(examId) {
+    if (!window.isAdmin) return;
+    const raw = (document.getElementById('impExamText')?.value || '').trim();
+    const defSubj = (document.getElementById('impDefSubj')?.value || '').trim() || 'حقوق مدنی';
+    if (!raw) return alert('متن سوالات را وارد کنید.');
+
+    const list = window.getExams();
+    const ex = list.find(x => x.id === examId);
+    if (!ex) return;
+
+    // اگر متن JSON بود
+    if (raw.startsWith('{') || raw.startsWith('[')) {
+      try {
+        const parsed = JSON.parse(raw);
+        let added = 0;
+        const incSubjects = Array.isArray(parsed) ? [{ name: defSubj, questions: parsed }] : (parsed.subjects || []);
+        ex.subjects = ex.subjects || [];
+        incSubjects.forEach(s => {
+          let target = ex.subjects.find(x => x.name === s.name);
+          if (!target) { target = { id: 'es_' + Date.now() + '_' + Math.random().toString(36).slice(2, 5), name: s.name || defSubj, questions: [] }; ex.subjects.push(target); }
+          (s.questions || []).forEach(q => {
+            target.questions.push(Object.assign({ id: 'eq_' + Date.now() + '_' + Math.random().toString(36).slice(2, 6), options: ['', '', '', ''], answer: 0, exp: '' }, q));
+            added++;
+          });
+        });
+        if (!added) return alert('سوالی در JSON پیدا نشد.');
+        await persistExamsList(list, toFa(added) + ' سوال از JSON اضافه شد.');
+        window.openExamQuestionsEditor(examId);
+        return;
+      } catch (e) {}
+    }
+
+    const grouped = parseSmartExamText(raw, defSubj);
+    let totalAdded = 0;
+    ex.subjects = ex.subjects || [];
+    Object.entries(grouped).forEach(([sName, qs]) => {
+      if (!qs.length) return;
+      let target = ex.subjects.find(x => x.name === sName);
+      if (!target) {
+        target = { id: 'es_' + Date.now() + '_' + Math.random().toString(36).slice(2, 5), name: sName, questions: [] };
+        ex.subjects.push(target);
+      }
+      target.questions.push(...qs);
+      totalAdded += qs.length;
+    });
+
+    if (!totalAdded) return alert('هیچ سوال معتبری با گزینه‌ها شناسایی نشد. هر سوال را با شماره و گزینه‌ها را با الف) ب) ج) د) بنویسید.');
+    await persistExamsList(list, toFa(totalAdded) + ' سوال با موفقیت به آزمون اضافه شد.');
+    window.openExamQuestionsEditor(examId);
+  };
+
+  window.handleExamFileImport = async function(examId, inputEl) {
+    const f = inputEl && inputEl.files && inputEl.files[0];
+    if (!f) return;
+    const defSubj = (document.getElementById('impDefSubj')?.value || '').trim() || 'حقوق مدنی';
+    const list = window.getExams();
+    const ex = list.find(x => x.id === examId);
+    if (!ex) return;
+
+    if (f.name.toLowerCase().endsWith('.json')) {
+      try {
+        const txt = await f.text();
+        document.getElementById('impExamText').value = txt;
+        await window.submitExamTextBulkImport(examId);
+      } catch (e) {
+        alert('فایل JSON معتبر نیست.');
+      }
+      return;
+    }
+
+    try {
+      if (window.loadXLSX) await window.loadXLSX();
+      if (!window.XLSX) return alert('ابزار خواندن اکسل بارگذاری نشد.');
+      const wb = window.XLSX.read(await f.arrayBuffer(), { type: 'array' });
+      const sheet = wb.Sheets[wb.SheetNames[0]];
+      const rows = window.XLSX.utils.sheet_to_json(sheet, { header: 1, defval: '' }).filter(r => r.some(c => String(c).trim() !== ''));
+      if (rows.length < 2) return alert('فایل اکسل خالی یا بدون سطر داده است.');
+
+      const hdr = rows[0].map(c => String(c || '').trim().toLowerCase());
+      const findCol = (preds) => hdr.findIndex(h => preds.some(p => h.includes(p)));
+      const ciSubj = findCol(['درس', 'subject', 'مبحث']);
+      const ciQ = findCol(['سوال', 'صورت', 'question', 'متن']);
+      const ciA = findCol(['الف', 'گزینه 1', 'گزینه ۱', 'opt1', 'a']);
+      const ciB = findCol(['ب', 'گزینه 2', 'گزینه ۲', 'opt2', 'b']);
+      const ciC = findCol(['ج', 'گزینه 3', 'گزینه ۳', 'opt3', 'c']);
+      const ciD = findCol(['د', 'گزینه 4', 'گزینه ۴', 'opt4', 'd']);
+      const ciAns = findCol(['پاسخ', 'کلید', 'جواب', 'صحیح', 'ans']);
+      const ciExp = findCol(['تشریح', 'توضیح', 'نکته', 'مستند', 'exp']);
+
+      const qCol = ciQ >= 0 ? ciQ : (ciSubj === 0 ? 1 : 0);
+      let added = 0;
+      ex.subjects = ex.subjects || [];
+      const ansToIdx = (v) => {
+        const s = toEn(String(v || '')).trim().toLowerCase();
+        if (s === '2' || s === 'ب' || s === 'b') return 1;
+        if (s === '3' || s === 'ج' || s === 'c') return 2;
+        if (s === '4' || s === 'د' || s === 'd') return 3;
+        return 0;
+      };
+
+      rows.slice(1).forEach(r => {
+        const qText = String(r[qCol] || '').trim();
+        if (!qText) return;
+        const sName = (ciSubj >= 0 && String(r[ciSubj] || '').trim()) || defSubj;
+        const opts = [
+          String(r[ciA >= 0 ? ciA : qCol + 1] || '').trim(),
+          String(r[ciB >= 0 ? ciB : qCol + 2] || '').trim(),
+          String(r[ciC >= 0 ? ciC : qCol + 3] || '').trim(),
+          String(r[ciD >= 0 ? ciD : qCol + 4] || '').trim()
+        ];
+        if (!opts.some(Boolean)) return;
+        let target = ex.subjects.find(x => x.name === sName);
+        if (!target) {
+          target = { id: 'es_' + Date.now() + '_' + Math.random().toString(36).slice(2, 5), name: sName, questions: [] };
+          ex.subjects.push(target);
+        }
+        target.questions.push({
+          id: 'eq_' + Date.now() + '_' + Math.random().toString(36).slice(2, 6),
+          q: qText,
+          options: opts,
+          answer: ansToIdx(ciAns >= 0 ? r[ciAns] : 1),
+          exp: ciExp >= 0 ? String(r[ciExp] || '').trim() : ''
+        });
+        added++;
+      });
+
+      if (!added) return alert('سوال معتبری در فایل اکسل یافت نشد.');
+      await persistExamsList(list, toFa(added) + ' سوال از فایل اکسل به آزمون اضافه شد.');
+      window.openExamQuestionsEditor(examId);
+    } catch (e) {
+      alert('خطا در خواندن فایل اکسل: ' + (e && e.message));
+    }
+  };
+
+  // --- محیط امتحانی تمام‌صفحه (#examRunnerOverlay) ---
+  let examSession = null;
+  let examTimerHandle = null;
+
+  function formatMmSs(totalSec) {
+    const s = Math.max(0, Math.floor(totalSec));
+    const hrs = Math.floor(s / 3600);
+    const mins = Math.floor((s % 3600) / 60);
+    const secs = s % 60;
+    const pad = n => String(n).padStart(2, '0');
+    return hrs > 0 ? `${toFa(hrs)}:${toFa(pad(mins))}:${toFa(pad(secs))}` : `${toFa(pad(mins))}:${toFa(pad(secs))}`;
+  }
+
+  function stopExamTimer() {
+    if (examTimerHandle) {
+      clearInterval(examTimerHandle);
+      examTimerHandle = null;
+    }
+  }
+
+  function startExamCountdown() {
+    stopExamTimer();
+    examTimerHandle = setInterval(() => {
+      if (!examSession || examSession.mode !== 'exam' || examSession.submitted || examSession.paused) return;
+      examSession.secondsLeft = Math.max(0, examSession.secondsLeft - 1);
+      const tEl = document.getElementById('exTimerDisplay');
+      if (tEl) {
+        tEl.textContent = formatMmSs(examSession.secondsLeft);
+        tEl.parentElement?.classList.toggle('low', examSession.secondsLeft <= 300);
+      }
+      if (examSession.secondsLeft <= 0) {
+        window.finishExamRunner(true);
+      }
+    }, 1000);
+  }
+
+  window.openExamRunner = function(examId, singleSubjId, mode) {
+    const ex = window.getExams().find(x => x.id === examId);
+    if (!ex) return;
+    const rawSubjs = (ex.subjects || []).filter(s => (s.questions || []).length > 0 && (!singleSubjId || s.id === singleSubjId));
+    if (!rawSubjs.length) {
+      if (typeof toast === 'function') toast('برای این آزمون هنوز سوالی ثبت نشده است.');
+      return;
+    }
+
+    stopExamTimer();
+    const runMode = mode === 'exam' ? 'exam' : 'study';
+    const totalQ = rawSubjs.reduce((a, s) => a + s.questions.length, 0);
+    const defaultSeconds = singleSubjId
+      ? Math.max(300, Math.round((Number(ex.durationMinutes || 60) * 60 * totalQ) / Math.max(totalQ, totalQuestionsCount(ex))))
+      : (Number(ex.durationMinutes || 60) * 60);
+
+    examSession = {
+      exam: ex,
+      mode: runMode,      // 'study' (default: سوالات + پاسخ زیر هر سوال) | 'exam' (اختیاری: تایمر و کارنامه)
+      subjects: rawSubjs,
+      scopeLabel: singleSubjId ? rawSubjs[0].name : 'همه دروس',
+      activeSubjIdx: 0,
+      activeQIdx: 0,
+      viewMode: runMode === 'study' ? 'list' : 'single',
+      answers: {},        // qId -> 0..3
+      revealed: {},       // qId -> true (در حالت مطالعه زیر هر سوال باز می‌شود)
+      flags: {},          // qId -> true
+      secondsLeft: defaultSeconds,
+      totalSeconds: defaultSeconds,
+      paused: false,
+      submitted: false,
+      reviewFilter: 'all' // 'all' | 'wrong' | 'blank' | 'flagged'
+    };
+
+    const overlay = document.getElementById('examRunnerOverlay');
+    if (overlay) overlay.classList.remove('hidden');
+    document.body.style.overflow = 'hidden';
+
+    if (runMode === 'exam') {
+      startExamCountdown();
+    }
+
+    renderExamRunner();
+  };
+
+  window.closeExamRunner = function(force) {
+    if (!force && examSession && examSession.mode === 'exam' && !examSession.submitted) {
+      if (!confirm('آزمون زمان‌دار هنوز تصحیح نشده است. مطمئن هستید که می‌خواهید خارج شوید؟')) return;
+    }
+    stopExamTimer();
+    examSession = null;
+    const overlay = document.getElementById('examRunnerOverlay');
+    if (overlay) {
+      overlay.classList.add('hidden');
+      overlay.innerHTML = '';
+    }
+    document.body.style.overflow = '';
+  };
+
+  window.examSwitchSubj = function(idx) {
+    if (!examSession) return;
+    examSession.activeSubjIdx = idx;
+    examSession.activeQIdx = 0;
+    renderExamRunner();
+    const bodyEl = document.querySelector('#examRunnerOverlay .exam-runner-body');
+    if (bodyEl) bodyEl.scrollTop = 0;
+  };
+
+  window.examSelectQ = function(qIdx) {
+    if (!examSession) return;
+    examSession.activeQIdx = qIdx;
+    renderExamRunner();
+  };
+
+  window.examJumpToQ = function(qId) {
+    const el = document.getElementById('exq-' + qId);
+    if (el) el.scrollIntoView({ behavior: 'smooth', block: 'start' });
+  };
+
+  window.examToggleViewMode = function(mode) {
+    if (!examSession) return;
+    examSession.viewMode = mode;
+    renderExamRunner();
+  };
+
+  window.examTogglePause = function() {
+    if (!examSession || examSession.submitted || examSession.mode !== 'exam') return;
+    examSession.paused = !examSession.paused;
+    renderExamRunner();
+  };
+
+  window.examToggleReveal = function(qId) {
+    if (!examSession) return;
+    const bodyEl = document.querySelector('#examRunnerOverlay .exam-runner-body');
+    const prevScroll = bodyEl ? bodyEl.scrollTop : 0;
+    if (examSession.revealed[qId]) delete examSession.revealed[qId];
+    else examSession.revealed[qId] = true;
+    renderExamRunner();
+    const nextBodyEl = document.querySelector('#examRunnerOverlay .exam-runner-body');
+    if (nextBodyEl) nextBodyEl.scrollTop = prevScroll;
+  };
+
+  window.examToggleRevealAll = function() {
+    if (!examSession) return;
+    const curSubj = examSession.subjects[examSession.activeSubjIdx] || examSession.subjects[0];
+    const qs = curSubj.questions || [];
+    const allOpen = qs.length > 0 && qs.every(q => !!examSession.revealed[q.id]);
+    const bodyEl = document.querySelector('#examRunnerOverlay .exam-runner-body');
+    const prevScroll = bodyEl ? bodyEl.scrollTop : 0;
+    qs.forEach(q => {
+      if (allOpen) delete examSession.revealed[q.id];
+      else examSession.revealed[q.id] = true;
+    });
+    renderExamRunner();
+    const nextBodyEl = document.querySelector('#examRunnerOverlay .exam-runner-body');
+    if (nextBodyEl) nextBodyEl.scrollTop = prevScroll;
+  };
+
+  window.examSwitchSessionMode = function(newMode) {
+    if (!examSession) return;
+    const target = newMode === 'exam' ? 'exam' : 'study';
+    if (target === 'exam') {
+      stopExamTimer();
+      examSession.mode = 'exam';
+      examSession.submitted = false;
+      examSession.paused = false;
+      examSession.revealed = {};
+      examSession.secondsLeft = examSession.totalSeconds;
+      examSession.viewMode = 'single';
+      examSession.activeQIdx = 0;
+      startExamCountdown();
+    } else {
+      stopExamTimer();
+      examSession.mode = 'study';
+      examSession.submitted = false;
+      examSession.paused = false;
+      examSession.viewMode = 'list';
+    }
+    renderExamRunner();
+  };
+
+  window.examPickOption = function(qId, optIdx) {
+    if (!examSession || examSession.submitted) return;
+    const bodyEl = document.querySelector('#examRunnerOverlay .exam-runner-body');
+    const prevScroll = bodyEl ? bodyEl.scrollTop : 0;
+    if (examSession.answers[qId] === optIdx) delete examSession.answers[qId];
+    else examSession.answers[qId] = optIdx;
+    renderExamRunner();
+    if (examSession.mode === 'study' || examSession.viewMode === 'list') {
+      const nextBodyEl = document.querySelector('#examRunnerOverlay .exam-runner-body');
+      if (nextBodyEl) nextBodyEl.scrollTop = prevScroll;
+    }
+  };
+
+  window.examClearAnswer = function(qId) {
+    if (!examSession || examSession.submitted) return;
+    const bodyEl = document.querySelector('#examRunnerOverlay .exam-runner-body');
+    const prevScroll = bodyEl ? bodyEl.scrollTop : 0;
+    delete examSession.answers[qId];
+    renderExamRunner();
+    if (examSession.mode === 'study' || examSession.viewMode === 'list') {
+      const nextBodyEl = document.querySelector('#examRunnerOverlay .exam-runner-body');
+      if (nextBodyEl) nextBodyEl.scrollTop = prevScroll;
+    }
+  };
+
+  window.examToggleFlag = function(qId) {
+    if (!examSession) return;
+    const bodyEl = document.querySelector('#examRunnerOverlay .exam-runner-body');
+    const prevScroll = bodyEl ? bodyEl.scrollTop : 0;
+    if (examSession.flags[qId]) delete examSession.flags[qId];
+    else examSession.flags[qId] = true;
+    renderExamRunner();
+    if (examSession.mode === 'study' || examSession.viewMode === 'list') {
+      const nextBodyEl = document.querySelector('#examRunnerOverlay .exam-runner-body');
+      if (nextBodyEl) nextBodyEl.scrollTop = prevScroll;
+    }
+  };
+
+  window.examSetReviewFilter = function(flt) {
+    if (!examSession) return;
+    examSession.reviewFilter = flt;
+    renderExamRunner();
+  };
+
+  window.finishExamRunner = async function(autoExpired) {
+    if (!examSession || examSession.submitted || examSession.mode !== 'exam') return;
+    if (!autoExpired && !confirm('پاسخ‌برگ شما ثبت و آزمون تصحیح شود؟')) return;
+    examSession.submitted = true;
+    stopExamTimer();
+
+    const stats = computeExamScorecard(examSession);
+    await saveExamResultRecord({
+      id: 'res_' + Date.now(),
+      examId: examSession.exam.id,
+      examTitle: examSession.exam.title,
+      scopeLabel: examSession.scopeLabel,
+      dateLabel: formatJalaliFull(new Date()).numericFa,
+      correct: stats.correct,
+      wrong: stats.wrong,
+      blank: stats.blank,
+      total: stats.total,
+      rawPct: stats.rawPct,
+      netPct: stats.netPct,
+      createdAt: new Date().toISOString()
+    });
+    if (window.renderExamsHub) window.renderExamsHub();
+    renderExamRunner();
+  };
+
+  function computeExamScorecard(sess) {
+    let correct = 0, wrong = 0, blank = 0, total = 0;
+    const neg = sess.exam.negativeMarking !== false;
+    const perSubject = sess.subjects.map(s => {
+      let sc = 0, sw = 0, sb = 0;
+      const qs = s.questions || [];
+      qs.forEach(q => {
+        total++;
+        const picked = sess.answers[q.id];
+        if (picked === undefined || picked === null) { blank++; sb++; }
+        else if (Number(picked) === Number(q.answer)) { correct++; sc++; }
+        else { wrong++; sw++; }
+      });
+      const st = qs.length;
+      const sRaw = st ? Math.round((sc / st) * 100) : 0;
+      const sNet = st ? Math.round(((neg ? ((3 * sc - sw) / 3) : sc) / st) * 1000) / 10 : 0;
+      return { name: s.name, id: s.id, total: st, correct: sc, wrong: sw, blank: sb, rawPct: sRaw, netPct: sNet };
+    });
+    const rawPct = total ? Math.round((correct / total) * 100) : 0;
+    const netPct = total ? Math.round(((neg ? ((3 * correct - wrong) / 3) : correct) / total) * 1000) / 10 : 0;
+    return { correct, wrong, blank, total, rawPct, netPct, neg, perSubject };
+  }
+
+  function renderExamRunner() {
+    const overlay = document.getElementById('examRunnerOverlay');
+    if (!overlay || !examSession) return;
+    const s = examSession;
+    const curSubj = s.subjects[s.activeSubjIdx] || s.subjects[0];
+    const qs = curSubj.questions || [];
+    const curQ = qs[s.activeQIdx] || qs[0];
+    const totalAnsweredAll = Object.keys(s.answers).length;
+    const totalQAll = s.subjects.reduce((acc, sb) => acc + (sb.questions || []).length, 0);
+
+    if (s.mode === 'exam' && s.submitted) {
+      const sc = computeExamScorecard(s);
+      const allTagged = [];
+      s.subjects.forEach(sb => {
+        (sb.questions || []).forEach((q, qi) => {
+          const picked = s.answers[q.id];
+          const isBlank = picked === undefined || picked === null;
+          const isCorrect = !isBlank && Number(picked) === Number(q.answer);
+          const isFlagged = !!s.flags[q.id];
+          if (s.reviewFilter === 'wrong' && (isBlank || isCorrect)) return;
+          if (s.reviewFilter === 'blank' && !isBlank) return;
+          if (s.reviewFilter === 'flagged' && !isFlagged) return;
+          allTagged.push({ subjName: sb.name, idx: qi + 1, q, picked, isBlank, isCorrect, isFlagged });
+        });
+      });
+
+      overlay.innerHTML = `
+        <div class="exam-runner-head">
+          <div>
+            <b style="font-size:15.5px; color:#0f172a;">📊 کارنامه آزمون: ${esc(s.exam.title)}</b>
+            <div class="muted small">${esc(s.scopeLabel)} · ${toFa(sc.total)} سوال</div>
+          </div>
+          <div class="row" style="gap:8px; flex-wrap:wrap;">
+            <button type="button" class="btn small" onclick="openExamRunner('${s.exam.id}', ${s.subjects.length === 1 ? `'${s.subjects[0].id}'` : 'null'}, 'study')">📖 مرور سوالات</button>
+            <button type="button" class="btn small" onclick="openExamRunner('${s.exam.id}', ${s.subjects.length === 1 ? `'${s.subjects[0].id}'` : 'null'}, 'exam')">🔄 آزمون مجدد</button>
+            <button type="button" class="btn primary small" onclick="closeExamRunner(true)">✕ بستن و بازگشت</button>
+          </div>
+        </div>
+        <div class="exam-runner-body">
+          <div class="exam-scorecard">
+            <div class="cases-kpi-grid" style="margin:0;">
+              <div class="cases-kpi-card"><div class="k-label">درصد کل با نمره منفی</div><div class="k-val" style="color:var(--main);">${toFa(sc.netPct)}٪</div></div>
+              <div class="cases-kpi-card"><div class="k-label">درصد خام بدون نمره منفی</div><div class="k-val">${toFa(sc.rawPct)}٪</div></div>
+              <div class="cases-kpi-card"><div class="k-label">پاسخ‌های صحیح</div><div class="k-val" style="color:#16a34a;">${toFa(sc.correct)}</div></div>
+              <div class="cases-kpi-card"><div class="k-label">غلط / نزده</div><div class="k-val" style="color:#dc2626;">${toFa(sc.wrong)} / ${toFa(sc.blank)}</div></div>
+            </div>
+
+            <div class="panel" style="margin:0;">
+              <h3 style="margin:0 0 12px;">نتایج به تفکیک درس</h3>
+              <div style="overflow-x:auto;">
+                <table class="calc-table">
+                  <thead>
+                    <tr>
+                      <th>عنوان درس</th>
+                      <th>تعداد سوال</th>
+                      <th>صحیح</th>
+                      <th>غلط</th>
+                      <th>نزده</th>
+                      <th>درصد نهایی</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    ${sc.perSubject.map(r => `
+                      <tr>
+                        <td><b>${esc(r.name)}</b></td>
+                        <td>${toFa(r.total)}</td>
+                        <td style="color:#16a34a; font-weight:700;">${toFa(r.correct)}</td>
+                        <td style="color:#dc2626; font-weight:700;">${toFa(r.wrong)}</td>
+                        <td>${toFa(r.blank)}</td>
+                        <td><b style="color:var(--main);">${toFa(r.netPct)}٪</b></td>
+                      </tr>
+                    `).join('')}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+
+            <div class="panel" style="margin:0;">
+              <div class="row between" style="gap:8px; flex-wrap:wrap; margin-bottom:14px;">
+                <h3 style="margin:0;">📖 پاسخنامه تشریحی (${toFa(allTagged.length)} سوال)</h3>
+                <div class="row" style="gap:6px; flex-wrap:wrap;">
+                  <button type="button" class="btn small ${s.reviewFilter === 'all' ? 'primary' : ''}" onclick="examSetReviewFilter('all')">همه سوالات</button>
+                  <button type="button" class="btn small ${s.reviewFilter === 'wrong' ? 'primary' : ''}" onclick="examSetReviewFilter('wrong')">فقط غلط‌ها (${toFa(sc.wrong)})</button>
+                  <button type="button" class="btn small ${s.reviewFilter === 'blank' ? 'primary' : ''}" onclick="examSetReviewFilter('blank')">نزده‌ها (${toFa(sc.blank)})</button>
+                  <button type="button" class="btn small ${s.reviewFilter === 'flagged' ? 'primary' : ''}" onclick="examSetReviewFilter('flagged')">نشان‌دارها</button>
+                </div>
+              </div>
+              <div style="display:grid; gap:14px;">
+                ${allTagged.length ? allTagged.map(item => `
+                  <div class="exam-q-card">
+                    <div class="row between" style="gap:8px; flex-wrap:wrap;">
+                      <span class="art-tag">${esc(item.subjName)} · سوال ${toFa(item.idx)}</span>
+                      <span class="pill ${item.isCorrect ? 'done' : ''}" style="${!item.isBlank && !item.isCorrect ? 'background:#fee2e2;color:#b91c1c;' : ''}">
+                        ${item.isBlank ? '⚪ نزده' : (item.isCorrect ? '✅ پاسخ صحیح' : '❌ پاسخ اشتباه')}
+                      </span>
+                    </div>
+                    <div class="exam-q-stem">${esc(item.q.q)}</div>
+                    <div class="exam-options-list">
+                      ${(item.q.options || []).map((opt, oi) => {
+                        if (!opt) return '';
+                        const isRightOpt = oi === Number(item.q.answer);
+                        const isUserWrong = item.picked === oi && !isRightOpt;
+                        return `
+                          <div class="exam-opt-btn ${isRightOpt ? 'correct' : ''} ${isUserWrong ? 'wrong' : ''}" style="cursor:default;">
+                            <span class="exam-opt-letter">${EXAM_LETTERS[oi]}</span>
+                            <span>${esc(opt)}</span>
+                          </div>
+                        `;
+                      }).join('')}
+                    </div>
+                    ${item.q.exp ? `<div class="exam-exp-box"><b>💡 توضیح و مستند قانونی:</b> ${esc(item.q.exp)}</div>` : ''}
+                  </div>
+                `).join('') : '<div class="muted small">موردی با این فیلتر وجود ندارد.</div>'}
+              </div>
+            </div>
+          </div>
+        </div>
+      `;
+      return;
+    }
+
+    if (s.mode === 'study') {
+      const allRevealedInSubj = qs.length > 0 && qs.every(q => !!s.revealed[q.id]);
+      const renderStudyCard = (qObj, qIdx) => {
+        const picked = s.answers[qObj.id];
+        const isRev = !!s.revealed[qObj.id];
+        const rightIdx = Number(qObj.answer || 0);
+        const rightOptText = (qObj.options || [])[rightIdx] || '';
+        return `
+          <div class="exam-q-card" id="exq-${qObj.id}">
+            <div class="row between" style="gap:8px; flex-wrap:wrap;">
+              <span class="art-tag">${esc(curSubj.name)} · سوال ${toFa(qIdx + 1)} از ${toFa(qs.length)}</span>
+              ${picked !== undefined ? `<button type="button" class="btn small" onclick="examClearAnswer('${qObj.id}')">پاک کردن انتخاب</button>` : ''}
+            </div>
+            <div class="exam-q-stem">${esc(qObj.q)}</div>
+            <div class="exam-options-list">
+              ${(qObj.options || []).map((opt, oi) => {
+                if (!opt) return '';
+                let cls = '';
+                if (isRev) {
+                  if (oi === rightIdx) cls = 'correct';
+                  else if (picked === oi) cls = 'wrong';
+                } else if (picked === oi) {
+                  cls = 'selected';
+                }
+                return `
+                  <button type="button" class="exam-opt-btn ${cls}" onclick="examPickOption('${qObj.id}', ${oi})">
+                    <span class="exam-opt-letter">${EXAM_LETTERS[oi]}</span>
+                    <span>${esc(opt)}</span>
+                  </button>
+                `;
+              }).join('')}
+            </div>
+
+            <div class="exam-ans-toggle-wrap">
+              <button type="button" class="exam-reveal-btn ${isRev ? 'open' : ''}" onclick="examToggleReveal('${qObj.id}')">
+                ${isRev ? '🙈 بستن پاسخ و تشریح' : '💡 مشاهده پاسخ صحیح و تشریح'}
+              </button>
+              ${isRev ? `
+                <div class="exam-exp-box">
+                  <div><b>✅ پاسخ صحیح: گزینه ${EXAM_LETTERS[rightIdx]}</b>${rightOptText ? ` — ${esc(rightOptText)}` : ''}</div>
+                  ${qObj.exp ? `<div style="margin-top:8px;"><b>📖 تشریح و مستند قانونی:</b> ${esc(qObj.exp)}</div>` : ''}
+                </div>
+              ` : ''}
+            </div>
+          </div>
+        `;
+      };
+
+      overlay.innerHTML = `
+        <div class="exam-runner-head">
+          <div>
+            <b style="font-size:15.5px; color:#0f172a;">📖 ${esc(s.exam.title)}</b>
+            <div class="muted small">حالت مطالعه سوالات (بدون تایمر و نمره اجباری) · ${esc(curSubj.name)} (${toFa(qs.length)} سوال)</div>
+          </div>
+          <div class="row" style="gap:8px; flex-wrap:wrap;">
+            <button type="button" class="btn small" onclick="examToggleRevealAll()">
+              ${allRevealedInSubj ? '🙈 بستن همه پاسخ‌ها' : '👁 نمایش همه پاسخ‌ها'}
+            </button>
+            <button type="button" class="btn small" onclick="examSwitchSessionMode('exam')" title="تغییر اختیاری به آزمون زمان‌دار با کارنامه">
+              ⏱ آزمون زمان‌دار و نمره (اختیاری)
+            </button>
+            <button type="button" class="btn primary small" onclick="closeExamRunner(true)">✕ بستن</button>
+          </div>
+        </div>
+
+        <div class="exam-subj-tabs">
+          ${s.subjects.map((sb, idx) => `
+            <button type="button" class="exam-subj-tab ${idx === s.activeSubjIdx ? 'active' : ''}" onclick="examSwitchSubj(${idx})">
+              ${esc(sb.name)} (${toFa((sb.questions || []).length)})
+            </button>
+          `).join('')}
+        </div>
+
+        <div class="exam-runner-body">
+          <div class="exam-workspace-grid">
+            <div style="display:grid; gap:16px;">
+              ${qs.map((q, qi) => renderStudyCard(q, qi)).join('')}
+            </div>
+
+            <aside class="exam-palette-card">
+              <b style="font-size:14px; color:#0f172a;">سوالات درس «${esc(curSubj.name)}»</b>
+              <div class="muted small" style="margin-top:4px;">برای پرش به هر سوال روی شماره آن کلیک کنید</div>
+              <div class="exam-palette-grid">
+                ${qs.map((q, qi) => {
+                  const isRev = !!s.revealed[q.id];
+                  const isPicked = s.answers[q.id] !== undefined;
+                  return `<button type="button" class="exam-q-dot ${isRev ? 'res-ok' : (isPicked ? 'answered' : '')}" onclick="examJumpToQ('${q.id}')">${toFa(qi + 1)}</button>`;
+                }).join('')}
+              </div>
+              <div style="margin-top:16px; padding-top:12px; border-top:1px solid var(--line); display:grid; gap:6px; font-size:12px; color:#475569;">
+                <div>💡 زیر هر سوال روی «مشاهده پاسخ» بزنید تا پاسخ و تشریح باز شود.</div>
+                <div>⏱ در صورت تمایل به نمره و تایمر، دکمه «آزمون زمان‌دار» در بالا را بزنید.</div>
+              </div>
+            </aside>
+          </div>
+        </div>
+      `;
+      return;
+    }
+
+    const renderQuestionBlock = (qObj, qIdx) => {
+      const picked = s.answers[qObj.id];
+      const flagged = !!s.flags[qObj.id];
+      return `
+        <div class="exam-q-card">
+          <div class="row between" style="gap:8px; flex-wrap:wrap;">
+            <span class="art-tag">${esc(curSubj.name)} · سوال ${toFa(qIdx + 1)} از ${toFa(qs.length)}</span>
+            <div class="row" style="gap:6px;">
+              ${picked !== undefined ? `<button type="button" class="btn small" onclick="examClearAnswer('${qObj.id}')">پاک کردن گزینه</button>` : ''}
+              <button type="button" class="btn small ${flagged ? 'primary' : ''}" onclick="examToggleFlag('${qObj.id}')">${flagged ? '🔖 نشان‌دار' : '🏷 نشان‌گذاری'}</button>
+            </div>
+          </div>
+          <div class="exam-q-stem">${esc(qObj.q)}</div>
+          <div class="exam-options-list">
+            ${(qObj.options || []).map((opt, oi) => opt ? `
+              <button type="button" class="exam-opt-btn ${picked === oi ? 'selected' : ''}" onclick="examPickOption('${qObj.id}', ${oi})">
+                <span class="exam-opt-letter">${EXAM_LETTERS[oi]}</span>
+                <span>${esc(opt)}</span>
+              </button>
+            ` : '').join('')}
+          </div>
+          ${s.viewMode === 'single' ? `
+            <div class="row between" style="margin-top:20px; padding-top:14px; border-top:1px solid var(--line);">
+              <button type="button" class="btn" ${qIdx > 0 ? `onclick="examSelectQ(${qIdx - 1})"` : (s.activeSubjIdx > 0 ? `onclick="examSwitchSubj(${s.activeSubjIdx - 1})"` : 'disabled')}>→ سوال / درس قبلی</button>
+              <button type="button" class="btn primary" ${qIdx < qs.length - 1 ? `onclick="examSelectQ(${qIdx + 1})"` : (s.activeSubjIdx < s.subjects.length - 1 ? `onclick="examSwitchSubj(${s.activeSubjIdx + 1})"` : `onclick="finishExamRunner(false)"`)}>
+                ${qIdx < qs.length - 1 ? 'سوال بعدی ←' : (s.activeSubjIdx < s.subjects.length - 1 ? 'درس بعدی ←' : 'پایان و مشاهده کارنامه ✓')}
+              </button>
+            </div>
+          ` : ''}
+        </div>
+      `;
+    };
+
+    overlay.innerHTML = `
+      <div class="exam-runner-head">
+        <div>
+          <b style="font-size:15.5px; color:#0f172a;">📝 آزمون زمان‌دار: ${esc(s.exam.title)}</b>
+          <div class="muted small">${esc(s.scopeLabel)} · پاسخ‌داده‌شده: ${toFa(totalAnsweredAll)} از ${toFa(totalQAll)}</div>
+        </div>
+        <div class="row" style="gap:8px; flex-wrap:wrap;">
+          <div class="exam-timer-box ${s.secondsLeft <= 300 ? 'low' : ''}">
+            <span>⏱</span>
+            <span id="exTimerDisplay">${formatMmSs(s.secondsLeft)}</span>
+            <button type="button" class="btn small" style="padding:2px 8px; font-size:11px;" onclick="examTogglePause()">${s.paused ? '▶ ادامه' : '⏸ توقف'}</button>
+          </div>
+          <button type="button" class="btn small" onclick="examSwitchSessionMode('study')">📖 تغییر به حالت مرور</button>
+          <button type="button" class="btn small" onclick="examToggleViewMode('${s.viewMode === 'single' ? 'list' : 'single'}')">
+            ${s.viewMode === 'single' ? '☰ نمای لیستی' : '🎯 تک‌سوالی'}
+          </button>
+          <button type="button" class="btn primary small" onclick="finishExamRunner(false)">✓ تصحیح و کارنامه</button>
+          <button type="button" class="btn danger small" onclick="closeExamRunner(false)">✕ خروج</button>
+        </div>
+      </div>
+
+      <div class="exam-subj-tabs">
+        ${s.subjects.map((sb, idx) => {
+          const ansCnt = (sb.questions || []).filter(q => s.answers[q.id] !== undefined).length;
+          return `
+            <button type="button" class="exam-subj-tab ${idx === s.activeSubjIdx ? 'active' : ''}" onclick="examSwitchSubj(${idx})">
+              ${esc(sb.name)} (${toFa(ansCnt)}/${toFa((sb.questions || []).length)})
+            </button>
+          `;
+        }).join('')}
+      </div>
+
+      <div class="exam-runner-body">
+        <div class="exam-workspace-grid">
+          <div style="display:grid; gap:16px;">
+            ${s.paused ? `
+              <div class="empty-glass-card" style="margin:20px auto;">
+                <div class="empty-icon">⏸</div>
+                <h3>زمان آزمون متوقف شده است</h3>
+                <p>برای جلوگیری از دیده شدن سوالات هنگام استراحت متن سوال پنهان شده است.</p>
+                <div style="margin-top:16px;"><button type="button" class="btn primary" onclick="examTogglePause()">▶ ادامه آزمون</button></div>
+              </div>
+            ` : (s.viewMode === 'single' ? renderQuestionBlock(curQ, s.activeQIdx) : qs.map((q, qi) => renderQuestionBlock(q, qi)).join(''))}
+          </div>
+
+          <aside class="exam-palette-card">
+            <b style="font-size:14px; color:#0f172a;">پاسخ‌برگ درس «${esc(curSubj.name)}»</b>
+            <div class="muted small" style="margin-top:4px;">روی شماره هر سوال بزنید تا مستقیماً به آن بروید</div>
+            <div class="exam-palette-grid">
+              ${qs.map((q, qi) => {
+                const isAns = s.answers[q.id] !== undefined;
+                const isFlag = !!s.flags[q.id];
+                const isCur = s.viewMode === 'single' && qi === s.activeQIdx;
+                return `<button type="button" class="exam-q-dot ${isAns ? 'answered' : ''} ${isFlag ? 'flagged' : ''} ${isCur ? 'current' : ''}" onclick="if(examSession){examSession.viewMode='single';examSelectQ(${qi});}">${toFa(qi + 1)}</button>`;
+              }).join('')}
+            </div>
+            <div style="margin-top:16px; padding-top:12px; border-top:1px solid var(--line); display:grid; gap:6px; font-size:12px; color:#475569;">
+              <div>🟢 سبز: پاسخ‌داده‌شده · 🟧 حاشیه نارنجی: نشان‌دار</div>
+              <div>⚖️ وضعیت نمره منفی: <b>${s.exam.negativeMarking !== false ? 'یک‌سوم فعال' : 'غیرفعال'}</b></div>
+            </div>
+          </aside>
+        </div>
+      </div>
+    `;
+  }
 
   window.toggleMobileDockDrawer = function(show) {
     const back = document.getElementById('mobileDockDrawerBack');
@@ -4317,58 +5851,108 @@
   }
 
   // -------------------------------------------------------------------
-  // ۵. ناوبری سراسری و تضمین سوییچ آنی تب‌ها
+  // ۵. ناوبری ۶ بخشی (قوانین، دانشجویان، وکلا، مقالات، معرفی، تماس) و تضمین پنهان‌سازی بخش مدیریت
   // -------------------------------------------------------------------
-  const ALL_TABS = ['search', 'planner', 'cases', 'articles', 'deadlines', 'calculator', 'about', 'contact', 'admin'];
+  window._studentsSub = 'planner';
+  window._lawyersSub = 'cases';
+
+  window.setStudentsSub = function(sub) {
+    window._studentsSub = sub === 'exams' ? 'exams' : 'planner';
+    document.getElementById('tab-planner')?.classList.toggle('hidden', window._studentsSub !== 'planner');
+    document.getElementById('tab-exams')?.classList.toggle('hidden', window._studentsSub !== 'exams');
+    document.querySelectorAll('[data-studentssub]').forEach(b => b.classList.toggle('active', b.dataset.studentssub === window._studentsSub));
+    if (window._studentsSub === 'planner') {
+      if (typeof enterPlanner === 'function') enterPlanner();
+    } else {
+      window.renderExamsHub();
+    }
+    try { history.replaceState(null, '', '#' + window._studentsSub); } catch (e) {}
+  };
+
+  window.setLawyersSub = function(sub) {
+    window._lawyersSub = ['cases', 'deadlines', 'calculator'].includes(sub) ? sub : 'cases';
+    document.getElementById('tab-cases')?.classList.toggle('hidden', window._lawyersSub !== 'cases');
+    document.getElementById('tab-deadlines')?.classList.toggle('hidden', window._lawyersSub !== 'deadlines');
+    document.getElementById('tab-calculator')?.classList.toggle('hidden', window._lawyersSub !== 'calculator');
+    document.querySelectorAll('[data-lawyerssub]').forEach(b => b.classList.toggle('active', b.dataset.lawyerssub === window._lawyersSub));
+    if (window._lawyersSub === 'cases') window.renderCases();
+    if (window._lawyersSub === 'deadlines') window.renderDeadlines();
+    if (window._lawyersSub === 'calculator') window.renderCalculators();
+    try { history.replaceState(null, '', '#' + window._lawyersSub); } catch (e) {}
+  };
 
   window.go = function(tab) {
-    if (!ALL_TABS.includes(tab)) tab = 'search';
+    const t = String(tab || 'search').replace(/^#/, '');
+    if (t === 'admin' && !window.isAdmin) {
+      return window.go('search');
+    }
 
-    ALL_TABS.forEach(t => {
-      const el = document.getElementById('tab-' + t);
-      if (el) el.classList.toggle('hidden', t !== tab);
+    let topHub = 'search';
+    let exactSub = t;
+    if (t === 'search') {
+      topHub = 'search';
+      exactSub = 'search';
+    } else if (t === 'articles') {
+      topHub = 'articles';
+      exactSub = 'articles';
+    } else if (t === 'students' || t === 'planner' || t === 'exams') {
+      topHub = 'students';
+      if (t !== 'students') window._studentsSub = t;
+      exactSub = window._studentsSub;
+    } else if (t === 'lawyers' || t === 'cases' || t === 'deadlines' || t === 'calculator') {
+      topHub = 'lawyers';
+      if (t !== 'lawyers') window._lawyersSub = t;
+      exactSub = window._lawyersSub;
+    } else if (['about', 'contact', 'admin'].includes(t)) {
+      topHub = t;
+      exactSub = t;
+    } else {
+      topHub = 'search';
+      exactSub = 'search';
+    }
+
+    ['tab-search', 'hub-students', 'hub-lawyers', 'tab-articles', 'tab-about', 'tab-contact', 'tab-admin'].forEach(cid => {
+      const el = document.getElementById(cid);
+      if (!el) return;
+      const show = (cid === 'hub-' + topHub) || (cid === 'tab-' + topHub);
+      el.classList.toggle('hidden', !show);
     });
 
     document.querySelectorAll('[data-tab]').forEach(b => {
-      b.classList.toggle('active', b.dataset.tab === tab);
+      const dt = b.dataset.tab;
+      const isActive = (dt === topHub) || (dt === exactSub);
+      b.classList.toggle('active', isActive);
     });
 
     window.toggleMobileDockDrawer(false);
-    try { history.replaceState(null, '', '#' + tab); } catch(e) {}
 
-    if (tab === 'planner') {
-      if (typeof enterPlanner === 'function') enterPlanner();
+    if (topHub === 'search') {
+      try { history.replaceState(null, '', '#search'); } catch (e) {}
       window.syncAllFromSupabase();
-    }
-    if (tab === 'cases') {
-      window.renderCases();
+    } else if (topHub === 'articles') {
+      window.renderArticles();
       window.syncAllFromSupabase();
-    }
-    if (tab === 'admin') {
+      try { history.replaceState(null, '', '#articles'); } catch (e) {}
+    } else if (topHub === 'students') {
+      window.setStudentsSub(window._studentsSub);
+      window.syncAllFromSupabase();
+    } else if (topHub === 'lawyers') {
+      window.setLawyersSub(window._lawyersSub);
+      window.syncAllFromSupabase();
+    } else if (topHub === 'about') {
+      window.renderAbout();
+      window.syncAllFromSupabase();
+      try { history.replaceState(null, '', '#about'); } catch (e) {}
+    } else if (topHub === 'contact') {
+      window.renderContact();
+      window.syncAllFromSupabase();
+      try { history.replaceState(null, '', '#contact'); } catch (e) {}
+    } else if (topHub === 'admin') {
       if (window.LAWDB && LAWDB.admRefresh) LAWDB.admRefresh();
       window.renderAdminPanels();
       window.syncAllFromSupabase();
       if (window.refreshAdminMonitor) window.refreshAdminMonitor();
-    }
-    if (tab === 'articles') {
-      window.renderArticles();
-      window.syncAllFromSupabase();
-    }
-    if (tab === 'deadlines') {
-      window.renderDeadlines();
-      window.syncAllFromSupabase();
-    }
-    if (tab === 'calculator') {
-      window.renderCalculators();
-      window.syncAllFromSupabase();
-    }
-    if (tab === 'about') {
-      window.renderAbout();
-      window.syncAllFromSupabase();
-    }
-    if (tab === 'contact') {
-      window.renderContact();
-      window.syncAllFromSupabase();
+      try { history.replaceState(null, '', '#admin'); } catch (e) {}
     }
 
     window.scrollTo({ top: 0, behavior: 'smooth' });
