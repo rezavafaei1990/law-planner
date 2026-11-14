@@ -3,7 +3,7 @@
 // قابلیت کارکرد کامل آفلاین + دریافت همیشگی نسخه جدید کدها هنگام آنلاین بودن
 // =====================================================================
 
-const CACHE_NAME = 'baraat-cache-v14';
+const CACHE_NAME = 'baraat-cache-v15';
 
 const ASSETS_TO_CACHE = [
   './',
@@ -73,7 +73,7 @@ self.addEventListener('fetch', event => {
     return;
   }
 
-  // HTML, JS, CSS, and Navigation: Network-First (never serve stale UI/logic when online)
+  // HTML, JS, CSS, and Navigation: Stale-While-Revalidate (instant startup + background freshness)
   const isCodeOrDoc =
     req.mode === 'navigate' ||
     url.pathname.endsWith('.html') ||
@@ -83,15 +83,20 @@ self.addEventListener('fetch', event => {
 
   if (isCodeOrDoc) {
     event.respondWith(
-      fetch(req, { cache: 'no-store' }).then(res => {
-        if (res && res.status === 200) {
-          const clone = res.clone();
-          caches.open(CACHE_NAME).then(cache => cache.put(req, clone));
+      caches.match(req, { ignoreSearch: true }).then(cached => {
+        const networkPromise = fetch(req, { cache: 'no-cache' }).then(res => {
+          if (res && res.status === 200) {
+            const clone = res.clone();
+            caches.open(CACHE_NAME).then(cache => cache.put(req, clone));
+          }
+          return res;
+        }).catch(() => null);
+
+        if (cached) {
+          event.waitUntil(networkPromise);
+          return cached;
         }
-        return res;
-      }).catch(async () => {
-        const cached = await caches.match(req, { ignoreSearch: true });
-        return cached || caches.match('./index.html') || caches.match('./');
+        return networkPromise.then(res => res || caches.match('./index.html') || caches.match('./'));
       })
     );
     return;
