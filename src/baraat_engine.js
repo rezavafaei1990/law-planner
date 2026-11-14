@@ -219,9 +219,9 @@
       if (window.showModal) {
         window.showModal(`
           <h2>خطا در انتشار روی سرور Supabase</h2>
-          <p style="line-height:2; font-size:13.5px; color:#b91c1c;">سرور اجازه ذخیره در جدول meta را نداد:</p>
-          <pre dir="ltr" style="background:#f8fafc; padding:12px; border-radius:8px; overflow:auto; font-size:12px;">${esc(msg)}</pre>
-          <p style="line-height:2; font-size:13px; color:#334155;">مطمئن شوید با ایمیل مدیر (ثبت‌شده در جدول admins) وارد شده‌اید و جدول meta مجوز نوشتن برای مدیر دارد.</p>
+          <p style="line-height:2; font-size:13.5px; color:var(--danger, #dc2626);">سرور اجازه ذخیره در جدول meta را نداد:</p>
+          <pre dir="ltr" class="surface-box" style="overflow:auto; font-size:12px;">${esc(msg)}</pre>
+          <p style="line-height:2; font-size:13px; color:var(--text);">مطمئن شوید با ایمیل مدیر (ثبت‌شده در جدول admins) وارد شده‌اید و جدول meta مجوز نوشتن برای مدیر دارد.</p>
           <div class="modal-actions"><button class="btn primary" onclick="closeModal()">متوجه شدم</button></div>
         `);
       } else if (typeof toast === 'function') {
@@ -1832,7 +1832,7 @@
               </div>
             </div>
           </div>
-          <div id="inhTier2Box" class="hidden" style="margin-top:14px; padding:12px 14px; border:1px dashed var(--line); border-radius:14px; background:#f8fafc;">
+          <div id="inhTier2Box" class="hidden surface-box" style="margin-top:14px; border-style:dashed; border-radius:14px;">
             <div style="font-size:12.5px; font-weight:700; margin-bottom:10px;">ورثه طبقه دوم (فقط در صورت نبود هیچ وارثی در طبقه اول):</div>
             <div class="form-grid">
               <div class="field"><label>برادر ابوینی (تنی)</label><input id="inhBroFull" type="number" min="0" value="0" oninput="calcInheritance()"></div>
@@ -1980,7 +1980,7 @@
           ${!list.length
             ? '<div class="empty-glass-card"><p>هنوز فرمول سفارشی ثبت نشده است.</p></div>'
             : `<div style="display:grid; gap:14px;">${list.map(c => `
-                <div style="padding:14px; border:1px solid var(--line); border-radius:14px; background:#f8fafc;">
+                <div class="surface-box" style="padding:14px; border-radius:14px;">
                   <div class="row between" style="gap:8px; margin-bottom:6px;">
                     <h4 style="margin:0; font-size:15px;">${esc(c.title)}</h4>
                     ${window.isAdmin ? `
@@ -2081,12 +2081,12 @@
       syncBox.innerHTML = `
         <div class="row between" style="gap:12px; flex-wrap:wrap;">
           <div>
-            <div style="font-weight:700; font-size:14px; color:#0f172a;">وضعیت انتشار عمومی مقالات و تنظیمات در سرور Supabase</div>
+            <div style="font-weight:700; font-size:14px; color:var(--text);">وضعیت انتشار عمومی مقالات و تنظیمات در سرور Supabase</div>
             <div class="muted small" style="margin-top:4px;">
               تعداد مقالات روی این دستگاه: <b>${toFa(localCount)}</b> | تعداد مقالات منتشرشده برای همه کاربران در سرور: <b>${serverStatus.checked ? toFa(srvCount) : 'در حال بررسی'}</b>
             </div>
-            ${serverStatus.lastError ? `<div style="margin-top:6px; font-size:12.5px; color:#b91c1c;">آخرین خطای سرور: ${esc(serverStatus.lastError)}</div>` : ''}
-            ${(!serverStatus.lastError && localCount > 0 && srvCount === 0 && serverStatus.checked) ? `<div style="margin-top:6px; font-size:12.5px; color:#b45309;">مقالات این دستگاه هنوز روی سرور منتشر نشده‌اند و دیگران آن را نمی‌بینند. دکمه همگام‌سازی را بزنید.</div>` : ''}
+            ${serverStatus.lastError ? `<div style="margin-top:6px; font-size:12.5px; color:var(--danger, #dc2626);">آخرین خطای سرور: ${esc(serverStatus.lastError)}</div>` : ''}
+            ${(!serverStatus.lastError && localCount > 0 && srvCount === 0 && serverStatus.checked) ? `<div style="margin-top:6px; font-size:12.5px; color:var(--warn, #d97706);">مقالات این دستگاه هنوز روی سرور منتشر نشده‌اند و دیگران آن را نمی‌بینند. دکمه همگام‌سازی را بزنید.</div>` : ''}
           </div>
           <div class="row" style="gap:8px;">
             <button class="btn ${mismatch ? 'primary' : ''}" onclick="pushAllAdminDataToSupabase()">☁️ انتشار و همگام‌سازی در سرور</button>
@@ -2099,12 +2099,12 @@
     const admArtBox = document.getElementById('admArticlesList');
     if (admArtBox) {
       if (!arts.length) {
-        admArtBox.innerHTML = '<div class="muted small" style="padding:12px; background:#f8fafc; border-radius:10px;">هنوز مقاله‌ای ثبت نشده است. برای انتشار اولین مقاله روی دکمه «نگارش مقاله جدید» کلیک کنید.</div>';
+        admArtBox.innerHTML = '<div class="muted small surface-box">هنوز مقاله‌ای ثبت نشده است. برای انتشار اولین مقاله روی دکمه «نگارش مقاله جدید» کلیک کنید.</div>';
       } else {
         admArtBox.innerHTML = `
           <div style="display:grid; gap:8px;">
             ${arts.map(a => `
-              <div class="row between" style="padding:10px 14px; background:#f8fafc; border:1px solid var(--line); border-radius:10px; font-size:13px;">
+              <div class="row between admin-list-row">
                 <div>
                   <b>${esc(a.title)}</b>
                   <span class="muted small" style="margin-right:8px;">(${esc(a.category)} · ${toFa(a.date || '')})</span>
@@ -2127,7 +2127,7 @@
       admDlBox.innerHTML = `
         <div style="display:grid; gap:8px;">
           ${dls.map(d => `
-            <div class="row between" style="padding:10px 14px; background:#f8fafc; border:1px solid var(--line); border-radius:10px; font-size:13px;">
+            <div class="row between admin-list-row">
               <div>
                 <b>${esc(d.title)}</b>
                 <span class="pill" style="margin-right:6px;">${esc(d.cat || 'عمومی')}</span>
@@ -2150,7 +2150,7 @@
       admCalcBox.innerHTML = `
         <div style="display:grid; gap:8px;">
           ${calcs.map(c => `
-            <div class="row between" style="padding:10px 14px; background:#f8fafc; border:1px solid var(--line); border-radius:10px; font-size:13px;">
+            <div class="row between admin-list-row">
               <div>
                 <b>${esc(c.title)}</b>
                 <span class="pill done" style="margin-right:6px;">${c.type==='percent'?'درصدی ('+toFa(c.rate)+'٪)':'روزشمار ('+toFa(c.rate)+'٪)'}</span>
@@ -2172,11 +2172,11 @@
       const about = window.getAboutData();
       const members = about.members || [];
       admMemBox.innerHTML = !members.length
-        ? '<div class="muted small" style="padding:12px; background:#f8fafc; border-radius:10px;">هنوز عضوی ثبت نشده است. با دکمه «افزودن عضو جدید» می‌توانید اسم و عکس و مشخصات وکلا و اعضای گروه را اضافه کنید.</div>'
+        ? '<div class="muted small surface-box">هنوز عضوی ثبت نشده است. با دکمه «افزودن عضو جدید» می‌توانید اسم و عکس و مشخصات وکلا و اعضای گروه را اضافه کنید.</div>'
         : `<div style="display:grid; gap:8px;">${members.map((m, idx) => `
-            <div class="row between" style="padding:10px 14px; background:#f8fafc; border:1px solid var(--line); border-radius:10px; font-size:13px;">
+            <div class="row between admin-list-row">
               <div class="row" style="gap:10px; align-items:center;">
-                ${m.photo ? `<img src="${esc(m.photo)}" referrerpolicy="no-referrer" style="width:36px;height:36px;border-radius:10px;object-fit:cover;border:1px solid var(--line);">` : `<div style="width:36px;height:36px;border-radius:10px;background:#f0fdfa;color:#0f766e;display:grid;place-items:center;font-weight:800;">${esc((m.name||'ب').slice(0,2))}</div>`}
+                ${m.photo ? `<img src="${esc(m.photo)}" referrerpolicy="no-referrer" style="width:36px;height:36px;border-radius:10px;object-fit:cover;border:1px solid var(--line);">` : `<div style="width:36px;height:36px;border-radius:10px;background:var(--soft);color:var(--main);border:1px solid var(--line);display:grid;place-items:center;font-weight:800;">${esc((m.name||'ب').slice(0,2))}</div>`}
                 <div>
                   <b>${esc(m.name)}</b>
                   <span class="muted small" style="margin-right:8px;">${esc(m.role || '')}${m.credentials ? ' · ' + esc(m.credentials) : ''}</span>
@@ -2198,9 +2198,9 @@
       const contact = window.getContactData();
       const socials = contact.socials || [];
       admSocBox.innerHTML = !socials.length
-        ? '<div class="muted small" style="padding:12px; background:#f8fafc; border-radius:10px;">هنوز شبکه اجتماعی ثبت نشده است.</div>'
+        ? '<div class="muted small surface-box">هنوز شبکه اجتماعی ثبت نشده است.</div>'
         : `<div style="display:grid; gap:8px;">${socials.map(s => `
-            <div class="row between" style="padding:10px 14px; background:#f8fafc; border:1px solid var(--line); border-radius:10px; font-size:13px;">
+            <div class="row between admin-list-row">
               <div>
                 <b>${esc(s.title)}</b>
                 <span class="muted small" dir="ltr" style="margin-right:8px;">${esc(s.handle || s.url || '')}</span>
@@ -2219,9 +2219,9 @@
       const map = window.getAssignedPlansMap();
       const entries = Object.entries(map || {});
       admPlanBox.innerHTML = !entries.length
-        ? '<div class="muted small" style="padding:12px; background:#f8fafc; border-radius:10px;">هنوز برنامه‌ای برای کاربر دیگری آپلود نشده است.</div>'
+        ? '<div class="muted small surface-box">هنوز برنامه‌ای برای کاربر دیگری آپلود نشده است.</div>'
         : `<div style="display:grid; gap:8px;">${entries.map(([email, entry]) => `
-            <div class="row between" style="padding:10px 14px; background:#f8fafc; border:1px solid var(--line); border-radius:10px; font-size:13px; flex-wrap:wrap; gap:8px;">
+            <div class="row between admin-list-row" style="flex-wrap:wrap; gap:8px;">
               <div>
                 <b dir="ltr">${esc(email)}</b>
                 <span class="muted small" style="margin-right:8px;">${esc(entry.summary || entry.note || 'برنامه مطالعاتی')} · ${esc(entry.dateLabel || '')}</span>
@@ -3107,7 +3107,7 @@
         </div>
       </div>
 
-      <div id="paBoxLib" style="margin-top:14px; padding:12px; border:1px solid var(--line); border-radius:12px; background:#f8fafc;">
+      <div id="paBoxLib" class="surface-box" style="margin-top:14px;">
         <label style="font-size:12.5px; font-weight:700; display:block; margin-bottom:8px;">انتخاب دروس کتابخانه استاندارد:</label>
         <div style="display:grid; gap:6px;">
           ${(helpers.LIB || []).map(p => `
@@ -3119,7 +3119,7 @@
         </div>
       </div>
 
-      <div id="paBoxSubjectSplit" class="hidden" style="margin-top:14px; padding:12px; border:1px solid var(--line); border-radius:12px; background:#f8fafc;">
+      <div id="paBoxSubjectSplit" class="hidden surface-box" style="margin-top:14px;">
         <div class="form-grid">
           <div class="field">
             <label>عنوان درس *</label>
@@ -3159,7 +3159,7 @@
         </div>
       </div>
 
-      <div id="paBoxJson" class="hidden" style="margin-top:14px; padding:12px; border:1px solid var(--line); border-radius:12px; background:#f8fafc;">
+      <div id="paBoxJson" class="hidden surface-box" style="margin-top:14px;">
         <div class="field">
           <label>انتخاب فایل JSON برنامه (خروجی پشتیبان)</label>
           <input type="file" id="paJsonFile" accept=".json,application/json">
@@ -3170,7 +3170,7 @@
         </div>
       </div>
 
-      <div id="paBoxText" class="hidden" style="margin-top:14px; padding:12px; border:1px solid var(--line); border-radius:12px; background:#f8fafc;">
+      <div id="paBoxText" class="hidden surface-box" style="margin-top:14px;">
         <div class="form-grid">
           <div class="field">
             <label>عنوان درس</label>
@@ -3624,15 +3624,15 @@
       </div>
 
       ${!window.me ? `
-        <div class="panel" style="margin-bottom:14px; background:#fffbeb; border-color:#fde68a;">
+        <div class="panel callout-warn" style="margin-bottom:14px;">
           <div class="row between" style="gap:10px; flex-wrap:wrap;">
-            <span style="font-size:13px; color:#78350f;">در حال حاضر بدون ورود به حساب هستید؛ پرونده‌ها فقط در حافظه همین دستگاه نگهداری می‌شوند. برای ذخیره دائمی و ابری وارد حساب شوید.</span>
+            <span style="font-size:13px;">در حال حاضر بدون ورود به حساب هستید؛ پرونده‌ها فقط در حافظه همین دستگاه نگهداری می‌شوند. برای ذخیره دائمی و ابری وارد حساب شوید.</span>
             <button class="btn small primary" onclick="openAuthModal()">ورود / ثبت‌نام وکیل</button>
           </div>
         </div>
       ` : `
-        <div class="panel" style="margin-bottom:14px; background:#f0fdfa; border-color:#99f6e4; padding:10px 14px;">
-          <span style="font-size:12.5px; color:#0f766e;">☁️ پرونده‌های شما در حساب کاربری (<b dir="ltr">${esc(window.me.email || '')}</b>) به صورت خودکار در سرور Supabase ذخیره می‌شوند و روی سایر دستگاه‌ها هم در دسترس هستند.</span>
+        <div class="panel callout-info" style="margin-bottom:14px; padding:10px 14px;">
+          <span style="font-size:12.5px; color:var(--main);">☁️ پرونده‌های شما در حساب کاربری (<b dir="ltr">${esc(window.me.email || '')}</b>) به صورت خودکار در سرور Supabase ذخیره می‌شوند و روی سایر دستگاه‌ها هم در دسترس هستند.</span>
         </div>
       `}
 
@@ -3723,7 +3723,7 @@
                   ${c.notes ? `<div class="muted small" style="margin-top:4px;">${esc(c.notes)}</div>` : ''}
                 </div>
                 ${(c.agreedFee > 0 || c.paidFee > 0) ? `
-                  <div style="padding:10px 12px; border-radius:12px; background:#f8fafc; border:1px solid var(--line); margin-bottom:12px;">
+                  <div class="case-finance-row" style="flex-direction:column; margin-bottom:12px;">
                     <div class="row between" style="font-size:12px;">
                       <span>توافقی: <b>${toFa((c.agreedFee || 0).toLocaleString())}</b> ت</span>
                       <span>دریافتی: <b>${toFa((c.paidFee || 0).toLocaleString())}</b> ت</span>
@@ -3874,9 +3874,9 @@
 
     root.innerHTML = `
       ${st._lastAssignedNote ? `
-        <div class="panel" style="margin-bottom:14px; background:#f0fdfa; border-color:#99f6e4;">
-          <b style="color:#0f766e;">📌 پیام برنامه ارسالی مدیر:</b>
-          <span style="font-size:13.5px; color:#134e4a; margin-right:6px;">${esc(st._lastAssignedNote)}</span>
+        <div class="panel callout-info" style="margin-bottom:14px;">
+          <b style="color:var(--main);">📌 پیام برنامه ارسالی مدیر:</b>
+          <span style="font-size:13.5px; color:var(--text); margin-right:6px;">${esc(st._lastAssignedNote)}</span>
         </div>
       ` : ''}
 
@@ -3926,7 +3926,7 @@
             <h4 style="margin:18px 0 8px; font-size:14px;">⚠️ مباحث اولویت‌دار برای مرور مجدد</h4>
             <div style="display:grid; gap:8px; max-height:260px; overflow:auto;">
               ${weakUnits.slice(0, 12).map(u => `
-                <div class="row between" style="padding:8px 10px; border:1px solid var(--line); border-radius:10px; background:#f8fafc; gap:8px;">
+                <div class="row between surface-box" style="padding:8px 10px; border-radius:10px; gap:8px;">
                   <div style="font-size:12.5px;">
                     <b>${u.kind === 'day' ? 'روز ' + toFa(u.dayNum) : esc(u.label)} · ${esc(u.subj)}</b>
                     <div class="muted small">${esc(u.law)} · ${esc(u.title)} (${esc(u.mastery)})</div>
@@ -4176,7 +4176,7 @@
       ` : ''}
       ${weakList.length ? `
         <h4 style="margin:0 0 6px;">مباحث علامت‌گذاری‌شده به عنوان ضعیف</h4>
-        <ul style="font-size:12.5px; color:#b91c1c; padding-right:18px; line-height:1.9;">
+        <ul style="font-size:12.5px; color:var(--danger, #dc2626); padding-right:18px; line-height:1.9;">
           ${weakList.slice(0, 10).map(w => `<li>${esc(w)}</li>`).join('')}
         </ul>
       ` : ''}
@@ -4218,12 +4218,12 @@
       </div>
 
       ${needRlsTip ? `
-        <details style="margin:12px 0; padding:10px 14px; border:1px dashed var(--line); border-radius:12px; background:#fffbeb;">
-          <summary style="cursor:pointer; font-size:12.5px; font-weight:700; color:#92400e;">راهنمای مشاهده همه داوطلبان در سرور Supabase (در صورت محدودیت RLS)</summary>
-          <p class="small" style="margin:8px 0; color:#78350f; line-height:1.8;">
+        <details class="callout-warn" style="margin:12px 0; padding:10px 14px; border-style:dashed; border-radius:12px;">
+          <summary style="cursor:pointer; font-size:12.5px; font-weight:700;">راهنمای مشاهده همه داوطلبان در سرور Supabase (در صورت محدودیت RLS)</summary>
+          <p class="small" style="margin:8px 0; line-height:1.8;">
             اگر فقط حساب خودتان را می‌بینید، لازم است در بخش SQL Editor پنل Supabase دستور زیر را یک بار اجرا کنید تا مدیر اجازه خواندن ردیف‌های جدول planner را داشته باشد:
           </p>
-          <pre dir="ltr" style="background:#fff; padding:10px; border-radius:8px; font-size:11.5px; overflow:auto; border:1px solid #fde68a;">CREATE POLICY "admin_read_all_planner" ON public.planner FOR SELECT TO authenticated USING (EXISTS (SELECT 1 FROM public.admins WHERE user_id = auth.uid()) OR auth.uid() = user_id);</pre>
+          <pre dir="ltr" class="surface-box" style="padding:10px; border-radius:8px; font-size:11.5px; overflow:auto;">CREATE POLICY "admin_read_all_planner" ON public.planner FOR SELECT TO authenticated USING (EXISTS (SELECT 1 FROM public.admins WHERE user_id = auth.uid()) OR auth.uid() = user_id);</pre>
           <button class="btn small" onclick="copySupabaseMonitorSql()">کپی دستور SQL</button>
         </details>
       ` : ''}
@@ -4234,7 +4234,7 @@
           <input id="admMonSearch" value="${esc(q)}" placeholder="جستجو بر اساس ایمیل داوطلب..." oninput="renderAdminMonitor()" style="width:240px;">
         </div>
         ${!filteredUsers.length
-          ? '<div class="muted small" style="padding:12px; background:#f8fafc; border-radius:10px;">هنوز داوطلبی با این مشخصات یافت نشد.</div>'
+          ? '<div class="muted small surface-box">هنوز داوطلبی با این مشخصات یافت نشد.</div>'
           : `<div style="display:grid; gap:10px;">${filteredUsers.map(u => {
               const s = u.summary || { pct: 0, days: 0, doneBlocks: 0, blocks: 0, goodCount: 0, midCount: 0, weakCount: 0 };
               const uDate = u.updatedAt ? formatJalaliFull(new Date(u.updatedAt)).numericFa : 'ثبت نشده';
@@ -4263,7 +4263,7 @@
       <div style="margin-top:20px;">
         <b style="font-size:14px; display:block; margin-bottom:10px;">سوالات و اشکالات ارسالی داوطلبان (${toFa(monitorQuestionsCache.length)})</b>
         ${!monitorQuestionsCache.length
-          ? '<div class="muted small" style="padding:12px; background:#f8fafc; border-radius:10px;">هنوز سوالی از سوی داوطلبان ثبت نشده است.</div>'
+          ? '<div class="muted small surface-box">هنوز سوالی از سوی داوطلبان ثبت نشده است.</div>'
           : `<div style="display:grid; gap:10px;">${monitorQuestionsCache.map(item => {
               const rep = repliesMap[item.id];
               return `
@@ -4463,14 +4463,14 @@
                     <span class="pill ${totalQ ? 'done' : ''}">سال ${toFa(ex.year || '۱۴۰۵')} · ${toFa(totalQ)} سوال</span>
                   </div>
                   <div>
-                    <h3 style="margin:0 0 6px; font-size:17px; font-weight:800; color:#0f172a;">${esc(ex.title)}</h3>
+                    <h3 style="margin:0 0 6px; font-size:17px; font-weight:800; color:var(--text);">${esc(ex.title)}</h3>
                     <div class="muted small">
                       📖 مرور با پاسخ زیر هر سوال · ⏱ زمان آزمون اختیاری: ${toFa(ex.durationMinutes || 60)} دقیقه
                     </div>
-                    ${ex.description ? `<p style="margin:8px 0 0; font-size:13px; color:#475569; line-height:1.8;">${esc(ex.description)}</p>` : ''}
+                    ${ex.description ? `<p style="margin:8px 0 0; font-size:13px; color:var(--muted); line-height:1.8;">${esc(ex.description)}</p>` : ''}
                   </div>
                   <div>
-                    <div style="font-size:12px; font-weight:700; color:#334155; margin-bottom:7px;">مطالعه درس به درس سوالات:</div>
+                    <div style="font-size:12px; font-weight:700; color:var(--text); margin-bottom:7px;">مطالعه درس به درس سوالات:</div>
                     <div class="exam-subj-pills">
                       ${subjs.length ? subjs.map(s => `
                         <button type="button" class="exam-subj-btn" onclick="openExamRunner('${ex.id}', '${s.id}', 'study')">
@@ -4506,9 +4506,9 @@
           </div>
           <div style="display:grid; gap:10px;">
             ${results.slice(0, 8).map(r => `
-              <div class="row between" style="padding:12px 16px; border:1px solid var(--line); border-radius:14px; background:#f8fafc; flex-wrap:wrap; gap:10px;">
+              <div class="row between surface-box" style="padding:12px 16px; border-radius:14px; flex-wrap:wrap; gap:10px;">
                 <div>
-                  <b style="font-size:14.5px; color:#0f172a;">${esc(r.examTitle)} ${r.scopeLabel ? '· ' + esc(r.scopeLabel) : ''}</b>
+                  <b style="font-size:14.5px; color:var(--text);">${esc(r.examTitle)} ${r.scopeLabel ? '· ' + esc(r.scopeLabel) : ''}</b>
                   <div class="muted small" style="margin-top:3px;">
                     ${esc(r.dateLabel || '')} · صحیح: <b>${toFa(r.correct)}</b> · غلط: <b>${toFa(r.wrong)}</b> · نزده: <b>${toFa(r.blank)}</b> از ${toFa(r.total)}
                   </div>
@@ -4531,14 +4531,14 @@
     if (!box) return;
     const exams = window.getExams();
     if (!exams.length) {
-      box.innerHTML = '<div class="muted small" style="padding:12px; background:#f8fafc; border-radius:10px;">هنوز آزمونی ثبت نشده است. با دکمه «ایجاد آزمون جدید» آزمون کانون، مرکز وکلا یا قضاوت را بسازید.</div>';
+      box.innerHTML = '<div class="muted small surface-box">هنوز آزمونی ثبت نشده است. با دکمه «ایجاد آزمون جدید» آزمون کانون، مرکز وکلا یا قضاوت را بسازید.</div>';
       return;
     }
     box.innerHTML = `<div style="display:grid; gap:10px;">${exams.map(ex => {
       const qCount = totalQuestionsCount(ex);
       const sCount = (ex.subjects || []).length;
       return `
-        <div class="row between" style="padding:12px 14px; background:#f8fafc; border:1px solid var(--line); border-radius:12px; font-size:13px; flex-wrap:wrap; gap:8px;">
+        <div class="row between admin-list-row" style="flex-wrap:wrap; gap:8px;">
           <div>
             <b style="font-size:14px;">${esc(ex.title)}</b>
             <span class="pill" style="margin-right:6px;">سال ${toFa(ex.year || '۱۴۰۵')} · ${esc(ex.org || '')}</span>
@@ -4693,7 +4693,7 @@
         <button type="button" class="btn small" onclick="openExamBulkImportModal('${ex.id}')">📥 ورود گروهی سوالات</button>
       </div>
 
-      <div style="display:flex; flex-wrap:wrap; gap:6px; padding:10px; background:#f8fafc; border:1px solid var(--line); border-radius:12px; margin-bottom:14px;">
+      <div class="surface-box" style="display:flex; flex-wrap:wrap; gap:6px; padding:10px; margin-bottom:14px;">
         ${ex.subjects.map(s => `
           <button type="button" class="btn small ${s.id === curSubj.id ? 'primary' : ''}" onclick="editingQuestionId=null;openExamQuestionsEditor('${ex.id}', '${s.id}')">
             ${esc(s.name)} (${toFa((s.questions || []).length)})
@@ -4703,15 +4703,15 @@
       </div>
 
       <div class="row between" style="gap:8px; margin-bottom:12px; flex-wrap:wrap;">
-        <b style="font-size:14.5px; color:#0f766e;">درس فعال: ${esc(curSubj.name)} (${toFa((curSubj.questions || []).length)} سوال)</b>
+        <b style="font-size:14.5px; color:var(--main);">درس فعال: ${esc(curSubj.name)} (${toFa((curSubj.questions || []).length)} سوال)</b>
         <div class="row" style="gap:6px;">
           <button type="button" class="btn small" onclick="renameExamSubject('${ex.id}', '${curSubj.id}')">✎ تغییر نام درس</button>
           ${ex.subjects.length > 1 ? `<button type="button" class="btn small danger" onclick="deleteExamSubject('${ex.id}', '${curSubj.id}')">حذف درس</button>` : ''}
         </div>
       </div>
 
-      <div style="padding:14px; border:1px solid #99f6e4; background:#f0fdfa; border-radius:14px; margin-bottom:16px;">
-        <h4 style="margin:0 0 10px; color:#0f766e;">${curQ ? '✎ ویرایش سوال انتخاب‌شده' : '＋ افزودن سوال تکی به «' + esc(curSubj.name) + '»'}</h4>
+      <div class="callout-info" style="padding:14px; border-radius:14px; margin-bottom:16px;">
+        <h4 style="margin:0 0 10px; color:var(--main);">${curQ ? '✎ ویرایش سوال انتخاب‌شده' : '＋ افزودن سوال تکی به «' + esc(curSubj.name) + '»'}</h4>
         <div class="field">
           <label>صورت سوال *</label>
           <textarea id="eqStem" rows="3" placeholder="متن کامل سوال حقوقی...">${esc(curQ ? curQ.q : '')}</textarea>
@@ -4744,7 +4744,7 @@
         ${!(curSubj.questions || []).length
           ? '<div class="muted small">هنوز سوالی در این درس ثبت نشده است.</div>'
           : (curSubj.questions || []).map((q, qi) => `
-            <div style="padding:10px 12px; border:1px solid var(--line); border-radius:10px; background:#fff; font-size:12.5px;">
+            <div style="padding:10px 12px; border:1px solid var(--line); border-radius:10px; background:var(--panel); font-size:12.5px;">
               <div class="row between" style="gap:8px; align-items:flex-start;">
                 <div>
                   <b>${toFa(qi + 1)}.</b> ${esc(q.q)}
@@ -4948,7 +4948,7 @@
         <datalist id="impSubjData">${subjNames.map(n => `<option value="${esc(n)}">`).join('')}</datalist>
       </div>
 
-      <div style="margin-top:12px; padding:12px; border:1px solid var(--line); border-radius:12px; background:#f8fafc;">
+      <div class="surface-box" style="margin-top:12px;">
         <div class="row between" style="gap:8px; flex-wrap:wrap; margin-bottom:8px;">
           <label style="font-size:12.5px; font-weight:700;">۱. بارگذاری مستقیم از فایل اکسل، CSV یا JSON:</label>
           <button type="button" class="btn small" onclick="downloadExamSampleCsv()">⬇️ دانلود فایل نمونه CSV</button>
@@ -5512,7 +5512,7 @@
       overlay.innerHTML = `
         <div class="exam-runner-head">
           <div>
-            <b style="font-size:15.5px; color:#0f172a;">📊 کارنامه آزمون: ${esc(s.exam.title)}</b>
+            <b style="font-size:15.5px; color:var(--text);">📊 کارنامه آزمون: ${esc(s.exam.title)}</b>
             <div class="muted small">${esc(s.scopeLabel)} · ${toFa(sc.total)} سوال</div>
           </div>
           <div class="row" style="gap:8px; flex-wrap:wrap;">
@@ -5526,8 +5526,8 @@
             <div class="cases-kpi-grid" style="margin:0;">
               <div class="cases-kpi-card"><div class="k-label">درصد کل با نمره منفی</div><div class="k-val" style="color:var(--main);">${toFa(sc.netPct)}٪</div></div>
               <div class="cases-kpi-card"><div class="k-label">درصد خام بدون نمره منفی</div><div class="k-val">${toFa(sc.rawPct)}٪</div></div>
-              <div class="cases-kpi-card"><div class="k-label">پاسخ‌های صحیح</div><div class="k-val" style="color:#16a34a;">${toFa(sc.correct)}</div></div>
-              <div class="cases-kpi-card"><div class="k-label">غلط / نزده</div><div class="k-val" style="color:#dc2626;">${toFa(sc.wrong)} / ${toFa(sc.blank)}</div></div>
+              <div class="cases-kpi-card"><div class="k-label">پاسخ‌های صحیح</div><div class="k-val" style="color:var(--ok, #16a34a);">${toFa(sc.correct)}</div></div>
+              <div class="cases-kpi-card"><div class="k-label">غلط / نزده</div><div class="k-val" style="color:var(--danger, #dc2626);">${toFa(sc.wrong)} / ${toFa(sc.blank)}</div></div>
             </div>
 
             <div class="panel" style="margin:0;">
@@ -5549,8 +5549,8 @@
                       <tr>
                         <td><b>${esc(r.name)}</b></td>
                         <td>${toFa(r.total)}</td>
-                        <td style="color:#16a34a; font-weight:700;">${toFa(r.correct)}</td>
-                        <td style="color:#dc2626; font-weight:700;">${toFa(r.wrong)}</td>
+                        <td style="color:var(--ok, #16a34a); font-weight:700;">${toFa(r.correct)}</td>
+                        <td style="color:var(--danger, #dc2626); font-weight:700;">${toFa(r.wrong)}</td>
                         <td>${toFa(r.blank)}</td>
                         <td><b style="color:var(--main);">${toFa(r.netPct)}٪</b></td>
                       </tr>
@@ -5575,7 +5575,7 @@
                   <div class="exam-q-card">
                     <div class="row between" style="gap:8px; flex-wrap:wrap;">
                       <span class="art-tag">${esc(item.subjName)} · سوال ${toFa(item.idx)}</span>
-                      <span class="pill ${item.isCorrect ? 'done' : ''}" style="${!item.isBlank && !item.isCorrect ? 'background:#fee2e2;color:#b91c1c;' : ''}">
+                      <span class="pill ${item.isCorrect ? 'done' : (!item.isBlank ? 'bad' : '')}">
                         ${item.isBlank ? '⚪ نزده' : (item.isCorrect ? '✅ پاسخ صحیح' : '❌ پاسخ اشتباه')}
                       </span>
                     </div>
@@ -5655,7 +5655,7 @@
       overlay.innerHTML = `
         <div class="exam-runner-head">
           <div>
-            <b style="font-size:15.5px; color:#0f172a;">📖 ${esc(s.exam.title)}</b>
+            <b style="font-size:15.5px; color:var(--text);">📖 ${esc(s.exam.title)}</b>
             <div class="muted small">حالت مطالعه سوالات (بدون تایمر و نمره اجباری) · ${esc(curSubj.name)} (${toFa(qs.length)} سوال)</div>
           </div>
           <div class="row" style="gap:8px; flex-wrap:wrap;">
@@ -5684,7 +5684,7 @@
             </div>
 
             <aside class="exam-palette-card">
-              <b style="font-size:14px; color:#0f172a;">سوالات درس «${esc(curSubj.name)}»</b>
+              <b style="font-size:14px; color:var(--text);">سوالات درس «${esc(curSubj.name)}»</b>
               <div class="muted small" style="margin-top:4px;">برای پرش به هر سوال روی شماره آن کلیک کنید</div>
               <div class="exam-palette-grid">
                 ${qs.map((q, qi) => {
@@ -5693,7 +5693,7 @@
                   return `<button type="button" class="exam-q-dot ${isRev ? 'res-ok' : (isPicked ? 'answered' : '')}" onclick="examJumpToQ('${q.id}')">${toFa(qi + 1)}</button>`;
                 }).join('')}
               </div>
-              <div style="margin-top:16px; padding-top:12px; border-top:1px solid var(--line); display:grid; gap:6px; font-size:12px; color:#475569;">
+              <div style="margin-top:16px; padding-top:12px; border-top:1px solid var(--line); display:grid; gap:6px; font-size:12px; color:var(--muted);">
                 <div>💡 زیر هر سوال روی «مشاهده پاسخ» بزنید تا پاسخ و تشریح باز شود.</div>
                 <div>⏱ در صورت تمایل به نمره و تایمر، دکمه «آزمون زمان‌دار» در بالا را بزنید.</div>
               </div>
@@ -5740,7 +5740,7 @@
     overlay.innerHTML = `
       <div class="exam-runner-head">
         <div>
-          <b style="font-size:15.5px; color:#0f172a;">📝 آزمون زمان‌دار: ${esc(s.exam.title)}</b>
+          <b style="font-size:15.5px; color:var(--text);">📝 آزمون زمان‌دار: ${esc(s.exam.title)}</b>
           <div class="muted small">${esc(s.scopeLabel)} · پاسخ‌داده‌شده: ${toFa(totalAnsweredAll)} از ${toFa(totalQAll)}</div>
         </div>
         <div class="row" style="gap:8px; flex-wrap:wrap;">
@@ -5783,7 +5783,7 @@
           </div>
 
           <aside class="exam-palette-card">
-            <b style="font-size:14px; color:#0f172a;">پاسخ‌برگ درس «${esc(curSubj.name)}»</b>
+            <b style="font-size:14px; color:var(--text);">پاسخ‌برگ درس «${esc(curSubj.name)}»</b>
             <div class="muted small" style="margin-top:4px;">روی شماره هر سوال بزنید تا مستقیماً به آن بروید</div>
             <div class="exam-palette-grid">
               ${qs.map((q, qi) => {
@@ -5793,7 +5793,7 @@
                 return `<button type="button" class="exam-q-dot ${isAns ? 'answered' : ''} ${isFlag ? 'flagged' : ''} ${isCur ? 'current' : ''}" onclick="if(examSession){examSession.viewMode='single';examSelectQ(${qi});}">${toFa(qi + 1)}</button>`;
               }).join('')}
             </div>
-            <div style="margin-top:16px; padding-top:12px; border-top:1px solid var(--line); display:grid; gap:6px; font-size:12px; color:#475569;">
+            <div style="margin-top:16px; padding-top:12px; border-top:1px solid var(--line); display:grid; gap:6px; font-size:12px; color:var(--muted);">
               <div>🟢 سبز: پاسخ‌داده‌شده · 🟧 حاشیه نارنجی: نشان‌دار</div>
               <div>⚖️ وضعیت نمره منفی: <b>${s.exam.negativeMarking !== false ? 'یک‌سوم فعال' : 'غیرفعال'}</b></div>
             </div>
@@ -5867,7 +5867,7 @@
     if (window.showModal) {
       window.showModal(`
         <h2>🤖 فایل نصبی اندروید (APK)</h2>
-        <p style="line-height:1.9; font-size:13.5px; margin:14px 0; color:#334155;">
+        <p style="line-height:1.9; font-size:13.5px; margin:14px 0; color:var(--text);">
           فایل <b>baraat.apk</b> پس از آپلود پوشه <b>android</b> و فایل گردش‌کار گیتهاب به صورت خودکار توسط GitHub Actions ساخته می‌شود و مستقیماً از همین دکمه قابل دانلود خواهد بود.
         </p>
         <div class="modal-actions">
@@ -5897,9 +5897,9 @@
       window.showModal(`
         <h2>📲 دانلود و نصب اپلیکیشن «برائت»</h2>
         <div style="display:grid; gap:14px; margin:16px 0;">
-          <div style="background:#f0fdfa; border:1px solid #99f6e4; border-radius:14px; padding:16px;">
-            <div style="font-weight:800; font-size:15px; color:#0f766e; margin-bottom:6px;">🤖 نسخه نصبی مستقیم اندروید (فایل APK)</div>
-            <p style="font-size:13px; color:#334155; line-height:1.8; margin:0 0 12px;">
+          <div class="callout-info" style="border-radius:14px; padding:16px;">
+            <div style="font-weight:800; font-size:15px; color:var(--main); margin-bottom:6px;">🤖 نسخه نصبی مستقیم اندروید (فایل APK)</div>
+            <p style="font-size:13px; color:var(--text); line-height:1.8; margin:0 0 12px;">
               مخصوص گوشی‌های اندروید با قابلیت اجرای تمام‌صفحه، کارکرد آفلاین و ثبت مستقیم آلارم مواعد قانونی در تقویم گوشی.
             </p>
             <button type="button" class="btn primary" onclick="downloadAndroidApk()" style="width:100%; justify-content:center;">
@@ -5907,10 +5907,10 @@
             </button>
           </div>
 
-          <div style="background:#f8fafc; border:1px solid var(--line); border-radius:14px; padding:16px;">
-            <div style="font-weight:800; font-size:15px; color:#0f172a; margin-bottom:6px;">🌐 نصب نسخه وب اپلیکیشن (PWA)</div>
+          <div class="surface-box" style="border-radius:14px; padding:16px;">
+            <div style="font-weight:800; font-size:15px; color:var(--text); margin-bottom:6px;">🌐 نصب نسخه وب اپلیکیشن (PWA)</div>
             ${isIOS ? `
-              <div style="line-height:2; font-size:13px; color:#334155;">
+              <div style="line-height:2; font-size:13px; color:var(--text);">
                 <p style="margin:0 0 6px;">برای نصب روی آیفون و آیپد در مرورگر Safari:</p>
                 <ol style="padding-right:20px; margin:0;">
                   <li>دکمه <b>Share (اشتراک‌گذاری)</b> ⎋ را لمس کنید.</li>
@@ -5919,14 +5919,14 @@
                 </ol>
               </div>
             ` : (deferredPWAInstallPrompt ? `
-              <p style="font-size:13px; color:#334155; line-height:1.8; margin:0 0 12px;">
+              <p style="font-size:13px; color:var(--text); line-height:1.8; margin:0 0 12px;">
                 نصب آنی و سبک بدون نیاز به دانلود فایل نصبی برای گوشی و کامپیوتر.
               </p>
               <button type="button" class="btn" onclick="triggerNativePwaPrompt()" style="width:100%; justify-content:center;">
                 📲 نصب فوری نسخه وب (PWA)
               </button>
             ` : `
-              <p style="font-size:13px; color:#334155; line-height:1.8; margin:0;">
+              <p style="font-size:13px; color:var(--text); line-height:1.8; margin:0;">
                 از منوی سه نقطه مرورگر خود گزینه <b>Install App</b> یا <b>Add to Home Screen</b> را انتخاب کنید.
               </p>
             `)}
@@ -5975,7 +5975,7 @@
     try { localStorage.setItem(THEME_KEY, m); } catch (e) {}
 
     const metaTheme = document.querySelector('meta[name="theme-color"]');
-    if (metaTheme) metaTheme.setAttribute('content', m === 'dark' ? '#0b1120' : '#f4f6fb');
+    if (metaTheme) metaTheme.setAttribute('content', m === 'dark' ? '#0f141d' : '#f4f6fb');
 
     const headerBtn = document.getElementById('themeToggleBtn');
     if (headerBtn) {

@@ -13,6 +13,10 @@
   --card: #ffffff;
   --soft: #f0fdfa;
   --hl: #fef08a;
+  --ok: #16a34a;
+  --danger: #dc2626;
+  --warn: #d97706;
+  --teal-border: #99f6e4;
   --shadow-sm: 0 1px 3px rgba(15, 23, 42, 0.05);
   --shadow-md: 0 4px 16px rgba(15, 23, 42, 0.06);
   --shadow-lg: 0 12px 36px rgba(15, 23, 42, 0.09);
@@ -209,7 +213,7 @@ header p {
   display: none !important;
 }
 
-@media (max-width: 768px) {
+@media (max-width: 767px) {
   .tabs,
   .glass-tabs-nav {
     display: none !important;
@@ -905,6 +909,426 @@ textarea {
   display: none !important;
 }
 
+/* Base Utility & Semantic Layout Classes */
+.row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.between {
+  justify-content: space-between;
+}
+
+.muted {
+  color: var(--muted);
+}
+
+.small {
+  font-size: 12.5px;
+  line-height: 1.75;
+}
+
+.text-center {
+  text-align: center;
+}
+
+.grid2 {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 14px;
+}
+
+.warn {
+  background: #fffbeb;
+  border: 1px solid #fde68a;
+  color: #92400e;
+  padding: 12px 16px;
+  border-radius: 12px;
+  margin-bottom: 16px;
+  font-size: 13px;
+}
+
+.surface-box {
+  background: var(--panel2);
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  padding: 12px;
+}
+
+.admin-list-row {
+  padding: 10px 14px;
+  background: var(--panel2);
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  font-size: 13px;
+  gap: 10px;
+}
+
+.callout-info {
+  background: var(--soft);
+  border: 1px solid var(--teal-border);
+  border-radius: 14px;
+  padding: 14px 16px;
+  color: var(--text);
+}
+
+.callout-warn {
+  background: #fffbeb;
+  border: 1px solid #fde68a;
+  color: #78350f;
+  border-radius: 14px;
+  padding: 14px 16px;
+}
+
+.pill.bad {
+  background: #fee2e2;
+  color: #b91c1c;
+}
+
+#pwaInstallHeaderBtn {
+  color: #0f766e;
+  border-color: #99f6e4;
+  background: #f0fdfa;
+}
+
+#pwaInstallDockBtn {
+  color: #0f766e;
+  background: #f0fdfa;
+}
+
+.subject-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(min(100%, 270px), 1fr));
+  gap: 14px;
+}
+
+.subject {
+  background: var(--panel);
+  border: 1px solid var(--line);
+  border-radius: 16px;
+  padding: 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  box-shadow: var(--shadow-sm);
+}
+
+.subject h3 {
+  margin: 0;
+  font-size: 15.5px;
+  font-weight: 800;
+  color: var(--text);
+}
+
+.subject .sub {
+  font-size: 12.5px;
+  color: var(--muted);
+  line-height: 1.85;
+}
+
+.note-label {
+  display: block;
+  font-size: 12px;
+  font-weight: 700;
+  color: var(--muted);
+  margin: 10px 0 6px;
+}
+
+.select-small {
+  width: auto;
+  min-width: 190px;
+  padding: 6px 12px;
+  font-size: 12.5px;
+  border-radius: 9px;
+}
+
+.block-foot {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  flex-wrap: wrap;
+  margin-top: 14px;
+  padding-top: 12px;
+  border-top: 1px dashed var(--line);
+}
+
+.refs {
+  margin-top: 12px;
+  padding-top: 12px;
+  border-top: 1px dashed var(--line);
+  display: grid;
+  gap: 8px;
+}
+
+.ref {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  padding: 7px 10px;
+  border-radius: 10px;
+  background: var(--panel);
+  border: 1px solid var(--line);
+  font-size: 12.5px;
+}
+
+.ref a {
+  color: var(--main);
+  font-weight: 600;
+  text-decoration: none;
+}
+
+.noterefs {
+  margin-top: 10px;
+}
+
+.refrow {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-top: 6px;
+}
+
+.fileitem {
+  padding: 8px 10px;
+  border-radius: 10px;
+  background: var(--panel);
+  border: 1px solid var(--line);
+  font-size: 12.5px;
+  display: grid;
+  gap: 8px;
+}
+
+.fimg {
+  max-width: 240px;
+  max-height: 160px;
+  border-radius: 10px;
+  object-fit: cover;
+  cursor: zoom-in;
+  border: 1px solid var(--line);
+}
+
+.fpdf {
+  width: 100%;
+  height: 420px;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  background: var(--panel);
+}
+
+.arttxt {
+  margin-top: 10px;
+  display: grid;
+  gap: 10px;
+  padding: 12px;
+  border-radius: 12px;
+  background: var(--panel);
+  border: 1px solid var(--line);
+}
+
+.art {
+  padding: 10px 12px;
+  border-radius: 10px;
+  background: var(--panel2);
+  border: 1px solid var(--line);
+  display: grid;
+  gap: 4px;
+}
+
+.atxt {
+  white-space: pre-wrap;
+  font-size: 13.5px;
+  line-height: 1.95;
+  color: var(--text);
+}
+
+.empty {
+  text-align: center;
+  color: var(--muted);
+  padding: 28px 16px;
+  border: 1.5px dashed var(--line);
+  border-radius: 14px;
+  background: var(--panel2);
+  font-size: 13.5px;
+}
+
+.law-ui .mknote {
+  margin-top: 6px;
+  min-height: 60px;
+  font-size: 13px;
+}
+
+.law-ui .plan-chips {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px;
+  margin-top: 10px;
+  padding-top: 10px;
+  border-top: 1px dashed var(--line);
+}
+
+.law-ui .pchip {
+  padding: 4px 10px;
+  border-radius: 999px;
+  font-size: 11.5px;
+  font-weight: 600;
+  background: var(--soft);
+  color: var(--main);
+  border: 1px solid var(--teal-border);
+  cursor: pointer;
+}
+
+.law-ui .topic {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  width: 100%;
+  text-align: right;
+  padding: 12px 16px;
+  border-radius: 12px;
+  background: var(--panel);
+  border: 1px solid var(--line);
+  color: var(--text);
+  margin-bottom: 8px;
+  font-size: 13.5px;
+  font-weight: 600;
+}
+
+.law-ui .grp {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+  padding: 10px 16px;
+  margin: 18px 0 10px;
+  border-radius: 12px;
+  background: var(--soft);
+  border: 1px solid var(--teal-border);
+  color: var(--main);
+  font-size: 13px;
+  font-weight: 700;
+}
+
+.law-ui #more,
+.law-ui #more-decisions {
+  display: block;
+  margin: 14px auto;
+  padding: 10px 22px;
+  border-radius: 12px;
+  background: var(--main);
+  color: #ffffff;
+  font-weight: 700;
+  font-size: 13.5px;
+}
+
+.law-ui .decision-inline {
+  margin-top: 10px;
+  padding: 14px 16px;
+  border-radius: 14px;
+  background: var(--soft);
+  border: 1px solid var(--teal-border);
+}
+
+.law-ui .decision-inline-head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 10px;
+  margin-bottom: 10px;
+  padding-bottom: 8px;
+  border-bottom: 1px dashed var(--line);
+}
+
+.law-ui .decision-inline-head h3 {
+  margin: 0;
+  font-size: 14.5px;
+  color: var(--text);
+}
+
+.law-ui .decision-inline-head button {
+  padding: 5px 12px;
+  border-radius: 8px;
+  background: var(--panel);
+  border: 1px solid var(--line);
+  color: var(--text);
+  font-size: 12px;
+  font-weight: 600;
+}
+
+.law-ui .decision-inline-body {
+  white-space: pre-wrap;
+  font-size: 13.5px;
+  line-height: 2;
+  color: var(--text);
+}
+
+.law-ui .rel-art {
+  background: var(--panel);
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  padding: 12px 14px;
+  margin-top: 8px;
+}
+
+.law-ui .precedent-list {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-top: 8px;
+}
+
+.modal-meta {
+  font-size: 12px;
+  color: var(--muted);
+  margin-top: 2px;
+}
+
+.calc-stage-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  flex-wrap: wrap;
+  margin-bottom: 14px;
+  padding-bottom: 10px;
+  border-bottom: 1px solid var(--line);
+}
+
+.schedule-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  flex-wrap: wrap;
+  padding: 10px 14px;
+  border-radius: 12px;
+  background: var(--panel);
+  border: 1px solid var(--line);
+  margin-bottom: 8px;
+}
+
+.schedule-row:last-child {
+  margin-bottom: 0;
+}
+
+.adm-log,
+#admLog {
+  background: var(--panel2);
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  padding: 12px;
+  font-family: ui-monospace, monospace;
+  font-size: 12px;
+  max-height: 220px;
+  overflow: auto;
+  white-space: pre-wrap;
+  color: var(--text);
+}
+
 @media (max-width: 850px) {
   .layout {
     grid-template-columns: 1fr;
@@ -1116,10 +1540,13 @@ textarea {
   border-color: #0f766e;
 }
 
-/* Offset for main app container */
-@media (min-width: 768px) {
+/* Offset for main app container ONLY on desktop mouse devices with right hover dock */
+@media (min-width: 1200px) and (hover: hover) {
   .app {
+    width: calc(100% - 76px) !important;
+    max-width: min(1240px, calc(100% - 76px)) !important;
     margin-right: 76px !important;
+    margin-left: auto !important;
   }
 }
 
@@ -1394,7 +1821,7 @@ textarea {
 }
 
 /* Mobile Navigation Optimization — Floating Frosted Glass 5-Button Dock + Drawer */
-@media (max-width: 768px) {
+@media (max-width: 767px) {
   .right-hover-dock {
     top: auto !important;
     bottom: 10px !important;
@@ -2964,7 +3391,7 @@ body:not(.is-admin) #tab-admin {
 /* =====================================================================
    بهینه‌سازی کامل و فشرده نسخه موبایل و اپلیکیشن (PWA) — بدون اسکرول افقی
    ===================================================================== */
-@media (max-width: 768px) {
+@media (max-width: 767px) {
   html, body {
     font-size: 13px !important;
     line-height: 1.65 !important;
@@ -3041,7 +3468,8 @@ body:not(.is-admin) #tab-admin {
     display: inline !important;
   }
 
-  #pwaInstallHeaderBtn .pwa-btn-long {
+  #pwaInstallHeaderBtn .pwa-btn-long,
+  #themeToggleBtn .theme-lbl-long {
     display: none !important;
   }
 
@@ -3315,7 +3743,8 @@ body:not(.is-admin) #tab-admin {
     font-size: 11.2px !important;
   }
 
-  .form-grid {
+  .form-grid,
+  .grid2 {
     grid-template-columns: 1fr !important;
     gap: 8px !important;
   }
@@ -3333,7 +3762,8 @@ body:not(.is-admin) #tab-admin {
   .baraat-team-grid,
   .baraat-social-grid,
   .contact-info-grid,
-  .baraat-pillars-grid {
+  .baraat-pillars-grid,
+  .subject-grid {
     grid-template-columns: 1fr !important;
     gap: 10px !important;
     margin-top: 10px !important;
@@ -3595,4 +4025,795 @@ body:not(.is-admin) #tab-admin {
     text-align: center !important;
   }
 }
+
+/* =====================================================================
+   بهینه‌سازی اختصاصی آیپد و تبلت (768px تا 1199px + صفحات لمسی بدون هاور)
+   حذف کامل داک هاوری سمت راست روی تبلت تا تمام عرض صفحه متقارن و کامل شود
+   ===================================================================== */
+@media (min-width: 768px) and (max-width: 1199px), (hover: none) and (min-width: 768px) {
+  body {
+    background-attachment: scroll !important;
+  }
+
+  .right-hover-dock {
+    display: none !important;
+  }
+
+  .app {
+    width: 100% !important;
+    max-width: 1240px !important;
+    margin: 0 auto !important;
+    padding: 16px 20px 44px !important;
+    overflow-x: clip !important;
+  }
+
+  .tabs,
+  .glass-tabs-nav {
+    display: flex !important;
+    flex-wrap: wrap !important;
+    justify-content: center !important;
+    align-items: center !important;
+    gap: 6px !important;
+    padding: 7px 10px !important;
+    margin-bottom: 20px !important;
+    overflow: visible !important;
+  }
+
+  .tabs button,
+  .glass-tabs-nav button {
+    padding: 8px 13px !important;
+    font-size: 13px !important;
+  }
+
+  header {
+    gap: 12px !important;
+    margin-bottom: 16px !important;
+    padding-bottom: 14px !important;
+    flex-wrap: wrap !important;
+  }
+
+  header .brand {
+    min-width: 0 !important;
+  }
+
+  header h1 {
+    font-size: 19px !important;
+  }
+
+  header p {
+    font-size: 12px !important;
+  }
+
+  header .actions {
+    gap: 6px !important;
+    flex-wrap: wrap !important;
+  }
+
+  header .actions .btn {
+    padding: 7px 12px !important;
+    font-size: 12px !important;
+  }
+
+  .layout > *,
+  main,
+  section,
+  .panel,
+  .day-card,
+  .block,
+  .day-list,
+  .subj-plan-list,
+  .exam-workspace-grid > *,
+  .grid2 > *,
+  .form-grid > * {
+    min-width: 0 !important;
+    max-width: 100% !important;
+  }
+
+  .calc-table {
+    display: block;
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+  }
+
+  pre {
+    max-width: 100%;
+    overflow-x: auto;
+  }
+
+  .search-hero-glass {
+    max-width: 100% !important;
+    padding: 26px 22px 22px !important;
+    margin: 6px auto 22px !important;
+  }
+
+  .hero-heading {
+    font-size: 1.45rem !important;
+  }
+}
+
+@media (min-width: 768px) and (max-width: 1080px) {
+  #pwaInstallHeaderBtn .pwa-btn-short {
+    display: inline !important;
+  }
+  #pwaInstallHeaderBtn .pwa-btn-long {
+    display: none !important;
+  }
+  #cloudSyncBadge {
+    display: none !important;
+  }
+}
+
+/* iPad Portrait (768px - 1023px) */
+@media (min-width: 768px) and (max-width: 1023px) {
+  .layout {
+    grid-template-columns: 1fr !important;
+    gap: 14px !important;
+  }
+
+  .sidebar {
+    position: static !important;
+    padding: 12px !important;
+  }
+
+  .nav {
+    display: flex !important;
+    flex-wrap: wrap !important;
+    gap: 6px !important;
+    overflow: visible !important;
+  }
+
+  .nav button {
+    width: auto !important;
+    white-space: nowrap !important;
+    padding: 8px 14px !important;
+  }
+
+  .side-note {
+    display: none !important;
+  }
+
+  .stats,
+  .cases-kpi-grid,
+  .monitor-kpi-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
+  }
+
+  .articles-grid,
+  .deadlines-grid,
+  .exams-grid,
+  .cases-grid,
+  .baraat-team-grid,
+  .baraat-social-grid,
+  .contact-info-grid,
+  .baraat-pillars-grid,
+  .subject-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
+    gap: 14px !important;
+  }
+
+  .checks {
+    grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
+  }
+
+  .baraat-about-hero {
+    grid-template-columns: 1fr !important;
+  }
+
+  .baraat-about-visual {
+    min-height: 240px !important;
+  }
+
+  .exam-workspace-grid,
+  .grid2 {
+    grid-template-columns: 1fr !important;
+  }
+
+  .exam-palette-card {
+    position: static !important;
+  }
+
+  .exam-palette-grid {
+    grid-template-columns: repeat(10, minmax(0, 1fr)) !important;
+  }
+}
+
+/* iPad Landscape / Large Tablets (1024px - 1199px) */
+@media (min-width: 1024px) and (max-width: 1199px) {
+  .layout {
+    grid-template-columns: 230px minmax(0, 1fr) !important;
+    gap: 16px !important;
+  }
+
+  .stats,
+  .cases-kpi-grid,
+  .monitor-kpi-grid {
+    grid-template-columns: repeat(4, minmax(0, 1fr)) !important;
+  }
+
+  .articles-grid,
+  .deadlines-grid,
+  .exams-grid,
+  .cases-grid,
+  .baraat-team-grid,
+  .baraat-social-grid,
+  .subject-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
+  }
+
+  .exam-workspace-grid {
+    grid-template-columns: minmax(0, 1fr) 260px !important;
+  }
+}
+
+/* =====================================================================
+   تم شب یکدست و خوانا (Dark Mode) — پالت Slate Charcoal + فیروزه‌ای حقوقی
+   ===================================================================== */
+html[data-theme="dark"] {
+  --bg: #0f141d;
+  --panel: #161e2b;
+  --panel2: #1f2939;
+  --card: #161e2b;
+  --line: rgba(148, 163, 184, 0.16);
+  --line-focus: #2dd4bf;
+  --text: #eef2f7;
+  --muted: #93a3b8;
+  --accent: #14b8a6;
+  --accent-light: rgba(20, 184, 166, 0.16);
+  --main: #2dd4bf;
+  --soft: rgba(20, 184, 166, 0.11);
+  --hl: rgba(250, 204, 21, 0.28);
+  --ok: #4ade80;
+  --danger: #f87171;
+  --warn: #fbbf24;
+  --teal-border: rgba(45, 212, 191, 0.28);
+  --shadow-sm: 0 2px 8px rgba(0, 0, 0, 0.35);
+  --shadow-md: 0 8px 24px rgba(0, 0, 0, 0.45);
+  --shadow-lg: 0 18px 42px rgba(0, 0, 0, 0.6);
+  color-scheme: dark;
+}
+
+html[data-theme="dark"] .law-ui {
+  --bg: #0f141d;
+  --card: #161e2b;
+  --ink: #eef2f7;
+  --mute: #93a3b8;
+  --line: rgba(148, 163, 184, 0.16);
+  --main: #2dd4bf;
+  --hl: rgba(250, 204, 21, 0.28);
+  --soft: rgba(20, 184, 166, 0.11);
+}
+
+html[data-theme="dark"] body {
+  background-color: #0f141d;
+  background-image:
+    radial-gradient(at 100% 0%, rgba(20, 184, 166, 0.11) 0px, transparent 52%),
+    radial-gradient(at 0% 100%, rgba(30, 41, 59, 0.38) 0px, transparent 52%);
+  color: var(--text);
+}
+
+html[data-theme="dark"] h1,
+html[data-theme="dark"] h2,
+html[data-theme="dark"] h3,
+html[data-theme="dark"] h4,
+html[data-theme="dark"] .hero-heading,
+html[data-theme="dark"] .art-title,
+html[data-theme="dark"] .member-name,
+html[data-theme="dark"] .social-title,
+html[data-theme="dark"] .day-title,
+html[data-theme="dark"] .block h3,
+html[data-theme="dark"] .subject h3,
+html[data-theme="dark"] .contact-tile-val,
+html[data-theme="dark"] .cases-kpi-card .k-val,
+html[data-theme="dark"] .stat strong,
+html[data-theme="dark"] .calc-dd-title,
+html[data-theme="dark"] .baraat-editorial-title,
+html[data-theme="dark"] .baraat-section-bar h3,
+html[data-theme="dark"] .baraat-pillar-card h4,
+html[data-theme="dark"] .exam-q-stem,
+html[data-theme="dark"] .law-ui h2,
+html[data-theme="dark"] .law-ui .num,
+html[data-theme="dark"] .law-ui .decision-inline-head h3,
+html[data-theme="dark"] .empty-glass-card h3 {
+  color: #eef2f7;
+}
+
+html[data-theme="dark"] .panel,
+html[data-theme="dark"] .stat,
+html[data-theme="dark"] .sidebar,
+html[data-theme="dark"] .day-card,
+html[data-theme="dark"] .subject,
+html[data-theme="dark"] .article-card,
+html[data-theme="dark"] .deadline-item-card,
+html[data-theme="dark"] .exam-card,
+html[data-theme="dark"] .case-card,
+html[data-theme="dark"] .cases-kpi-card,
+html[data-theme="dark"] .member-card,
+html[data-theme="dark"] .social-card,
+html[data-theme="dark"] .contact-info-tile,
+html[data-theme="dark"] .baraat-about-hero,
+html[data-theme="dark"] .baraat-pillar-card,
+html[data-theme="dark"] .calculator-card,
+html[data-theme="dark"] .calc-single-stage,
+html[data-theme="dark"] .subj-plan-card,
+html[data-theme="dark"] .qa-card,
+html[data-theme="dark"] .law-ui .res,
+html[data-theme="dark"] .law-ui .topic,
+html[data-theme="dark"] .law-ui .rel-art,
+html[data-theme="dark"] .exam-q-card,
+html[data-theme="dark"] .exam-palette-card,
+html[data-theme="dark"] .schedule-item,
+html[data-theme="dark"] .schedule-row,
+html[data-theme="dark"] .modal {
+  background: #161e2b;
+  border-color: rgba(148, 163, 184, 0.16);
+  color: var(--text);
+}
+
+html[data-theme="dark"] .block,
+html[data-theme="dark"] .check,
+html[data-theme="dark"] .ref,
+html[data-theme="dark"] .fileitem,
+html[data-theme="dark"] .arttxt,
+html[data-theme="dark"] .art,
+html[data-theme="dark"] .case-finance-row,
+html[data-theme="dark"] .monitor-user-card,
+html[data-theme="dark"] .baraat-photo-upload-box,
+html[data-theme="dark"] .calc-type-btn,
+html[data-theme="dark"] .member-social-link,
+html[data-theme="dark"] .tag-chip,
+html[data-theme="dark"] .exam-opt-btn,
+html[data-theme="dark"] .exam-subj-btn,
+html[data-theme="dark"] .exam-q-dot,
+html[data-theme="dark"] .law-ui .modes label,
+html[data-theme="dark"] .law-ui .empty,
+html[data-theme="dark"] .empty,
+html[data-theme="dark"] .surface-box,
+html[data-theme="dark"] .admin-list-row,
+html[data-theme="dark"] .adm-log,
+html[data-theme="dark"] #admLog,
+html[data-theme="dark"] .side-note,
+html[data-theme="dark"] .cloud-sync-badge {
+  background: #1f2939;
+  border-color: rgba(148, 163, 184, 0.18);
+  color: #cbd5e1;
+}
+
+html[data-theme="dark"] .block.m-good {
+  background: rgba(22, 163, 74, 0.1);
+  border-color: rgba(74, 222, 128, 0.34);
+}
+
+html[data-theme="dark"] .block.m-mid {
+  background: rgba(217, 119, 6, 0.1);
+  border-color: rgba(251, 191, 36, 0.34);
+}
+
+html[data-theme="dark"] .block.m-bad {
+  background: rgba(220, 38, 38, 0.1);
+  border-color: rgba(248, 113, 113, 0.34);
+}
+
+html[data-theme="dark"] .check:hover {
+  border-color: rgba(45, 212, 191, 0.45);
+}
+
+html[data-theme="dark"] .check:has(input:checked) {
+  background: rgba(20, 184, 166, 0.16);
+  border-color: rgba(45, 212, 191, 0.45);
+  color: #99f6e4;
+}
+
+html[data-theme="dark"] .law-ui .modes label:hover {
+  background: #273449;
+  border-color: rgba(148, 163, 184, 0.28);
+}
+
+html[data-theme="dark"] .law-ui .modes label:has(input:checked) {
+  background: linear-gradient(135deg, #0d9488, #0f766e);
+  border-color: #14b8a6;
+  color: #ffffff;
+}
+
+html[data-theme="dark"] .pill {
+  background: #253145;
+  color: #cbd5e1;
+}
+
+html[data-theme="dark"] .pill.done {
+  background: rgba(34, 197, 94, 0.16);
+  color: #86efac;
+}
+
+html[data-theme="dark"] .pill.partial {
+  background: rgba(245, 158, 11, 0.16);
+  color: #fde68a;
+}
+
+html[data-theme="dark"] .pill.bad {
+  background: rgba(239, 68, 68, 0.18);
+  color: #fecaca;
+}
+
+html[data-theme="dark"] .callout-warn,
+html[data-theme="dark"] .warn,
+html[data-theme="dark"] .law-ui .decision-search-result {
+  background: rgba(217, 119, 6, 0.12);
+  border-color: rgba(251, 191, 36, 0.28);
+  color: #fde68a;
+}
+
+html[data-theme="dark"] .art-desc,
+html[data-theme="dark"] .social-desc,
+html[data-theme="dark"] .case-meta-row,
+html[data-theme="dark"] .member-bio,
+html[data-theme="dark"] .baraat-editorial-sub,
+html[data-theme="dark"] .baraat-pillar-card p,
+html[data-theme="dark"] .empty-glass-card p,
+html[data-theme="dark"] .hero-subheading,
+html[data-theme="dark"] .atxt,
+html[data-theme="dark"] .law-ui .txt,
+html[data-theme="dark"] .law-ui .path,
+html[data-theme="dark"] .law-ui .decision-inline-body,
+html[data-theme="dark"] .law-ui .modes b {
+  color: #cbd5e1;
+}
+
+html[data-theme="dark"] .baraat-kicker,
+html[data-theme="dark"] .baraat-motto-bar,
+html[data-theme="dark"] .baraat-pillar-num,
+html[data-theme="dark"] .member-meta-line,
+html[data-theme="dark"] .social-handle,
+html[data-theme="dark"] .law-ui .path a,
+html[data-theme="dark"] .law-ui .nav button.copy,
+html[data-theme="dark"] .calc-dd-chevron {
+  color: #2dd4bf;
+}
+
+html[data-theme="dark"] .baraat-kicker::before {
+  background: #2dd4bf;
+}
+
+html[data-theme="dark"] .member-photo-wrap,
+html[data-theme="dark"] .member-monogram {
+  background: radial-gradient(circle at 30% 25%, rgba(20, 184, 166, 0.2) 0%, #161e2b 70%);
+  color: #5eead4;
+}
+
+html[data-theme="dark"] .member-monogram-circle {
+  background: #1f2939;
+  border-color: rgba(45, 212, 191, 0.35);
+  color: #5eead4;
+}
+
+html[data-theme="dark"] .progress {
+  background: #263245;
+}
+
+html[data-theme="dark"] .btn {
+  background: #1f2939;
+  border: 1px solid rgba(148, 163, 184, 0.22);
+  color: #e2e8f0;
+}
+
+html[data-theme="dark"] .btn:hover:not(:disabled) {
+  background: #283548;
+  border-color: #2dd4bf;
+  color: #f8fafc;
+}
+
+html[data-theme="dark"] .btn.primary {
+  background: linear-gradient(135deg, #0d9488, #0f766e);
+  border-color: #0d9488;
+  color: #ffffff;
+}
+
+html[data-theme="dark"] .btn.primary:hover:not(:disabled) {
+  background: linear-gradient(135deg, #14b8a6, #0d9488);
+  border-color: #14b8a6;
+}
+
+html[data-theme="dark"] .btn.danger {
+  background: rgba(220, 38, 38, 0.16);
+  border-color: rgba(248, 113, 113, 0.32);
+  color: #fca5a5;
+}
+
+html[data-theme="dark"] .btn.danger:hover:not(:disabled) {
+  background: rgba(220, 38, 38, 0.25);
+}
+
+html[data-theme="dark"] input,
+html[data-theme="dark"] select,
+html[data-theme="dark"] textarea,
+html[data-theme="dark"] .law-ui select,
+html[data-theme="dark"] .law-ui .search input {
+  background: #111824;
+  border: 1px solid rgba(148, 163, 184, 0.24);
+  color: #eef2f7;
+}
+
+html[data-theme="dark"] select option {
+  background: #161e2b;
+  color: #eef2f7;
+}
+
+html[data-theme="dark"] input::placeholder,
+html[data-theme="dark"] textarea::placeholder {
+  color: #64748b;
+}
+
+html[data-theme="dark"] input:focus,
+html[data-theme="dark"] select:focus,
+html[data-theme="dark"] textarea:focus,
+html[data-theme="dark"] .law-ui select:focus,
+html[data-theme="dark"] .law-ui .search input:focus {
+  border-color: #2dd4bf;
+  background: #111824;
+  box-shadow: 0 0 0 3px rgba(45, 212, 191, 0.18);
+}
+
+html[data-theme="dark"] .search-hero-glass,
+html[data-theme="dark"] .glass-tabs-nav,
+html[data-theme="dark"] .hub-subnav,
+html[data-theme="dark"] .empty-glass-card {
+  background: rgba(22, 30, 43, 0.88);
+  border-color: rgba(148, 163, 184, 0.18);
+  box-shadow: 0 18px 40px -12px rgba(0, 0, 0, 0.55);
+}
+
+html[data-theme="dark"] .hero-search-wrapper input {
+  background: #111824;
+  border-color: rgba(148, 163, 184, 0.28);
+  color: #eef2f7;
+}
+
+html[data-theme="dark"] .hero-chip,
+html[data-theme="dark"] .art-tag,
+html[data-theme="dark"] .subj-sec-badge,
+html[data-theme="dark"] .law-ui .law,
+html[data-theme="dark"] .law-ui .chip,
+html[data-theme="dark"] .law-ui .pchip,
+html[data-theme="dark"] .calc-dd-ico,
+html[data-theme="dark"] .contact-tile-icon {
+  background: rgba(20, 184, 166, 0.14);
+  border-color: rgba(45, 212, 191, 0.3);
+  color: #5eead4;
+}
+
+html[data-theme="dark"] .qa-answer-box,
+html[data-theme="dark"] .schedule-strip,
+html[data-theme="dark"] .calc-res-strip,
+html[data-theme="dark"] .dl-result-card,
+html[data-theme="dark"] .exam-exp-box,
+html[data-theme="dark"] .exam-timer-box,
+html[data-theme="dark"] .callout-info,
+html[data-theme="dark"] .law-ui .decision-inline,
+html[data-theme="dark"] #admSyncStatusCard {
+  background: rgba(20, 184, 166, 0.1) !important;
+  border-color: rgba(45, 212, 191, 0.28) !important;
+  color: #e2e8f0 !important;
+}
+
+html[data-theme="dark"] .exam-timer-box.low {
+  background: rgba(220, 38, 38, 0.16) !important;
+  border-color: rgba(248, 113, 113, 0.4) !important;
+  color: #fca5a5 !important;
+}
+
+html[data-theme="dark"] .exam-reveal-btn {
+  background: rgba(20, 184, 166, 0.15);
+  border-color: rgba(45, 212, 191, 0.35);
+  color: #5eead4;
+}
+
+html[data-theme="dark"] .exam-reveal-btn:hover {
+  background: rgba(20, 184, 166, 0.25);
+  border-color: #2dd4bf;
+}
+
+html[data-theme="dark"] .exam-reveal-btn.open {
+  background: #1f2939;
+  border-color: rgba(148, 163, 184, 0.25);
+  color: #cbd5e1;
+}
+
+html[data-theme="dark"] .tabs button:not(.active),
+html[data-theme="dark"] .hub-subbtn:not(.active),
+html[data-theme="dark"] .nav button:not(.active) {
+  color: #cbd5e1;
+}
+
+html[data-theme="dark"] .tabs button:hover:not(.active),
+html[data-theme="dark"] .hub-subbtn:hover:not(.active),
+html[data-theme="dark"] .nav button:hover:not(.active) {
+  background: rgba(20, 184, 166, 0.14);
+  color: #5eead4;
+  border-color: rgba(45, 212, 191, 0.25);
+}
+
+html[data-theme="dark"] .tabs button.active,
+html[data-theme="dark"] .hub-subbtn.active {
+  background: linear-gradient(135deg, #0d9488, #0f766e);
+  color: #ffffff;
+}
+
+html[data-theme="dark"] .nav button.active {
+  background: rgba(20, 184, 166, 0.16);
+  color: #5eead4;
+}
+
+html[data-theme="dark"] .right-hover-dock {
+  background: rgba(22, 30, 43, 0.92);
+  border-color: rgba(148, 163, 184, 0.18);
+}
+
+html[data-theme="dark"] .dock-brand-text {
+  color: #5eead4;
+}
+
+html[data-theme="dark"] .dock-btn {
+  color: #cbd5e1;
+}
+
+html[data-theme="dark"] .dock-btn:hover {
+  background: rgba(20, 184, 166, 0.14);
+  color: #5eead4;
+}
+
+html[data-theme="dark"] .dock-btn.active {
+  background: rgba(20, 184, 166, 0.2);
+  color: #5eead4;
+}
+
+html[data-theme="dark"] .dock-btn.active::before {
+  background: #2dd4bf;
+}
+
+html[data-theme="dark"] .dock-btn-auth {
+  background: #1f2939;
+  border-color: rgba(148, 163, 184, 0.22);
+  color: #5eead4;
+}
+
+html[data-theme="dark"] .dock-btn-auth:hover {
+  background: rgba(20, 184, 166, 0.16);
+  border-color: #2dd4bf;
+}
+
+html[data-theme="dark"] .mobile-dock-drawer {
+  background: rgba(22, 30, 43, 0.96);
+  border-color: rgba(148, 163, 184, 0.22);
+}
+
+html[data-theme="dark"] .mobile-drawer-tile {
+  background: #1f2939;
+  border-color: rgba(148, 163, 184, 0.18);
+  color: #e2e8f0;
+}
+
+html[data-theme="dark"] .mobile-drawer-tile.active {
+  background: rgba(20, 184, 166, 0.2);
+  border-color: #2dd4bf;
+  color: #5eead4;
+}
+
+html[data-theme="dark"] .calc-dd-trigger,
+html[data-theme="dark"] .calc-dd-menu {
+  background: #161e2b;
+  border-color: rgba(148, 163, 184, 0.24);
+}
+
+html[data-theme="dark"] .calc-dd-item {
+  color: #eef2f7;
+}
+
+html[data-theme="dark"] .calc-dd-item:hover {
+  background: rgba(20, 184, 166, 0.14);
+}
+
+html[data-theme="dark"] .calc-dd-item.active {
+  background: linear-gradient(135deg, #0d9488, #0f766e);
+  color: #ffffff;
+}
+
+html[data-theme="dark"] .calc-table th {
+  background: #1f2939;
+  color: #cbd5e1;
+}
+
+html[data-theme="dark"] .law-ui .nav button,
+html[data-theme="dark"] .law-ui .decision-inline-head button {
+  background: #1f2939;
+  border-color: rgba(148, 163, 184, 0.22);
+  color: #cbd5e1;
+}
+
+html[data-theme="dark"] .law-ui .grp {
+  background: rgba(20, 184, 166, 0.14);
+  color: #5eead4;
+  border-color: rgba(45, 212, 191, 0.28);
+}
+
+html[data-theme="dark"] .law-ui mark {
+  background: rgba(250, 204, 21, 0.28);
+  color: #fef08a;
+}
+
+html[data-theme="dark"] .exam-runner-overlay {
+  background: #0f141d;
+}
+
+html[data-theme="dark"] .exam-runner-head,
+html[data-theme="dark"] .exam-subj-tabs {
+  background: #161e2b;
+  border-bottom-color: rgba(148, 163, 184, 0.18);
+}
+
+html[data-theme="dark"] .exam-subj-tab:not(.active) {
+  background: #1f2939;
+  color: #cbd5e1;
+  border-color: rgba(148, 163, 184, 0.2);
+}
+
+html[data-theme="dark"] .exam-subj-tab.active {
+  background: #0d9488;
+  border-color: #14b8a6;
+}
+
+html[data-theme="dark"] .exam-opt-letter {
+  background: #111824;
+  border-color: rgba(148, 163, 184, 0.28);
+  color: #cbd5e1;
+}
+
+html[data-theme="dark"] .exam-opt-btn:hover,
+html[data-theme="dark"] .exam-opt-btn.selected {
+  background: rgba(20, 184, 166, 0.15);
+  border-color: #14b8a6;
+}
+
+html[data-theme="dark"] .exam-opt-btn.correct {
+  background: rgba(22, 163, 74, 0.18);
+  border-color: #22c55e;
+  color: #bbf7d0;
+}
+
+html[data-theme="dark"] .exam-opt-btn.wrong {
+  background: rgba(220, 38, 38, 0.18);
+  border-color: #ef4444;
+  color: #fecaca;
+}
+
+html[data-theme="dark"] .exam-q-dot.answered {
+  background: #0d9488;
+  border-color: #14b8a6;
+  color: #ffffff;
+}
+
+html[data-theme="dark"] #pwaInstallHeaderBtn,
+html[data-theme="dark"] #pwaInstallDockBtn {
+  background: rgba(20, 184, 166, 0.14) !important;
+  border-color: rgba(45, 212, 191, 0.35) !important;
+  color: #5eead4 !important;
+}
+
+html[data-theme="dark"] .toast {
+  background: #1f2939;
+  color: #eef2f7;
+  border: 1px solid rgba(148, 163, 184, 0.25);
+}
+
+@media (max-width: 767px) {
+  html[data-theme="dark"] .right-hover-dock {
+    background: rgba(22, 30, 43, 0.94) !important;
+    border-top-color: rgba(148, 163, 184, 0.2) !important;
+    box-shadow: 0 -6px 24px rgba(0, 0, 0, 0.45) !important;
+  }
+
+  html[data-theme="dark"] .dock-btn.active {
+    background: rgba(20, 184, 166, 0.2) !important;
+    color: #5eead4 !important;
+  }
+}
+
 
