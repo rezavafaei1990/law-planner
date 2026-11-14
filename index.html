@@ -3158,9 +3158,19 @@ function toggleDecisionInline(button,number,year){
   button.insertAdjacentElement('afterend',panel);button.setAttribute('aria-expanded','true');
 }
 async function readDecisionFile(file){
-  await loadXLSX();const wb=XLSX.read(await file.arrayBuffer(),{type:'array'}); let added=[];
-  wb.SheetNames.forEach(sn=>{
-    const grid=XLSX.utils.sheet_to_json(fixRef(wb.Sheets[sn]),{header:1,defval:''}).filter(r=>r.some(c=>String(c).trim()!==''));
+  const lower=file.name.toLowerCase();
+  const buf=await file.arrayBuffer();
+  let grids=[];
+  if((lower.endsWith('.csv')||lower.endsWith('.tsv'))&&window.parseCsvBufferSmart){
+    grids=[window.parseCsvBufferSmart(buf)];
+  }else{
+    await loadXLSX();
+    const wb=XLSX.read(buf,{type:'array'});
+    grids=wb.SheetNames.map(sn=>XLSX.utils.sheet_to_json(fixRef(wb.Sheets[sn]),{header:1,defval:''}));
+  }
+  let added=[];
+  grids.forEach(rawGrid=>{
+    const grid=rawGrid.filter(r=>r.some(c=>String(c).trim()!==''));
     if(grid.length<2)return;
     let hi=0,best=0;grid.slice(0,10).forEach((r,i)=>{const n=r.filter(c=>String(c).trim()!=='').length;if(n>best){best=n;hi=i;}});
     const headers=grid[hi].map(x=>norm(x).replace(/[\s_\/]/g,''));
@@ -3243,16 +3253,24 @@ function fixRef(ws){
   ws['!ref']=XLSX.utils.encode_range(r);return ws;
 }
 async function readFile(f){
-  await loadXLSX();const buf=await f.arrayBuffer();
-  const wb=XLSX.read(buf,{type:'array'});
+  const lower=f.name.toLowerCase();
+  const buf=await f.arrayBuffer();
   const law=f.name.replace(/\.[^.]+$/,'').replace(/_/g,' ');
   let all=[],infos=[];
-  wb.SheetNames.forEach(sn=>{
-    const grid=XLSX.utils.sheet_to_json(fixRef(wb.Sheets[sn]),{header:1,defval:''});
-    const name=wb.SheetNames.length>1?law+' - '+sn:law;
-    const r=parseSheet(grid,name);
-    all=all.concat(r.rows);if(r.info)infos.push(r.info);if(r.roles)COLS[law+(wb.SheetNames.length>1?' - '+sn:'')]=r.roles;
-  });
+  if((lower.endsWith('.csv')||lower.endsWith('.tsv'))&&window.parseCsvBufferSmart){
+    const grid=window.parseCsvBufferSmart(buf);
+    const r=parseSheet(grid,law);
+    all=all.concat(r.rows);if(r.info)infos.push(r.info);if(r.roles)COLS[law]=r.roles;
+  }else{
+    await loadXLSX();
+    const wb=XLSX.read(buf,{type:'array'});
+    wb.SheetNames.forEach(sn=>{
+      const grid=XLSX.utils.sheet_to_json(fixRef(wb.Sheets[sn]),{header:1,defval:''});
+      const name=wb.SheetNames.length>1?law+' - '+sn:law;
+      const r=parseSheet(grid,name);
+      all=all.concat(r.rows);if(r.info)infos.push(r.info);if(r.roles)COLS[law+(wb.SheetNames.length>1?' - '+sn:'')]=r.roles;
+    });
+  }
   INFO[law]=infos.join(' // ');
   return all;
 }
@@ -3644,6 +3662,6 @@ if ('serviceWorker' in navigator) {
   });
 }
 </script>
-<script src="./baraat_engine.js?v=20261114_2"></script>
+<script src="./baraat_engine.js?v=20261114_3"></script>
 </body>
 </html>
