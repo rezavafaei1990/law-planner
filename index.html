@@ -20,12 +20,12 @@
 <script>
 window.__deferredPWA=null;
 window.addEventListener('beforeinstallprompt',function(e){e.preventDefault();window.__deferredPWA=e;});
-(function(){try{var t=localStorage.getItem('baraat_theme_v1');if(t==='dark'){document.documentElement.dataset.theme='dark';var m=document.querySelector('meta[name="theme-color"]');if(m)m.setAttribute('content','#0b1120');}}catch(e){}})();
+(function(){try{var t=localStorage.getItem('baraat_theme_v1');if(t==='dark'){document.documentElement.dataset.theme='dark';var m=document.querySelector('meta[name="theme-color"]');if(m)m.setAttribute('content','#0f141d');}}catch(e){}})();
 </script>
 <link href="https://fonts.googleapis.com/css2?family=Vazirmatn:wght@400;500;700;800&display=swap" rel="stylesheet">
 <style>
 :root{--bg:#f8fafc;--text:#0f172a;color-scheme:light}
-html[data-theme="dark"]{--bg:#0b1120;--text:#f1f5f9;color-scheme:dark}
+html[data-theme="dark"]{--bg:#0f141d;--text:#eef2f7;color-scheme:dark}
 *{box-sizing:border-box}
 body{margin:0;background:var(--bg);color:var(--text);font-family:'Vazirmatn',-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif}
 .hidden{display:none!important}
@@ -82,7 +82,7 @@ body{margin:0;background:var(--bg);color:var(--text);font-family:'Vazirmatn',-ap
       <span class="dock-icon">🌙</span>
       <span class="dock-label">تم شب</span>
     </button>
-    <button class="dock-btn-auth" id="pwaInstallDockBtn" onclick="promptPWAInstall()" style="margin-bottom:6px; color:#0f766e; background:#f0fdfa;" title="دانلود و نصب اپلیکیشن برائت">
+    <button class="dock-btn-auth" id="pwaInstallDockBtn" onclick="promptPWAInstall()" style="margin-bottom:6px;" title="دانلود و نصب اپلیکیشن برائت">
       <span class="dock-icon">📲</span>
       <span class="dock-label">دانلود اپلیکیشن</span>
     </button>
@@ -96,7 +96,7 @@ body{margin:0;background:var(--bg);color:var(--text);font-family:'Vazirmatn',-ap
 <div class="mobile-dock-drawer-back hidden" id="mobileDockDrawerBack" onclick="if(event.target===this)toggleMobileDockDrawer(false)">
   <div class="mobile-dock-drawer">
     <div class="row between" style="margin-bottom:12px;">
-      <strong style="font-size:15px; color:#0f172a;">دسترسی سریع بخش‌های سامانه</strong>
+      <strong style="font-size:15px; color:var(--text);">دسترسی سریع بخش‌های سامانه</strong>
       <button type="button" class="btn small" onclick="toggleMobileDockDrawer(false)">✕ بستن</button>
     </div>
     <div class="mobile-drawer-grid">
@@ -127,7 +127,7 @@ body{margin:0;background:var(--bg);color:var(--text);font-family:'Vazirmatn',-ap
     <span class="status-dot green"></span> آنلاین (سینک با Supabase)
   </div>
   <button type="button" class="btn theme-toggle-btn" id="themeToggleBtn" onclick="toggleTheme()" title="تغییر تم شب و روز">🌙<span class="theme-lbl-long"> تم شب</span></button>
-  <button class="btn" id="pwaInstallHeaderBtn" onclick="promptPWAInstall()" style="color:#0f766e; border-color:#99f6e4; background:#f0fdfa;">
+  <button class="btn" id="pwaInstallHeaderBtn" onclick="promptPWAInstall()">
     <span>📲</span><span class="pwa-btn-short">نصب اپ</span><span class="pwa-btn-long">دانلود / نصب اپلیکیشن برائت</span>
   </button>
   <button class="btn primary" id="authBtn" onclick="openAuthModal()">ورود / ثبت‌نام</button>
@@ -331,8 +331,8 @@ body{margin:0;background:var(--bg);color:var(--text);font-family:'Vazirmatn',-ap
     </div>
 
     <!-- Interactive Calculator -->
-    <div style="background:#f0fdfa; border:1px solid #99f6e4; border-radius:18px; padding:22px; margin-bottom:24px;">
-      <h3 style="margin:0 0 14px; font-size:15px; color:#0f766e;">محاسبه‌گر آنلاین موعد اقدام بر اساس ابلاغ در سامانه ثنا</h3>
+    <div class="callout-info" style="border-radius:18px; padding:22px; margin-bottom:24px;">
+      <h3 style="margin:0 0 14px; font-size:15px; color:var(--main);">محاسبه‌گر آنلاین موعد اقدام بر اساس ابلاغ در سامانه ثنا</h3>
       <div class="form-grid" style="align-items:end;">
         <div class="field">
           <label>انتخاب موعد یا اقدام قانونی</label>
@@ -395,7 +395,7 @@ body{margin:0;background:var(--bg);color:var(--text);font-family:'Vazirmatn',-ap
   <!-- گیت امنیتی دسترسی مدیران -->
   <div id="adminAccessGate" class="panel text-center" style="padding: 48px 24px; text-align: center;">
     <div style="font-size: 52px; margin-bottom: 14px;">🔒</div>
-    <h2 style="font-size: 20px; font-weight: 800; color: #0f172a; margin-bottom: 10px;">بخش مدیریت سامانه برائت</h2>
+    <h2 style="font-size: 20px; font-weight: 800; color: var(--text); margin-bottom: 10px;">بخش مدیریت سامانه برائت</h2>
     <p class="muted" style="max-width: 540px; margin: 0 auto 22px; font-size: 14px; line-height: 2;">
       دسترسی به بخش مدیریت سامانه منحصراً برای مدیرانی است که ایمیل آن‌ها در پایگاه داده Supabase ثبت شده باشد.
     </p>
@@ -406,7 +406,7 @@ body{margin:0;background:var(--bg);color:var(--text);font-family:'Vazirmatn',-ap
   </div>
 
   <div id="adminSuiteContent" style="display: none;">
-  <div id="admSyncStatusCard" class="panel" style="background:#f0fdfa; border:1px solid #99f6e4;"></div>
+  <div id="admSyncStatusCard" class="panel callout-info"></div>
 
   <!-- پنل مانیتورینگ پیشرفت کاربران و پاسخ به سوالات داوطلبان -->
   <div class="panel" id="admProgressMonitorCard">
@@ -2150,7 +2150,7 @@ function admRefresh(){
   if(!A('admLaws'))return;
   if(!isAdmin){A('admLaws').innerHTML='';return;}
   const cnt={};DB.forEach(o=>{cnt[o.law]=(cnt[o.law]||0)+1;});
-  A('admLaws').innerHTML=LAWS.length?LAWS.map(l=>`<div class="row between" style="padding:6px 0;border-bottom:1px dashed #dfe5ef"><span><b>${esc(l.name)}</b> <span class="muted small">${persianDigits(String(cnt[l.name]||0))} ماده</span></span><button class="btn danger" data-dellaw="${l.id}">حذف قانون</button></div>`).join(''):'<div class="muted small">هنوز قانونی در پایگاه نیست.</div>';
+  A('admLaws').innerHTML=LAWS.length?LAWS.map(l=>`<div class="row between" style="padding:6px 0;border-bottom:1px dashed var(--line)"><span><b>${esc(l.name)}</b> <span class="muted small">${persianDigits(String(cnt[l.name]||0))} ماده</span></span><button class="btn danger" data-dellaw="${l.id}">حذف قانون</button></div>`).join(''):'<div class="muted small">هنوز قانونی در پایگاه نیست.</div>';
   A('admAddLaw').innerHTML=LAWS.map(l=>`<option>${esc(l.name)}</option>`).join('')+'<option value="__new">قانون جدید…</option>';
 }
 async function saveEdit(i){const o=DB[i],t=A('edText').value,p=A('edPath').value.split('›').map(x=>x.trim()).filter(Boolean);
@@ -2297,6 +2297,6 @@ if ('serviceWorker' in navigator) {
   });
 }
 </script>
-<script src="./baraat_engine.js?v=20261114_5"></script>
+<script src="./baraat_engine.js?v=20261114_6"></script>
 </body>
 </html>
