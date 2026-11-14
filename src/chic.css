@@ -149,48 +149,64 @@ header p {
   background: #fee2e2;
 }
 
-/* Tabs Navigation - Chic Segmented Bar */
-.tabs {
+/* Tabs Navigation - Frosted Glassmorphic Bar (No Horizontal Scroll) */
+.tabs,
+.glass-tabs-nav {
   display: flex;
-  flex-wrap: nowrap;
-  overflow-x: auto;
-  scrollbar-width: none;
+  flex-wrap: wrap;
   align-items: center;
-  gap: 4px;
-  background: #e2e8f0;
-  padding: 4px;
-  border-radius: 14px;
+  justify-content: center;
+  gap: 6px;
+  background: rgba(255, 255, 255, 0.72);
+  backdrop-filter: blur(20px);
+  -webkit-backdrop-filter: blur(20px);
+  border: 1px solid rgba(255, 255, 255, 0.92);
+  box-shadow: 0 10px 30px -8px rgba(15, 23, 42, 0.08), 0 0 0 1px rgba(15, 118, 110, 0.06);
+  padding: 7px 8px;
+  border-radius: 18px;
   margin-bottom: 24px;
   max-width: 100%;
+  overflow: visible;
 }
-.tabs::-webkit-scrollbar {
-  display: none;
-}
-.tabs button {
+
+.tabs button,
+.glass-tabs-nav button {
+  padding: 8px 14px;
+  border-radius: 12px;
+  background: transparent;
+  color: #475569;
+  font-size: 13px;
+  font-weight: 600;
   white-space: nowrap;
   flex-shrink: 0;
+  border: 1px solid transparent;
+  transition: transform 0.16s ease, background-color 0.16s ease, color 0.16s ease, box-shadow 0.16s ease;
 }
 
-.tabs button {
-  padding: 9px 22px;
-  border-radius: 10px;
-  background: transparent;
-  color: #64748b;
-  font-size: 13px;
-  font-weight: 500;
-  white-space: nowrap;
-  transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
-}
-
-.tabs button:hover:not(.active) {
-  color: #0f172a;
-}
-
-.tabs button.active {
-  background: #ffffff;
+.tabs button:hover:not(.active),
+.glass-tabs-nav button:hover:not(.active) {
+  background: rgba(240, 253, 250, 0.75);
   color: #0f766e;
+  border-color: rgba(153, 246, 228, 0.7);
+}
+
+.tabs button.active,
+.glass-tabs-nav button.active {
+  background: linear-gradient(135deg, #0f766e, #0d9488);
+  color: #ffffff;
   font-weight: 700;
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
+  box-shadow: 0 6px 16px -3px rgba(15, 118, 110, 0.36);
+}
+
+.mobile-only-more {
+  display: none !important;
+}
+
+@media (max-width: 768px) {
+  .tabs,
+  .glass-tabs-nav {
+    display: none !important;
+  }
 }
 
 /* Section: Search (Law-UI) */
@@ -1365,54 +1381,64 @@ textarea {
   margin-top: 14px;
 }
 
-/* Mobile Navigation Optimization */
+/* Mobile Navigation Optimization — Floating Frosted Glass 5-Button Dock + Drawer */
 @media (max-width: 768px) {
   .right-hover-dock {
     top: auto !important;
-    bottom: 0 !important;
-    left: 0 !important;
-    right: 0 !important;
-    width: 100% !important;
+    bottom: 10px !important;
+    left: 10px !important;
+    right: 10px !important;
+    width: auto !important;
     height: 62px !important;
+    border-radius: 20px !important;
     flex-direction: row !important;
-    border-left: 0 !important;
-    border-top: 1px solid rgba(226, 232, 240, 0.9) !important;
-    box-shadow: 0 -6px 25px rgba(15, 23, 42, 0.08) !important;
+    background: rgba(255, 255, 255, 0.84) !important;
+    backdrop-filter: blur(24px) !important;
+    -webkit-backdrop-filter: blur(24px) !important;
+    border: 1px solid rgba(255, 255, 255, 0.94) !important;
+    box-shadow: 0 12px 35px rgba(15, 23, 42, 0.16), 0 0 0 1px rgba(15, 118, 110, 0.08) !important;
   }
   .dock-header, .dock-footer {
     display: none !important;
   }
   .dock-nav {
     flex-direction: row !important;
-    padding: 4px 8px !important;
-    gap: 2px !important;
-    justify-content: flex-start !important;
-    overflow-x: auto !important;
-    overflow-y: hidden !important;
-    scrollbar-width: none !important;
+    padding: 4px 6px !important;
+    gap: 4px !important;
+    justify-content: space-around !important;
+    align-items: center !important;
+    overflow: hidden !important;
     width: 100% !important;
   }
-  .dock-nav::-webkit-scrollbar {
+  .dock-nav .dock-btn:not([data-mobile-primary="1"]):not(.mobile-only-more) {
     display: none !important;
   }
+  .dock-nav .mobile-only-more {
+    display: flex !important;
+  }
   .dock-btn {
-    padding: 6px 10px !important;
+    padding: 6px 8px !important;
     flex-direction: column !important;
     gap: 2px !important;
     justify-content: center !important;
     align-items: center !important;
-    border-radius: 8px !important;
+    border-radius: 12px !important;
     width: auto !important;
-    flex-shrink: 0 !important;
+    flex: 1 1 0 !important;
+    min-width: 0 !important;
+  }
+  .dock-btn.active {
+    background: rgba(15, 118, 110, 0.12) !important;
+    color: #0f766e !important;
   }
   .dock-label {
     opacity: 1 !important;
     transform: none !important;
-    font-size: 10px !important;
+    font-size: 10.5px !important;
     white-space: nowrap !important;
   }
   .dock-icon {
-    font-size: 16px !important;
+    font-size: 17px !important;
     width: auto !important;
   }
   .dock-btn.active::before {
@@ -1420,8 +1446,73 @@ textarea {
   }
   .app {
     margin-right: 0 !important;
-    padding-bottom: 90px !important;
+    padding-bottom: 92px !important;
   }
+}
+
+/* Mobile Glassmorphic Menu Drawer */
+.mobile-dock-drawer-back {
+  position: fixed;
+  inset: 0;
+  background: rgba(15, 23, 42, 0.42);
+  backdrop-filter: blur(6px);
+  -webkit-backdrop-filter: blur(6px);
+  z-index: 2500;
+  display: flex;
+  align-items: flex-end;
+  justify-content: center;
+  padding: 12px 12px 84px;
+}
+
+.mobile-dock-drawer-back.hidden {
+  display: none !important;
+}
+
+.mobile-dock-drawer {
+  width: min(480px, 100%);
+  background: rgba(255, 255, 255, 0.92);
+  backdrop-filter: blur(26px);
+  -webkit-backdrop-filter: blur(26px);
+  border: 1px solid rgba(255, 255, 255, 0.95);
+  border-radius: 24px;
+  padding: 18px;
+  box-shadow: 0 24px 55px rgba(15, 23, 42, 0.25);
+}
+
+.mobile-drawer-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 8px;
+}
+
+.mobile-drawer-tile {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  padding: 12px 6px;
+  border-radius: 14px;
+  border: 1px solid var(--line);
+  background: rgba(248, 250, 252, 0.9);
+  color: #334155;
+  font-size: 11.5px;
+  cursor: pointer;
+}
+
+.mobile-drawer-tile span {
+  font-size: 20px;
+}
+
+.mobile-drawer-tile b {
+  font-weight: 700;
+  white-space: nowrap;
+}
+
+.mobile-drawer-tile.active {
+  background: #f0fdfa;
+  border-color: #0f766e;
+  color: #0f766e;
 }
 
 /* Offline Banner & Connectivity Indicators */
@@ -1513,6 +1604,10 @@ div.adm-only, p.adm-only, section.adm-only {
 }
 body.is-admin div.adm-only, body.is-admin p.adm-only, body.is-admin section.adm-only {
   display: block !important;
+}
+body:not(.is-admin) [data-tab="admin"],
+body:not(.is-admin) #tab-admin {
+  display: none !important;
 }
 
 /* =====================================================================
@@ -2040,3 +2135,812 @@ body.is-admin div.adm-only, body.is-admin p.adm-only, body.is-admin section.adm-
   flex-shrink: 0;
 }
 
+/* =====================================================================
+   بخش محاسبه‌گر منظم تک‌باکسی (انتخاب نوع محاسبه + باکس متمرکز)
+   ===================================================================== */
+.calc-selector-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+  gap: 10px;
+  margin-bottom: 20px;
+}
+
+.calc-type-btn {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 5px;
+  padding: 14px 15px;
+  border-radius: 16px;
+  background: rgba(248, 250, 252, 0.9);
+  border: 1.5px solid var(--line);
+  color: #334155;
+  text-align: right;
+  cursor: pointer;
+  transition: transform 0.16s ease, border-color 0.16s ease, background-color 0.16s ease, box-shadow 0.16s ease;
+}
+
+.calc-type-btn:hover {
+  background: #f0fdfa;
+  border-color: #5eead4;
+  transform: translateY(-2px);
+}
+
+.calc-type-btn.active {
+  background: linear-gradient(135deg, #0f766e, #115e59);
+  border-color: #0f766e;
+  color: #ffffff;
+  box-shadow: 0 10px 22px -6px rgba(15, 118, 110, 0.38);
+}
+
+.calc-type-btn .calc-t-ico {
+  font-size: 21px;
+}
+
+.calc-type-btn .calc-t-title {
+  font-size: 13.5px;
+  font-weight: 800;
+  line-height: 1.4;
+}
+
+.calc-type-btn .calc-t-sub {
+  font-size: 11px;
+  opacity: 0.78;
+  line-height: 1.5;
+}
+
+.calc-single-stage {
+  background: #ffffff;
+  border: 1px solid var(--line);
+  border-radius: 20px;
+  padding: 24px;
+  box-shadow: var(--shadow-sm);
+}
+
+@media (max-width: 600px) {
+  .calc-single-stage {
+    padding: 16px;
+  }
+}
+
+.calc-table {
+  width: 100%;
+  border-collapse: collapse;
+  margin-top: 12px;
+  font-size: 13px;
+}
+
+.calc-table th,
+.calc-table td {
+  padding: 10px 12px;
+  border-bottom: 1px solid var(--line);
+  text-align: right;
+}
+
+.calc-table th {
+  font-weight: 700;
+  color: #475569;
+  background: #f8fafc;
+}
+
+/* =====================================================================
+   دفتر کار و زمانبندی پرونده‌های وکیل
+   ===================================================================== */
+.cases-kpi-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(175px, 1fr));
+  gap: 12px;
+  margin-bottom: 18px;
+}
+
+.cases-kpi-card {
+  background: #ffffff;
+  border: 1px solid var(--line);
+  border-radius: 16px;
+  padding: 16px 18px;
+  box-shadow: var(--shadow-sm);
+}
+
+.cases-kpi-card .k-lbl {
+  font-size: 12px;
+  color: var(--muted);
+  font-weight: 600;
+}
+
+.cases-kpi-card .k-val {
+  font-size: 24px;
+  font-weight: 800;
+  color: #0f172a;
+  margin-top: 4px;
+}
+
+.schedule-strip {
+  background: #f0fdfa;
+  border: 1px solid #99f6e4;
+  border-radius: 18px;
+  padding: 18px;
+  margin-bottom: 20px;
+}
+
+.schedule-list {
+  display: grid;
+  gap: 10px;
+  margin-top: 12px;
+}
+
+.schedule-item {
+  background: #ffffff;
+  border: 1px solid #ccfbf1;
+  border-radius: 14px;
+  padding: 14px 16px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+
+.cases-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
+  gap: 16px;
+}
+
+.case-card {
+  background: #ffffff;
+  border: 1px solid var(--line);
+  border-radius: 18px;
+  padding: 20px;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  box-shadow: var(--shadow-sm);
+}
+
+.case-card-head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 10px;
+}
+
+.case-meta-row {
+  font-size: 12.5px;
+  color: #475569;
+  line-height: 1.85;
+}
+
+.case-finance-row {
+  background: #f8fafc;
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  padding: 10px 12px;
+  font-size: 12.5px;
+  display: flex;
+  justify-content: space-between;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+/* =====================================================================
+   مانیتورینگ پیشرفت کاربران و سیستم سوال و جواب داوطلب/مدیر
+   ===================================================================== */
+.monitor-kpi-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(165px, 1fr));
+  gap: 12px;
+  margin-bottom: 16px;
+}
+
+.monitor-user-list {
+  display: grid;
+  gap: 12px;
+}
+
+.monitor-user-card {
+  background: #f8fafc;
+  border: 1px solid var(--line);
+  border-radius: 16px;
+  padding: 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.qa-card {
+  background: #ffffff;
+  border: 1px solid var(--line);
+  border-radius: 16px;
+  padding: 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.qa-answer-box {
+  background: #f0fdfa;
+  border: 1px solid #99f6e4;
+  border-radius: 12px;
+  padding: 12px 14px;
+  font-size: 13px;
+  color: #0f172a;
+  line-height: 1.85;
+}
+
+/* =====================================================================
+   ناوبری زیرمجموعه هاب‌ها (قوانین و مقالات / دانشجویان / وکلا)
+   ===================================================================== */
+.hub-subnav {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 12px;
+  background: rgba(255, 255, 255, 0.78);
+  backdrop-filter: blur(18px);
+  -webkit-backdrop-filter: blur(18px);
+  border: 1px solid var(--line);
+  border-radius: 16px;
+  padding: 8px 10px;
+  margin-bottom: 18px;
+  box-shadow: var(--shadow-sm);
+}
+
+.hub-subnav-tabs {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  align-items: center;
+}
+
+.hub-subbtn {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  padding: 9px 16px;
+  border-radius: 11px;
+  background: transparent;
+  color: #475569;
+  font-size: 13px;
+  font-weight: 700;
+  border: 1px solid transparent;
+  cursor: pointer;
+  white-space: nowrap;
+}
+
+.hub-subbtn:hover:not(.active) {
+  background: #f0fdfa;
+  color: #0f766e;
+  border-color: #ccfbf1;
+}
+
+.hub-subbtn.active {
+  background: linear-gradient(135deg, #0f766e, #0d9488);
+  color: #ffffff;
+  box-shadow: 0 5px 14px -3px rgba(15, 118, 110, 0.35);
+}
+
+.hub-subnav-hint {
+  font-size: 12px;
+  color: var(--muted);
+  padding-inline: 6px;
+}
+
+/* =====================================================================
+   برنامه‌ریزی مطالعاتی بر اساس درس و بخش‌ها
+   ===================================================================== */
+.subj-plan-list {
+  display: grid;
+  gap: 14px;
+}
+
+.subj-plan-card {
+  background: #ffffff;
+  border: 1px solid var(--line);
+  border-radius: 18px;
+  padding: 18px;
+  box-shadow: var(--shadow-sm);
+}
+
+.subj-plan-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+
+.subj-sec-badge {
+  display: inline-flex;
+  align-items: center;
+  padding: 3px 10px;
+  border-radius: 8px;
+  font-size: 11.5px;
+  font-weight: 700;
+  background: #f0fdfa;
+  color: #0f766e;
+  border: 1px solid #99f6e4;
+  margin-left: 8px;
+}
+
+/* =====================================================================
+   باکس کشویی انتخاب محاسبه‌گر حقوقی
+   ===================================================================== */
+.calc-dropdown-wrap {
+  position: relative;
+  margin-bottom: 20px;
+  max-width: 580px;
+}
+
+.calc-dd-label {
+  font-size: 12.5px;
+  font-weight: 700;
+  color: var(--muted);
+  margin-bottom: 8px;
+}
+
+.calc-dd-trigger {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 14px;
+  padding: 14px 18px;
+  border-radius: 16px;
+  background: rgba(255, 255, 255, 0.94);
+  border: 1.5px solid #cbd5e1;
+  box-shadow: 0 6px 20px -8px rgba(15, 23, 42, 0.12);
+  text-align: right;
+  cursor: pointer;
+  transition: border-color 0.18s ease, box-shadow 0.18s ease;
+}
+
+.calc-dd-trigger:hover,
+.calc-dd-trigger.open {
+  border-color: #0f766e;
+  box-shadow: 0 0 0 4px rgba(15, 118, 110, 0.12);
+}
+
+.calc-dd-current {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  min-width: 0;
+}
+
+.calc-dd-ico {
+  width: 40px;
+  height: 40px;
+  border-radius: 12px;
+  background: #f0fdfa;
+  border: 1px solid #99f6e4;
+  display: grid;
+  place-items: center;
+  font-size: 20px;
+  flex-shrink: 0;
+}
+
+.calc-dd-title {
+  font-size: 15px;
+  font-weight: 800;
+  color: #0f172a;
+  line-height: 1.4;
+}
+
+.calc-dd-sub {
+  font-size: 12px;
+  color: var(--muted);
+}
+
+.calc-dd-chevron {
+  font-size: 18px;
+  color: #0f766e;
+  transition: transform 0.2s ease;
+  flex-shrink: 0;
+}
+
+.calc-dd-trigger.open .calc-dd-chevron {
+  transform: rotate(180deg);
+}
+
+.calc-dd-menu {
+  position: absolute;
+  top: calc(100% + 8px);
+  right: 0;
+  left: 0;
+  background: rgba(255, 255, 255, 0.98);
+  backdrop-filter: blur(22px);
+  -webkit-backdrop-filter: blur(22px);
+  border: 1px solid #cbd5e1;
+  border-radius: 16px;
+  padding: 8px;
+  box-shadow: 0 22px 48px -12px rgba(15, 23, 42, 0.22);
+  z-index: 60;
+  display: none;
+  max-height: 380px;
+  overflow-y: auto;
+}
+
+.calc-dd-menu.show {
+  display: grid;
+  gap: 4px;
+}
+
+.calc-dd-item {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  padding: 11px 14px;
+  border-radius: 12px;
+  background: transparent;
+  color: #0f172a;
+  text-align: right;
+  cursor: pointer;
+}
+
+.calc-dd-item:hover {
+  background: #f0fdfa;
+}
+
+.calc-dd-item.active {
+  background: linear-gradient(135deg, #0f766e, #0d9488);
+  color: #ffffff;
+}
+
+.calc-dd-item.active .calc-dd-sub {
+  color: rgba(255, 255, 255, 0.85);
+}
+
+/* =====================================================================
+   بخش آزمون‌ها و محیط امتحانی تمام‌صفحه
+   ===================================================================== */
+.exams-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(330px, 1fr));
+  gap: 18px;
+  margin-top: 16px;
+}
+
+.exam-card {
+  background: #ffffff;
+  border: 1px solid var(--line);
+  border-radius: 20px;
+  padding: 20px;
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  box-shadow: var(--shadow-sm);
+  transition: transform 0.18s ease, box-shadow 0.18s ease;
+}
+
+.exam-card:hover {
+  transform: translateY(-2px);
+  box-shadow: var(--shadow-md);
+}
+
+.exam-subj-pills {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.exam-subj-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 11px;
+  border-radius: 10px;
+  border: 1px solid var(--line);
+  background: #f8fafc;
+  color: #0f172a;
+  font-size: 12px;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.exam-subj-btn:hover {
+  background: #f0fdfa;
+  border-color: #0f766e;
+  color: #0f766e;
+}
+
+/* Dedicated Full-Screen Exam Runner Overlay */
+.exam-runner-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 3200;
+  background: #f8fafc;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+.exam-runner-overlay.hidden {
+  display: none !important;
+}
+
+.exam-runner-head {
+  background: rgba(255, 255, 255, 0.96);
+  backdrop-filter: blur(14px);
+  border-bottom: 1px solid var(--line);
+  padding: 12px 20px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+
+.exam-timer-box {
+  font-variant-numeric: tabular-nums;
+  font-weight: 800;
+  font-size: 16px;
+  padding: 6px 14px;
+  border-radius: 11px;
+  background: #f0fdfa;
+  border: 1px solid #99f6e4;
+  color: #0f766e;
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.exam-timer-box.low {
+  background: #fef2f2;
+  border-color: #fca5a5;
+  color: #dc2626;
+}
+
+.exam-subj-tabs {
+  background: #ffffff;
+  border-bottom: 1px solid var(--line);
+  padding: 10px 20px;
+  display: flex;
+  gap: 8px;
+  overflow-x: auto;
+  align-items: center;
+}
+
+.exam-subj-tab {
+  padding: 7px 14px;
+  border-radius: 10px;
+  border: 1px solid var(--line);
+  background: #f8fafc;
+  color: #475569;
+  font-size: 12.5px;
+  font-weight: 700;
+  white-space: nowrap;
+  cursor: pointer;
+}
+
+.exam-subj-tab.active {
+  background: #0f766e;
+  border-color: #0f766e;
+  color: #ffffff;
+}
+
+.exam-runner-body {
+  flex: 1;
+  overflow-y: auto;
+  padding: 20px;
+}
+
+.exam-workspace-grid {
+  max-width: 1180px;
+  margin: 0 auto;
+  display: grid;
+  grid-template-columns: 1fr 290px;
+  gap: 20px;
+  align-items: start;
+}
+
+@media (max-width: 900px) {
+  .exam-workspace-grid {
+    grid-template-columns: 1fr;
+  }
+}
+
+.exam-q-card {
+  background: #ffffff;
+  border: 1px solid var(--line);
+  border-radius: 20px;
+  padding: 24px;
+  box-shadow: var(--shadow-sm);
+}
+
+.exam-q-stem {
+  font-size: 15.5px;
+  font-weight: 600;
+  color: #0f172a;
+  line-height: 2;
+  margin: 14px 0 18px;
+  white-space: pre-wrap;
+}
+
+.exam-options-list {
+  display: grid;
+  gap: 10px;
+}
+
+.exam-opt-btn {
+  width: 100%;
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+  padding: 14px 16px;
+  border-radius: 14px;
+  border: 1.5px solid var(--line);
+  background: #f8fafc;
+  color: #0f172a;
+  font-size: 14px;
+  line-height: 1.85;
+  text-align: right;
+  cursor: pointer;
+  transition: all 0.14s ease;
+}
+
+.exam-opt-btn:hover {
+  border-color: #5eead4;
+  background: #f0fdfa;
+}
+
+.exam-opt-btn.selected {
+  border-color: #0f766e;
+  background: #f0fdfa;
+  box-shadow: 0 0 0 3px rgba(15, 118, 110, 0.14);
+  font-weight: 700;
+}
+
+.exam-opt-btn.correct {
+  border-color: #16a34a;
+  background: #f0fdf4;
+  color: #14532d;
+  font-weight: 700;
+}
+
+.exam-opt-btn.wrong {
+  border-color: #dc2626;
+  background: #fef2f2;
+  color: #7f1d1d;
+}
+
+.exam-opt-letter {
+  width: 28px;
+  height: 28px;
+  border-radius: 9px;
+  background: #ffffff;
+  border: 1px solid #cbd5e1;
+  display: grid;
+  place-items: center;
+  font-size: 12.5px;
+  font-weight: 800;
+  flex-shrink: 0;
+  margin-top: 2px;
+}
+
+.exam-opt-btn.selected .exam-opt-letter {
+  background: #0f766e;
+  border-color: #0f766e;
+  color: #ffffff;
+}
+
+.exam-opt-btn.correct .exam-opt-letter {
+  background: #16a34a;
+  border-color: #16a34a;
+  color: #ffffff;
+}
+
+.exam-opt-btn.wrong .exam-opt-letter {
+  background: #dc2626;
+  border-color: #dc2626;
+  color: #ffffff;
+}
+
+.exam-palette-card {
+  background: #ffffff;
+  border: 1px solid var(--line);
+  border-radius: 18px;
+  padding: 18px;
+  box-shadow: var(--shadow-sm);
+  position: sticky;
+  top: 12px;
+}
+
+.exam-palette-grid {
+  display: grid;
+  grid-template-columns: repeat(5, minmax(0, 1fr));
+  gap: 7px;
+  margin-top: 12px;
+}
+
+.exam-q-dot {
+  height: 36px;
+  border-radius: 10px;
+  border: 1px solid var(--line);
+  background: #f8fafc;
+  color: #334155;
+  font-size: 12.5px;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+  cursor: pointer;
+}
+
+.exam-q-dot.answered {
+  background: #0f766e;
+  border-color: #0f766e;
+  color: #ffffff;
+}
+
+.exam-q-dot.flagged {
+  border: 2px solid #d97706;
+}
+
+.exam-q-dot.current {
+  box-shadow: 0 0 0 3px rgba(15, 23, 42, 0.25);
+}
+
+.exam-q-dot.res-ok {
+  background: #16a34a;
+  border-color: #16a34a;
+  color: #ffffff;
+}
+
+.exam-q-dot.res-bad {
+  background: #dc2626;
+  border-color: #dc2626;
+  color: #ffffff;
+}
+
+.exam-scorecard {
+  max-width: 1040px;
+  margin: 0 auto;
+  display: grid;
+  gap: 18px;
+}
+
+.exam-exp-box {
+  margin-top: 10px;
+  padding: 14px 16px;
+  border-radius: 14px;
+  background: #f0fdfa;
+  border: 1px solid #99f6e4;
+  font-size: 13.5px;
+  line-height: 1.95;
+  color: #0f172a;
+}
+
+.exam-ans-toggle-wrap {
+  margin-top: 14px;
+  padding-top: 12px;
+  border-top: 1px dashed #cbd5e1;
+}
+
+.exam-reveal-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  min-height: 42px;
+  padding: 8px 16px;
+  border-radius: 12px;
+  border: 1.5px solid #99f6e4;
+  background: #f0fdfa;
+  color: #0f766e;
+  font-size: 13px;
+  font-weight: 700;
+  cursor: pointer;
+  transition: all 0.16s ease;
+}
+
+.exam-reveal-btn:hover {
+  background: #ccfbf1;
+  border-color: #0f766e;
+}
+
+.exam-reveal-btn.open {
+  background: #f8fafc;
+  border-color: #cbd5e1;
+  color: #475569;
+}
