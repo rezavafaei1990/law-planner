@@ -4934,9 +4934,12 @@
       </div>
 
       <div style="margin-top:12px; padding:12px; border:1px solid var(--line); border-radius:12px; background:#f8fafc;">
-        <label style="font-size:12.5px; font-weight:700; display:block; margin-bottom:6px;">۱. بارگذاری مستقیم از فایل اکسل، CSV یا JSON:</label>
+        <div class="row between" style="gap:8px; flex-wrap:wrap; margin-bottom:8px;">
+          <label style="font-size:12.5px; font-weight:700;">۱. بارگذاری مستقیم از فایل اکسل، CSV یا JSON:</label>
+          <button type="button" class="btn small" onclick="downloadExamSampleCsv()">⬇️ دانلود فایل نمونه CSV</button>
+        </div>
         <input type="file" id="impExamFile" accept=".xlsx,.xls,.csv,.json" onchange="handleExamFileImport('${ex.id}', this)">
-        <div class="muted small" style="margin-top:6px;">ستون‌های پیشنهادی اکسل: درس | صورت سوال | الف | ب | ج | د | پاسخ | تشریح</div>
+        <div class="muted small" style="margin-top:6px;">ستون‌های پیشنهادی اکسل یا CSV: درس | صورت سوال | الف | ب | ج | د | پاسخ | تشریح (پشتیبانی از UTF-8 و خروجی اکسل فارسی)</div>
       </div>
 
       <div class="field" style="margin-top:14px;">
@@ -4950,6 +4953,101 @@
       </div>
     `;
     document.getElementById('modalBack').classList.add('show');
+  };
+
+  window.downloadExamSampleCsv = function() {
+    const bom = '\uFEFF';
+    const sample = [
+      ['درس', 'صورت سوال', 'الف', 'ب', 'ج', 'د', 'پاسخ', 'تشریح'].join(','),
+      ['حقوق مدنی', 'عقد جایز به کدام سبب منفسخ می‌شود؟', 'فوت یا حجر احد طرفین', 'انقضای مدت', 'اقاله', 'تلف موضوع', 'الف', 'مطابق ماده ۹۵۴ قانون مدنی کلیه عقود جایزه به موت احد طرفین منفسخ می‌شود و همچنین به سفه در مواردی که رشد معتبر است.'].map(v => `"${v.replace(/"/g, '""')}"`).join(',')
+    ].join('\r\n');
+    const blob = new Blob([bom + sample], { type: 'text/csv;charset=utf-8;' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = 'baraat-exam-sample.csv';
+    document.body.appendChild(a);
+    a.click();
+    setTimeout(() => {
+      document.body.removeChild(a);
+      URL.revokeObjectURL(url);
+    }, 300);
+  };
+
+  function decodeSpreadsheetBytesSmart(buf) {
+    const bytes = new Uint8Array(buf);
+    if (bytes.length >= 3 && bytes[0] === 0xEF && bytes[1] === 0xBB && bytes[2] === 0xBF) {
+      return new TextDecoder('utf-8').decode(bytes.subarray(3));
+    }
+    if (bytes.length >= 2 && bytes[0] === 0xFF && bytes[1] === 0xFE) {
+      return new TextDecoder('utf-16le').decode(bytes.subarray(2));
+    }
+    if (bytes.length >= 2 && bytes[0] === 0xFE && bytes[1] === 0xFF) {
+      return new TextDecoder('utf-16be').decode(bytes.subarray(2));
+    }
+    try {
+      return new TextDecoder('utf-8', { fatal: true }).decode(bytes);
+    } catch (e) {
+      try {
+        return new TextDecoder('windows-1256').decode(bytes);
+      } catch (e2) {
+        return new TextDecoder('utf-8').decode(bytes);
+      }
+    }
+  }
+
+  function parseCsvTextToGrid(text) {
+    const clean = String(text || '').replace(/^\uFEFF/, '');
+    const firstLine = (clean.split(/\r\n|\n|\r/).find(l => l.trim().length > 0) || '');
+    let inQ0 = false, commas = 0, semis = 0, tabs = 0;
+    for (let i = 0; i < firstLine.length; i++) {
+      const ch = firstLine[i];
+      if (ch === '"') inQ0 = !inQ0;
+      else if (!inQ0) {
+        if (ch === ',') commas++;
+        else if (ch === ';') semis++;
+        else if (ch === '\t') tabs++;
+      }
+    }
+    const delim = (tabs > commas && tabs > semis) ? '\t' : (semis > commas ? ';' : ',');
+
+    const rows = [];
+    let row = [], cell = '', inQ = false;
+    for (let i = 0; i < clean.length; i++) {
+      const ch = clean[i];
+      if (inQ) {
+        if (ch === '"') {
+          if (clean[i + 1] === '"') { cell += '"'; i++; }
+          else inQ = false;
+        } else {
+          cell += ch;
+        }
+      } else {
+        if (ch === '"') {
+          inQ = true;
+        } else if (ch === delim) {
+          row.push(cell);
+          cell = '';
+        } else if (ch === '\r' || ch === '\n') {
+          if (ch === '\r' && clean[i + 1] === '\n') i++;
+          row.push(cell);
+          rows.push(row);
+          row = [];
+          cell = '';
+        } else {
+          cell += ch;
+        }
+      }
+    }
+    if (cell.length > 0 || row.length > 0) {
+      row.push(cell);
+      rows.push(row);
+    }
+    return rows.filter(r => r.some(c => String(c || '').trim() !== ''));
+  }
+
+  window.parseCsvBufferSmart = function(buf) {
+    return parseCsvTextToGrid(decodeSpreadsheetBytesSmart(buf));
   };
 
   window.submitExamTextBulkImport = async function(examId) {
@@ -5011,7 +5109,8 @@
     const ex = list.find(x => x.id === examId);
     if (!ex) return;
 
-    if (f.name.toLowerCase().endsWith('.json')) {
+    const fnameLower = f.name.toLowerCase();
+    if (fnameLower.endsWith('.json')) {
       try {
         const txt = await f.text();
         document.getElementById('impExamText').value = txt;
@@ -5023,29 +5122,41 @@
     }
 
     try {
-      if (window.loadXLSX) await window.loadXLSX();
-      if (!window.XLSX) return alert('ابزار خواندن اکسل بارگذاری نشد.');
-      const wb = window.XLSX.read(await f.arrayBuffer(), { type: 'array' });
-      const sheet = wb.Sheets[wb.SheetNames[0]];
-      const rows = window.XLSX.utils.sheet_to_json(sheet, { header: 1, defval: '' }).filter(r => r.some(c => String(c).trim() !== ''));
-      if (rows.length < 2) return alert('فایل اکسل خالی یا بدون سطر داده است.');
+      let rows = [];
+      if (fnameLower.endsWith('.csv') || fnameLower.endsWith('.tsv')) {
+        const buf = await f.arrayBuffer();
+        rows = parseCsvTextToGrid(decodeSpreadsheetBytesSmart(buf));
+      } else {
+        if (window.loadXLSX) await window.loadXLSX();
+        if (!window.XLSX) return alert('ابزار خواندن اکسل بارگذاری نشد.');
+        const wb = window.XLSX.read(await f.arrayBuffer(), { type: 'array' });
+        const sheet = wb.Sheets[wb.SheetNames[0]];
+        rows = window.XLSX.utils.sheet_to_json(sheet, { header: 1, defval: '' }).filter(r => r.some(c => String(c).trim() !== ''));
+      }
+      if (rows.length < 2) return alert('فایل اکسل/CSV خالی یا بدون سطر داده است.');
 
-      const hdr = rows[0].map(c => String(c || '').trim().toLowerCase());
-      const findCol = (preds) => hdr.findIndex(h => preds.some(p => h.includes(p)));
-      const ciSubj = findCol(['درس', 'subject', 'مبحث']);
-      const ciQ = findCol(['سوال', 'صورت', 'question', 'متن']);
-      const ciA = findCol(['الف', 'گزینه 1', 'گزینه ۱', 'opt1', 'a']);
-      const ciB = findCol(['ب', 'گزینه 2', 'گزینه ۲', 'opt2', 'b']);
-      const ciC = findCol(['ج', 'گزینه 3', 'گزینه ۳', 'opt3', 'c']);
-      const ciD = findCol(['د', 'گزینه 4', 'گزینه ۴', 'opt4', 'd']);
-      const ciAns = findCol(['پاسخ', 'کلید', 'جواب', 'صحیح', 'ans']);
-      const ciExp = findCol(['تشریح', 'توضیح', 'نکته', 'مستند', 'exp']);
+      const normH = (c) => String(c || '').trim().toLowerCase().replace(/[\u200c\s_()-]+/g, ' ').replace(/ي/g, 'ی').replace(/ك/g, 'ک');
+      const hdr = rows[0].map(normH);
+      const findCol = (exacts, includes) => {
+        let idx = hdr.findIndex(h => exacts.includes(h));
+        if (idx >= 0) return idx;
+        return hdr.findIndex(h => includes.some(p => h.includes(p)));
+      };
+
+      const ciSubj = findCol(['درس', 'subject', 'مبحث'], ['درس', 'مبحث', 'subject']);
+      const ciQ = findCol(['سوال', 'سؤال', 'صورت سوال', 'متن سوال', 'question'], ['سوال', 'سؤال', 'صورت', 'question']);
+      const ciA = findCol(['الف', 'ا', 'a', '1', '۱', 'گزینه الف', 'گزینه 1', 'گزینه ۱', 'گزینه اول', 'opt1', 'option1', 'option a'], ['گزینه الف', 'گزینه 1', 'گزینه ۱', 'opt1', 'option 1', 'option a']);
+      const ciB = findCol(['ب', 'b', '2', '۲', 'گزینه ب', 'گزینه 2', 'گزینه ۲', 'گزینه دوم', 'opt2', 'option2', 'option b'], ['گزینه ب', 'گزینه 2', 'گزینه ۲', 'opt2', 'option 2', 'option b']);
+      const ciC = findCol(['ج', 'c', '3', '۳', 'گزینه ج', 'گزینه 3', 'گزینه ۳', 'گزینه سوم', 'opt3', 'option3', 'option c'], ['گزینه ج', 'گزینه 3', 'گزینه ۳', 'opt3', 'option 3', 'option c']);
+      const ciD = findCol(['د', 'd', '4', '۴', 'گزینه د', 'گزینه 4', 'گزینه ۴', 'گزینه چهارم', 'opt4', 'option4', 'option d'], ['گزینه د', 'گزینه 4', 'گزینه ۴', 'opt4', 'option 4', 'option d']);
+      const ciAns = findCol(['پاسخ', 'کلید', 'جواب', 'صحیح', 'answer', 'ans', 'key'], ['پاسخ', 'کلید', 'جواب', 'صحیح', 'answer', 'ans']);
+      const ciExp = findCol(['تشریح', 'توضیح', 'نکته', 'مستند', 'explanation', 'exp'], ['تشریح', 'توضیح', 'نکته', 'مستند', 'explanation']);
 
       const qCol = ciQ >= 0 ? ciQ : (ciSubj === 0 ? 1 : 0);
       let added = 0;
       ex.subjects = ex.subjects || [];
       const ansToIdx = (v) => {
-        const s = toEn(String(v || '')).trim().toLowerCase();
+        const s = toEn(String(v || '')).trim().toLowerCase().replace(/[\s.)گزینه:-]+/g, '');
         if (s === '2' || s === 'ب' || s === 'b') return 1;
         if (s === '3' || s === 'ج' || s === 'c') return 2;
         if (s === '4' || s === 'د' || s === 'd') return 3;
@@ -5078,11 +5189,13 @@
         added++;
       });
 
-      if (!added) return alert('سوال معتبری در فایل اکسل یافت نشد.');
-      await persistExamsList(list, toFa(added) + ' سوال از فایل اکسل به آزمون اضافه شد.');
+      if (!added) return alert('سوال معتبری در فایل اکسل/CSV یافت نشد.');
+      await persistExamsList(list, toFa(added) + ' سوال از فایل با موفقیت اضافه شد.');
       window.openExamQuestionsEditor(examId);
     } catch (e) {
-      alert('خطا در خواندن فایل اکسل: ' + (e && e.message));
+      alert('خطا در خواندن فایل: ' + (e && e.message));
+    } finally {
+      if (inputEl) inputEl.value = '';
     }
   };
 
