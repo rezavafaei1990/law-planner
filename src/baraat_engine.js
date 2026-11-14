@@ -16,6 +16,8 @@
     lastError: ''
   };
   let _syncPromise = null;
+  let _lastSyncAt = 0;
+  let _hasSyncedOnce = false;
 
   async function syncToSupabase(key, data) {
     try {
@@ -68,80 +70,93 @@
     }
   }
 
-  window.syncAllFromSupabase = async function() {
-    if (!window.sb) return;
+  window.syncAllFromSupabase = async function(force) {
+    if (!window.sb || !navigator.onLine) return;
+    if (!force && _hasSyncedOnce && (Date.now() - _lastSyncAt < 45000)) return;
     if (_syncPromise) return _syncPromise;
     _syncPromise = (async () => {
       try {
-        const artRes = await syncFromSupabase(ARTICLES_KEY, (data) => {
-          if (Array.isArray(data)) {
-            serverStatus.checked = true;
-            serverStatus.articlesCount = data.length;
-            serverStatus.lastError = '';
-            // اگر ادمین نیستیم یا سرور داده دارد با سرور همگام شود
-            const localArts = window.getArticles();
-            if (data.length > 0 || !window.isAdmin || localArts.length === 0) {
-              localStorage.setItem(ARTICLES_KEY, JSON.stringify(data));
-              window.renderArticles();
-            }
+        const keysToFetch = [
+          ARTICLES_KEY,
+          DEADLINES_KEY,
+          CALC_CUSTOM_KEY,
+          ABOUT_KEY,
+          CONTACT_KEY,
+          QUESTION_REPLIES_KEY,
+          EXAMS_KEY
+        ];
+        if (window.isAdmin) {
+          keysToFetch.push(CASES_KEY, ASSIGNED_PLANS_KEY);
+        }
+        const res = await window.sb.from('meta').select('key, value').in('key', keysToFetch);
+        if (res && res.error) {
+          console.warn('Supabase batch sync error:', res.error.message);
+          serverStatus.lastError = res.error.message || 'خطای همگام‌سازی';
+          return;
+        }
+        const map = {};
+        (res && Array.isArray(res.data) ? res.data : []).forEach(row => {
+          if (row && row.key && row.value !== null && row.value !== undefined) {
+            try {
+              map[row.key] = typeof row.value === 'string' ? JSON.parse(row.value) : row.value;
+            } catch (e) {}
           }
         });
-        if (!artRes.exists) {
-          serverStatus.checked = true;
+
+        serverStatus.checked = true;
+        serverStatus.lastError = '';
+        if (Array.isArray(map[ARTICLES_KEY])) {
+          const data = map[ARTICLES_KEY];
+          serverStatus.articlesCount = data.length;
+          const localArts = window.getArticles();
+          if (data.length > 0 || !window.isAdmin || localArts.length === 0) {
+            localStorage.setItem(ARTICLES_KEY, JSON.stringify(data));
+            window.renderArticles();
+          }
+        } else {
           serverStatus.articlesCount = 0;
         }
 
-        await syncFromSupabase(DEADLINES_KEY, (data) => {
-          if (Array.isArray(data) && data.length > 0) {
-            localStorage.setItem(DEADLINES_KEY, JSON.stringify(data));
-            window.renderDeadlines();
-          }
-        });
-        await syncFromSupabase(CALC_CUSTOM_KEY, (data) => {
-          if (Array.isArray(data) && data.length > 0) {
-            localStorage.setItem(CALC_CUSTOM_KEY, JSON.stringify(data));
-            window.renderCalculators();
-          }
-        });
-        await syncFromSupabase(ABOUT_KEY, (data) => {
-          if (data && typeof data === 'object') {
-            localStorage.setItem(ABOUT_KEY, JSON.stringify(data));
-            if (window.renderAbout) window.renderAbout();
-          }
-        });
-        await syncFromSupabase(CONTACT_KEY, (data) => {
-          if (data && typeof data === 'object') {
-            localStorage.setItem(CONTACT_KEY, JSON.stringify(data));
-            if (window.renderContact) window.renderContact();
-          }
-        });
-        await syncFromSupabase(QUESTION_REPLIES_KEY, (data) => {
-          if (data && typeof data === 'object') {
-            localStorage.setItem(QUESTION_REPLIES_KEY, JSON.stringify(data));
-            if (window.renderStudentProgressView) window.renderStudentProgressView();
-          }
-        });
-        await syncFromSupabase(EXAMS_KEY, (data) => {
-          if (Array.isArray(data)) {
-            localStorage.setItem(EXAMS_KEY, JSON.stringify(data));
-            if (window.renderExamsHub) window.renderExamsHub();
-          }
-        });
-        await syncFromSupabase(CASES_KEY, (data) => {
-          if (Array.isArray(data) && window.isAdmin) {
-            localStorage.setItem(CASES_KEY, JSON.stringify(data));
-            if (window.renderCases) window.renderCases();
-          }
-        });
-        if (window.isAdmin) {
-          await syncFromSupabase(ASSIGNED_PLANS_KEY, (data) => {
-            if (data && typeof data === 'object') {
-              localStorage.setItem(ASSIGNED_PLANS_KEY, JSON.stringify(data));
-            }
-          });
-          if (window.refreshAdminMonitor) window.refreshAdminMonitor();
+        if (Array.isArray(map[DEADLINES_KEY]) && map[DEADLINES_KEY].length > 0) {
+          localStorage.setItem(DEADLINES_KEY, JSON.stringify(map[DEADLINES_KEY]));
+          window.renderDeadlines();
+        }
+        if (Array.isArray(map[CALC_CUSTOM_KEY]) && map[CALC_CUSTOM_KEY].length > 0) {
+          localStorage.setItem(CALC_CUSTOM_KEY, JSON.stringify(map[CALC_CUSTOM_KEY]));
+          window.renderCalculators();
+        }
+        if (map[ABOUT_KEY] && typeof map[ABOUT_KEY] === 'object') {
+          localStorage.setItem(ABOUT_KEY, JSON.stringify(map[ABOUT_KEY]));
+          if (window.renderAbout) window.renderAbout();
+        }
+        if (map[CONTACT_KEY] && typeof map[CONTACT_KEY] === 'object') {
+          localStorage.setItem(CONTACT_KEY, JSON.stringify(map[CONTACT_KEY]));
+          if (window.renderContact) window.renderContact();
+        }
+        if (map[QUESTION_REPLIES_KEY] && typeof map[QUESTION_REPLIES_KEY] === 'object') {
+          localStorage.setItem(QUESTION_REPLIES_KEY, JSON.stringify(map[QUESTION_REPLIES_KEY]));
+          if (window.renderStudentProgressView) window.renderStudentProgressView();
+        }
+        if (Array.isArray(map[EXAMS_KEY])) {
+          localStorage.setItem(EXAMS_KEY, JSON.stringify(map[EXAMS_KEY]));
+          if (window.renderExamsHub) window.renderExamsHub();
+        }
+        if (window.isAdmin && Array.isArray(map[CASES_KEY])) {
+          localStorage.setItem(CASES_KEY, JSON.stringify(map[CASES_KEY]));
+          if (window.renderCases) window.renderCases();
+        }
+        if (window.isAdmin && map[ASSIGNED_PLANS_KEY] && typeof map[ASSIGNED_PLANS_KEY] === 'object') {
+          localStorage.setItem(ASSIGNED_PLANS_KEY, JSON.stringify(map[ASSIGNED_PLANS_KEY]));
+        }
+        if (window.isAdmin && window.refreshAdminMonitor) {
+          window.refreshAdminMonitor();
         }
         if (typeof renderAdminPanels === 'function') renderAdminPanels();
+
+        _lastSyncAt = Date.now();
+        _hasSyncedOnce = true;
+      } catch (err) {
+        console.warn('Supabase batch sync failed:', err);
       } finally {
         _syncPromise = null;
       }
@@ -4404,7 +4419,7 @@
           </div>
           <div class="row" style="gap:8px;">
             ${window.isAdmin ? `<button type="button" class="btn primary" onclick="openExamMetaModal()">＋ بارگذاری / ایجاد آزمون جدید</button>` : ''}
-            <button type="button" class="btn" onclick="if(window.syncAllFromSupabase)syncAllFromSupabase().then(()=>{if(typeof toast==='function')toast('فهرست آزمون‌ها بروزرسانی شد.');})">🔄 بروزرسانی</button>
+            <button type="button" class="btn" onclick="if(window.syncAllFromSupabase)syncAllFromSupabase(true).then(()=>{if(typeof toast==='function')toast('فهرست آزمون‌ها بروزرسانی شد.');})">🔄 بروزرسانی</button>
           </div>
         </div>
 
@@ -5941,13 +5956,46 @@
   window.addEventListener('online', () => {
     updateOnlineStatus();
     if (typeof toast === 'function') toast('اتصال آنلاین برقرار شد؛ اطلاعات با سرور همگام شد.');
-    if (typeof window.syncAllFromSupabase === 'function') window.syncAllFromSupabase();
+    if (typeof window.syncAllFromSupabase === 'function') window.syncAllFromSupabase(true);
   });
 
   window.addEventListener('offline', () => {
     updateOnlineStatus();
     if (typeof toast === 'function') toast('حالت آفلاین فعال شد؛ تمام اطلاعات و قوانین از حافظه دستگاه خوانده می‌شوند.');
   });
+
+  // -------------------------------------------------------------------
+  // مدیریت تم شب و روز (Dark / Light Theme)
+  // -------------------------------------------------------------------
+  const THEME_KEY = 'baraat_theme_v1';
+
+  window.applyTheme = function(mode) {
+    const m = mode === 'dark' ? 'dark' : 'light';
+    document.documentElement.dataset.theme = m;
+    try { localStorage.setItem(THEME_KEY, m); } catch (e) {}
+
+    const metaTheme = document.querySelector('meta[name="theme-color"]');
+    if (metaTheme) metaTheme.setAttribute('content', m === 'dark' ? '#0b1120' : '#f4f6fb');
+
+    const headerBtn = document.getElementById('themeToggleBtn');
+    if (headerBtn) {
+      headerBtn.innerHTML = m === 'dark' ? '☀️<span class="theme-lbl-long"> تم روز</span>' : '🌙<span class="theme-lbl-long"> تم شب</span>';
+      headerBtn.title = m === 'dark' ? 'تغییر به تم روز' : 'تغییر به تم شب';
+    }
+    const dockBtn = document.getElementById('themeToggleDockBtn');
+    if (dockBtn) {
+      dockBtn.innerHTML = `<span class="dock-icon">${m === 'dark' ? '☀️' : '🌙'}</span><span class="dock-label">${m === 'dark' ? 'تم روز' : 'تم شب'}</span>`;
+    }
+    const drawerBtn = document.getElementById('themeToggleDrawerBtn');
+    if (drawerBtn) {
+      drawerBtn.innerHTML = m === 'dark' ? '☀️ تم روز' : '🌙 تم شب';
+    }
+  };
+
+  window.toggleTheme = function() {
+    const isDark = document.documentElement.dataset.theme === 'dark';
+    window.applyTheme(isDark ? 'light' : 'dark');
+  };
 
   function checkStandalone() {
     const isNativeApk = !!window.BaraatAndroid;
@@ -6073,11 +6121,14 @@
   };
 
   function initBaraatEngine() {
+    let savedTheme = 'light';
+    try { savedTheme = localStorage.getItem(THEME_KEY) || 'light'; } catch (e) {}
+    window.applyTheme(savedTheme);
     const curTab = (location.hash || '#search').replace('#', '') || 'search';
     window.go(curTab);
     checkStandalone();
     updateOnlineStatus();
-    window.syncAllFromSupabase();
+    window.syncAllFromSupabase(true);
   }
 
   if (document.readyState === 'complete' || document.readyState === 'interactive') {
