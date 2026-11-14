@@ -3667,9 +3667,9 @@
       ` : ''}
 
       <div class="panel" style="margin-bottom:16px;">
-        <div class="row" style="gap:10px; flex-wrap:wrap;">
-          <input id="casesSearchInput" value="${esc(q)}" placeholder="جستجو در عنوان پرونده، نام موکل، شعبه یا کلاسه..." oninput="renderCases()" style="flex:1; min-width:220px;">
-          <select id="casesStatusFilter" onchange="renderCases()" style="width:180px;">
+        <div class="row" style="gap:8px; flex-wrap:wrap;">
+          <input id="casesSearchInput" value="${esc(q)}" placeholder="جستجو در عنوان پرونده، نام موکل، شعبه یا کلاسه..." oninput="renderCases()" style="flex:1; min-width:160px; max-width:100%;">
+          <select id="casesStatusFilter" onchange="renderCases()" style="width:auto; min-width:130px; max-width:100%;">
             <option value="all" ${statusFilter === 'all' ? 'selected' : ''}>همه وضعیت‌ها</option>
             <option value="جاری" ${statusFilter === 'جاری' ? 'selected' : ''}>جاری</option>
             <option value="منتظر نوبت" ${statusFilter === 'منتظر نوبت' ? 'selected' : ''}>منتظر نوبت</option>
@@ -5952,6 +5952,7 @@
   function checkStandalone() {
     const isNativeApk = !!window.BaraatAndroid;
     const isStandalone = isNativeApk || window.matchMedia('(display-mode: standalone)').matches || window.navigator.standalone === true;
+    document.body.classList.toggle('pwa-standalone', isStandalone);
     const hBtn = document.getElementById('pwaInstallHeaderBtn');
     const dBtn = document.getElementById('pwaInstallDockBtn');
     if (isStandalone) {
