@@ -23,6 +23,11 @@
   box-sizing: border-box;
 }
 
+html, body {
+  max-width: 100%;
+  overflow-x: clip;
+}
+
 body {
   margin: 0;
   background-color: var(--bg);
@@ -49,8 +54,10 @@ button {
 
 .app {
   max-width: 1240px;
+  width: 100%;
   margin: 0 auto;
   padding: 24px 20px 80px;
+  overflow-x: clip;
 }
 
 /* Header */
@@ -1244,9 +1251,14 @@ textarea {
 
 .articles-grid {
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
+  grid-template-columns: repeat(auto-fill, minmax(min(100%, 300px), 1fr));
   gap: 18px;
   margin-top: 20px;
+}
+
+.art-cat-filter-wrap {
+  width: auto;
+  min-width: 200px;
 }
 
 .article-card {
@@ -1345,7 +1357,7 @@ textarea {
 
 .deadlines-grid {
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
+  grid-template-columns: repeat(auto-fill, minmax(min(100%, 300px), 1fr));
   gap: 16px;
   margin-top: 18px;
 }
@@ -1748,7 +1760,7 @@ body:not(.is-admin) #tab-admin {
 
 .baraat-pillars-grid {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 220px), 1fr));
   gap: 16px;
 }
 
@@ -1787,7 +1799,7 @@ body:not(.is-admin) #tab-admin {
 /* Team Members Grid */
 .baraat-team-grid {
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(290px, 1fr));
+  grid-template-columns: repeat(auto-fill, minmax(min(100%, 280px), 1fr));
   gap: 20px;
 }
 
@@ -1957,7 +1969,7 @@ body:not(.is-admin) #tab-admin {
 
 .contact-info-grid {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 250px), 1fr));
   gap: 16px;
 }
 
@@ -2015,7 +2027,7 @@ body:not(.is-admin) #tab-admin {
 
 .baraat-social-grid {
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+  grid-template-columns: repeat(auto-fill, minmax(min(100%, 270px), 1fr));
   gap: 16px;
 }
 
@@ -2282,7 +2294,7 @@ body:not(.is-admin) #tab-admin {
 
 .cases-grid {
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
+  grid-template-columns: repeat(auto-fill, minmax(min(100%, 300px), 1fr));
   gap: 16px;
 }
 
@@ -2598,7 +2610,7 @@ body:not(.is-admin) #tab-admin {
    ===================================================================== */
 .exams-grid {
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(330px, 1fr));
+  grid-template-columns: repeat(auto-fill, minmax(min(100%, 300px), 1fr));
   gap: 18px;
   margin-top: 16px;
 }
@@ -2944,3 +2956,643 @@ body:not(.is-admin) #tab-admin {
   border-color: #cbd5e1;
   color: #475569;
 }
+
+.pwa-btn-short {
+  display: none;
+}
+
+/* =====================================================================
+   بهینه‌سازی کامل و فشرده نسخه موبایل و اپلیکیشن (PWA) — بدون اسکرول افقی
+   ===================================================================== */
+@media (max-width: 768px) {
+  html, body {
+    font-size: 13px !important;
+    line-height: 1.65 !important;
+    overflow-x: clip !important;
+    max-width: 100% !important;
+  }
+
+  .app {
+    margin-right: 0 !important;
+    padding: 8px 10px calc(74px + env(safe-area-inset-bottom, 0px)) !important;
+    max-width: 100% !important;
+    overflow-x: clip !important;
+  }
+
+  body.pwa-standalone .app {
+    padding-top: max(8px, env(safe-area-inset-top, 0px)) !important;
+  }
+
+  section, .panel, .card, .law-ui .res, .exam-q-card, .case-card, .article-card,
+  .deadline-item-card, .member-card, .social-card, .contact-info-tile, .baraat-about-hero,
+  .baraat-contact-hero, .calc-single-stage, .schedule-strip, .day-card, .block {
+    max-width: 100% !important;
+    min-width: 0 !important;
+    box-sizing: border-box !important;
+  }
+
+  /* Compact single-row mobile header */
+  header {
+    flex-direction: row !important;
+    align-items: center !important;
+    justify-content: space-between !important;
+    gap: 8px !important;
+    margin-bottom: 10px !important;
+    padding-bottom: 10px !important;
+  }
+
+  .brand {
+    gap: 8px !important;
+    min-width: 0 !important;
+  }
+
+  .logo {
+    width: 34px !important;
+    height: 34px !important;
+    border-radius: 10px !important;
+    font-size: 17px !important;
+  }
+
+  header h1 {
+    font-size: 14.5px !important;
+    line-height: 1.3 !important;
+    white-space: nowrap !important;
+  }
+
+  header p,
+  #cloudSyncBadge {
+    display: none !important;
+  }
+
+  header .actions {
+    gap: 5px !important;
+    flex-wrap: nowrap !important;
+    flex-shrink: 0 !important;
+  }
+
+  header .actions .btn {
+    padding: 5px 9px !important;
+    font-size: 11px !important;
+    border-radius: 8px !important;
+    white-space: nowrap !important;
+  }
+
+  #pwaInstallHeaderBtn .pwa-btn-short {
+    display: inline !important;
+  }
+
+  #pwaInstallHeaderBtn .pwa-btn-long {
+    display: none !important;
+  }
+
+  /* Pinned bottom navigation bar (always fixed at bottom of viewport) */
+  .right-hover-dock {
+    position: fixed !important;
+    top: auto !important;
+    bottom: 0 !important;
+    left: 0 !important;
+    right: 0 !important;
+    width: 100% !important;
+    height: calc(58px + env(safe-area-inset-bottom, 0px)) !important;
+    padding-bottom: env(safe-area-inset-bottom, 0px) !important;
+    border-radius: 16px 16px 0 0 !important;
+    border-left: 0 !important;
+    border-top: 1px solid rgba(203, 213, 225, 0.9) !important;
+    background: rgba(255, 255, 255, 0.94) !important;
+    backdrop-filter: blur(20px) !important;
+    -webkit-backdrop-filter: blur(20px) !important;
+    box-shadow: 0 -6px 24px rgba(15, 23, 42, 0.1) !important;
+    z-index: 2400 !important;
+    overflow: hidden !important;
+  }
+
+  .right-hover-dock:hover {
+    width: 100% !important;
+    box-shadow: 0 -6px 24px rgba(15, 23, 42, 0.1) !important;
+  }
+
+  .dock-nav {
+    padding: 4px 6px !important;
+    gap: 2px !important;
+  }
+
+  .dock-btn {
+    padding: 4px 2px !important;
+    border-radius: 10px !important;
+  }
+
+  .dock-icon {
+    font-size: 16px !important;
+    line-height: 1.2 !important;
+  }
+
+  .dock-label {
+    font-size: 9.8px !important;
+    font-weight: 600 !important;
+    line-height: 1.2 !important;
+  }
+
+  /* Mobile Drawer above bottom bar */
+  .mobile-dock-drawer-back {
+    padding: 10px 10px calc(68px + env(safe-area-inset-bottom, 0px)) !important;
+  }
+
+  .mobile-dock-drawer {
+    padding: 14px !important;
+    border-radius: 18px !important;
+  }
+
+  .mobile-drawer-grid {
+    gap: 6px !important;
+  }
+
+  .mobile-drawer-tile {
+    padding: 9px 4px !important;
+    font-size: 11px !important;
+    border-radius: 11px !important;
+  }
+
+  .mobile-drawer-tile span {
+    font-size: 17px !important;
+  }
+
+  /* Compact Law Search Hero so results fit right away */
+  .search-hero-glass {
+    padding: 12px 10px 10px !important;
+    margin: 0 0 12px !important;
+    border-radius: 16px !important;
+    box-shadow: 0 10px 25px -10px rgba(15, 118, 110, 0.14) !important;
+  }
+
+  .hero-chip {
+    font-size: 10px !important;
+    padding: 2px 9px !important;
+    margin-bottom: 5px !important;
+  }
+
+  .hero-heading {
+    font-size: 14.5px !important;
+    margin-bottom: 2px !important;
+  }
+
+  .hero-subheading {
+    font-size: 11px !important;
+    margin-bottom: 8px !important;
+    line-height: 1.5 !important;
+  }
+
+  .hero-search-wrapper {
+    margin-bottom: 8px !important;
+  }
+
+  .hero-search-icon {
+    right: 11px !important;
+    font-size: 14px !important;
+  }
+
+  .hero-search-wrapper input {
+    font-size: 12.5px !important;
+    padding: 9px 34px 9px 10px !important;
+    border-radius: 11px !important;
+    border-width: 1.5px !important;
+  }
+
+  .hero-filters-row {
+    flex-direction: column !important;
+    align-items: stretch !important;
+    gap: 6px !important;
+  }
+
+  .law-ui select {
+    font-size: 11.5px !important;
+    padding: 7px 10px !important;
+    border-radius: 9px !important;
+    width: 100% !important;
+  }
+
+  .law-ui .modes {
+    gap: 4px !important;
+    margin: 2px 0 0 !important;
+    justify-content: center !important;
+  }
+
+  .law-ui .modes b {
+    display: none !important;
+  }
+
+  .law-ui .modes label {
+    padding: 4px 8px !important;
+    font-size: 10.8px !important;
+    border-radius: 7px !important;
+    gap: 4px !important;
+  }
+
+  .law-ui .modes label input {
+    width: 12px !important;
+    height: 12px !important;
+  }
+
+  .law-ui .count {
+    font-size: 11.5px !important;
+    margin: 4px 0 8px !important;
+  }
+
+  /* Compact Law Result Cards */
+  .law-ui .res {
+    padding: 11px 12px !important;
+    border-radius: 12px !important;
+    border-right-width: 3.5px !important;
+    margin-bottom: 10px !important;
+  }
+
+  .law-ui .head {
+    gap: 6px !important;
+    margin-bottom: 6px !important;
+  }
+
+  .law-ui .law {
+    font-size: 10.5px !important;
+    padding: 2px 8px !important;
+  }
+
+  .law-ui .num {
+    font-size: 14px !important;
+  }
+
+  .law-ui .nav button {
+    padding: 4px 7px !important;
+    font-size: 10.8px !important;
+  }
+
+  .law-ui .path {
+    font-size: 11px !important;
+    margin-bottom: 6px !important;
+  }
+
+  .law-ui .txt {
+    font-size: 12.8px !important;
+    line-height: 1.75 !important;
+    margin: 6px 0 !important;
+  }
+
+  .law-ui .empty {
+    padding: 24px 12px !important;
+    font-size: 12.5px !important;
+  }
+
+  /* Compact Hub Sub-Nav (fits cleanly in 1 row) */
+  .hub-subnav {
+    padding: 5px !important;
+    border-radius: 12px !important;
+    margin-bottom: 10px !important;
+    gap: 4px !important;
+  }
+
+  .hub-subnav-hint {
+    display: none !important;
+  }
+
+  .hub-subnav-tabs {
+    width: 100% !important;
+    display: grid !important;
+    grid-template-columns: repeat(auto-fit, minmax(0, 1fr)) !important;
+    gap: 4px !important;
+  }
+
+  .hub-subbtn {
+    padding: 7px 4px !important;
+    font-size: 11px !important;
+    border-radius: 9px !important;
+    justify-content: center !important;
+    text-align: center !important;
+    white-space: normal !important;
+    line-height: 1.35 !important;
+    gap: 4px !important;
+  }
+
+  /* General Panels, Cards & Buttons */
+  .panel {
+    padding: 12px !important;
+    border-radius: 14px !important;
+    margin-bottom: 12px !important;
+  }
+
+  .panel-head {
+    flex-wrap: wrap !important;
+    gap: 8px !important;
+    margin-bottom: 10px !important;
+  }
+
+  .panel h2 {
+    font-size: 14.5px !important;
+  }
+
+  .panel .muted.small,
+  .small {
+    font-size: 11.2px !important;
+    line-height: 1.55 !important;
+  }
+
+  .btn {
+    padding: 6px 10px !important;
+    font-size: 11.5px !important;
+    border-radius: 9px !important;
+    gap: 4px !important;
+  }
+
+  .btn.small {
+    padding: 4px 8px !important;
+    font-size: 10.8px !important;
+  }
+
+  textarea, input, select {
+    padding: 8px 10px !important;
+    font-size: 12.2px !important;
+    border-radius: 9px !important;
+  }
+
+  .field label {
+    font-size: 11.2px !important;
+  }
+
+  .form-grid {
+    grid-template-columns: 1fr !important;
+    gap: 8px !important;
+  }
+
+  .art-cat-filter-wrap {
+    width: 100% !important;
+    min-width: 0 !important;
+  }
+
+  /* Force all card grids strictly 1-column on mobile so nothing overflows */
+  .articles-grid,
+  .deadlines-grid,
+  .exams-grid,
+  .cases-grid,
+  .baraat-team-grid,
+  .baraat-social-grid,
+  .contact-info-grid,
+  .baraat-pillars-grid {
+    grid-template-columns: 1fr !important;
+    gap: 10px !important;
+    margin-top: 10px !important;
+  }
+
+  .stats,
+  .cases-kpi-grid,
+  .monitor-kpi-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
+    gap: 8px !important;
+    margin-bottom: 10px !important;
+  }
+
+  .stat,
+  .cases-kpi-card {
+    padding: 10px !important;
+    border-radius: 12px !important;
+  }
+
+  .stat strong,
+  .cases-kpi-card .k-val {
+    font-size: 18px !important;
+  }
+
+  .article-card,
+  .deadline-item-card,
+  .exam-card,
+  .case-card,
+  .calculator-card,
+  .calc-single-stage,
+  .social-card,
+  .contact-info-tile,
+  .baraat-pillar-card,
+  .subj-plan-card,
+  .day-card,
+  .block {
+    padding: 12px !important;
+    border-radius: 13px !important;
+    gap: 8px !important;
+  }
+
+  .art-title,
+  .member-name,
+  .social-title,
+  .day-title {
+    font-size: 14px !important;
+  }
+
+  .baraat-about-hero,
+  .baraat-contact-hero {
+    border-radius: 16px !important;
+  }
+
+  .baraat-about-copy,
+  .baraat-contact-hero {
+    padding: 16px 14px !important;
+    gap: 10px !important;
+  }
+
+  .baraat-about-visual {
+    min-height: 180px !important;
+  }
+
+  .baraat-editorial-title,
+  .baraat-contact-hero h2 {
+    font-size: 16px !important;
+  }
+
+  .baraat-editorial-sub,
+  .baraat-contact-hero p {
+    font-size: 12.2px !important;
+    line-height: 1.75 !important;
+  }
+
+  .empty-glass-card {
+    padding: 26px 14px !important;
+    border-radius: 16px !important;
+    margin: 10px auto !important;
+  }
+
+  .empty-icon {
+    font-size: 32px !important;
+    margin-bottom: 6px !important;
+  }
+
+  .empty-glass-card h3 {
+    font-size: 14.5px !important;
+  }
+
+  .empty-glass-card p {
+    font-size: 12px !important;
+  }
+
+  /* Calculator dropdown & tables */
+  .calc-dd-trigger {
+    padding: 10px 12px !important;
+    border-radius: 12px !important;
+    gap: 8px !important;
+  }
+
+  .calc-dd-ico {
+    width: 32px !important;
+    height: 32px !important;
+    font-size: 16px !important;
+    border-radius: 9px !important;
+  }
+
+  .calc-dd-title {
+    font-size: 13px !important;
+  }
+
+  .calc-dd-sub {
+    font-size: 11px !important;
+  }
+
+  .calc-table {
+    font-size: 11.2px !important;
+  }
+
+  .calc-table th,
+  .calc-table td {
+    padding: 6px 6px !important;
+  }
+
+  /* Planner sidebar */
+  .sidebar {
+    padding: 10px 8px !important;
+    border-radius: 12px !important;
+  }
+
+  .nav button {
+    padding: 6px 10px !important;
+    font-size: 11.5px !important;
+  }
+
+  .checks {
+    grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
+    gap: 6px !important;
+    margin: 8px 0 !important;
+  }
+
+  .check {
+    padding: 6px 8px !important;
+    font-size: 11px !important;
+    gap: 5px !important;
+  }
+
+  /* Exam & Study Overlay on Mobile */
+  .exam-runner-head {
+    padding: 8px 10px !important;
+    gap: 6px !important;
+  }
+
+  .exam-runner-head b {
+    font-size: 13.5px !important;
+  }
+
+  .exam-timer-box {
+    font-size: 13px !important;
+    padding: 4px 9px !important;
+  }
+
+  .exam-subj-tabs {
+    padding: 6px 10px !important;
+    gap: 5px !important;
+  }
+
+  .exam-subj-tab {
+    padding: 5px 10px !important;
+    font-size: 11.2px !important;
+  }
+
+  .exam-runner-body {
+    padding: 10px !important;
+  }
+
+  .exam-workspace-grid {
+    gap: 12px !important;
+  }
+
+  .exam-q-card {
+    padding: 12px !important;
+    border-radius: 14px !important;
+  }
+
+  .exam-q-stem {
+    font-size: 13px !important;
+    line-height: 1.75 !important;
+    margin: 8px 0 12px !important;
+  }
+
+  .exam-opt-btn {
+    padding: 9px 10px !important;
+    font-size: 12px !important;
+    line-height: 1.65 !important;
+    gap: 8px !important;
+    border-radius: 10px !important;
+  }
+
+  .exam-opt-letter {
+    width: 23px !important;
+    height: 23px !important;
+    font-size: 11px !important;
+    border-radius: 7px !important;
+  }
+
+  .exam-reveal-btn {
+    width: 100% !important;
+    min-height: 36px !important;
+    padding: 6px 10px !important;
+    font-size: 11.8px !important;
+  }
+
+  .exam-exp-box {
+    padding: 10px 12px !important;
+    font-size: 12px !important;
+    line-height: 1.75 !important;
+  }
+
+  .exam-palette-card {
+    position: static !important;
+    padding: 12px !important;
+    border-radius: 14px !important;
+  }
+
+  .exam-palette-grid {
+    grid-template-columns: repeat(7, minmax(0, 1fr)) !important;
+    gap: 5px !important;
+  }
+
+  .exam-q-dot {
+    height: 30px !important;
+    font-size: 11px !important;
+    border-radius: 8px !important;
+  }
+
+  /* Modals & Toast on Mobile */
+  .modal-back {
+    padding: 8px !important;
+  }
+
+  .modal {
+    padding: 14px !important;
+    border-radius: 16px !important;
+    max-height: 88dvh !important;
+  }
+
+  .modal h2 {
+    font-size: 15px !important;
+    margin-bottom: 10px !important;
+  }
+
+  .toast {
+    bottom: calc(68px + env(safe-area-inset-bottom, 0px)) !important;
+    left: 10px !important;
+    right: 10px !important;
+    font-size: 12px !important;
+    padding: 9px 12px !important;
+    text-align: center !important;
+  }
+}
+
