@@ -1377,58 +1377,6 @@ textarea {
   margin-top: 14px;
 }
 
-/* Mobile Navigation Optimization */
-@media (max-width: 768px) {
-  .right-hover-dock {
-    top: auto !important;
-    bottom: 0 !important;
-    left: 0 !important;
-    right: 0 !important;
-    width: 100% !important;
-    height: 62px !important;
-    flex-direction: row !important;
-    border-left: 0 !important;
-    border-top: 1px solid rgba(226, 232, 240, 0.9) !important;
-    box-shadow: 0 -6px 25px rgba(15, 23, 42, 0.08) !important;
-  }
-  .dock-header, .dock-footer {
-    display: none !important;
-  }
-  .dock-nav {
-    flex-direction: row !important;
-    padding: 4px 6px !important;
-    gap: 4px !important;
-    justify-content: space-around !important;
-    width: 100% !important;
-  }
-  .dock-btn {
-    padding: 6px 8px !important;
-    flex-direction: column !important;
-    gap: 2px !important;
-    justify-content: center !important;
-    align-items: center !important;
-    border-radius: 8px !important;
-    width: auto !important;
-  }
-  .dock-label {
-    opacity: 1 !important;
-    transform: none !important;
-    font-size: 10px !important;
-    white-space: nowrap !important;
-  }
-  .dock-icon {
-    font-size: 16px !important;
-    width: auto !important;
-  }
-  .dock-btn.active::before {
-    display: none !important;
-  }
-  .app {
-    margin-right: 0 !important;
-    padding-bottom: 90px !important;
-  }
-}
-
 </style>
   <link rel="stylesheet" href="/src/chic.css">
 </head>
@@ -1522,7 +1470,7 @@ textarea {
     <span class="status-dot green"></span> آنلاین (سینک با Supabase)
   </div>
   <button class="btn" id="pwaInstallHeaderBtn" onclick="promptPWAInstall()" style="color:#0f766e; border-color:#99f6e4; background:#f0fdfa;">
-    <span style="font-size:15px">📲</span> دانلود / نصب اپلیکیشن برائت
+    <span>📲</span><span class="pwa-btn-short">نصب اپ</span><span class="pwa-btn-long">دانلود / نصب اپلیکیشن برائت</span>
   </button>
   <button class="btn primary" id="authBtn" onclick="openAuthModal()">ورود / ثبت‌نام</button>
   <button class="btn hidden" id="outBtn" onclick="logout()">خروج</button>
@@ -1589,7 +1537,7 @@ textarea {
       <div style="flex:1; max-width:440px;">
         <input id="artSearch" placeholder="جستجو در عنوان یا متن مقالات..." oninput="renderArticles()">
       </div>
-      <div style="width:auto; min-width:200px;">
+      <div class="art-cat-filter-wrap">
         <select id="artCatFilter" onchange="renderArticles()">
           <option value="all">همه گرایش‌های حقوقی</option>
           <option value="حقوق مدنی">حقوق مدنی</option>
@@ -3662,6 +3610,6 @@ if ('serviceWorker' in navigator) {
   });
 }
 </script>
-<script src="./baraat_engine.js?v=20261114_3"></script>
+<script src="./baraat_engine.js?v=20261114_4"></script>
 </body>
 </html>
