@@ -1444,29 +1444,21 @@ textarea {
     <div class="dock-brand-text">گروه حقوقی برائت</div>
   </div>
   <nav class="dock-nav">
-    <button class="dock-btn active" data-tab="search" data-mobile-primary="1" onclick="go('search')" title="جستجوی مواد و قوانین">
+    <button class="dock-btn active" data-tab="search" data-mobile-primary="1" onclick="go('search')" title="جستجوی قوانین و آرای دیوان">
       <span class="dock-icon">🔎</span>
-      <span class="dock-label">جستجو</span>
+      <span class="dock-label">قوانین</span>
     </button>
-    <button class="dock-btn" data-tab="planner" data-mobile-primary="1" onclick="go('planner')" title="برنامه مطالعاتی و لایتنر">
-      <span class="dock-icon">📅</span>
-      <span class="dock-label">برنامه</span>
+    <button class="dock-btn" data-tab="students" data-mobile-primary="1" onclick="go('students')" title="بخش دانشجویان: برنامه مطالعاتی و بانک سوالات">
+      <span class="dock-icon">🎓</span>
+      <span class="dock-label">دانشجویان</span>
     </button>
-    <button class="dock-btn" data-tab="cases" data-mobile-primary="1" onclick="go('cases')" title="دفتر کار و زمانبندی پرونده‌های وکیل">
-      <span class="dock-icon">💼</span>
-      <span class="dock-label">دفتر وکالت</span>
-    </button>
-    <button class="dock-btn" data-tab="calculator" data-mobile-primary="1" onclick="go('calculator')" title="محاسبه‌گر ارث، مهریه، دیه و هزینه دادرسی">
-      <span class="dock-icon">🧮</span>
-      <span class="dock-label">محاسبه‌گر</span>
-    </button>
-    <button class="dock-btn" data-tab="articles" onclick="go('articles')" title="مقالات و پژوهش‌های حقوقی">
-      <span class="dock-icon">📚</span>
-      <span class="dock-label">مقالات و پژوهش‌ها</span>
-    </button>
-    <button class="dock-btn" data-tab="deadlines" onclick="go('deadlines')" title="مواعد قانونی و قضایی">
+    <button class="dock-btn" data-tab="lawyers" data-mobile-primary="1" onclick="go('lawyers')" title="بخش وکلا: دفتر وکالت، مواعد و محاسبه‌گر">
       <span class="dock-icon">⚖️</span>
-      <span class="dock-label">مواعد قانونی</span>
+      <span class="dock-label">وکلا</span>
+    </button>
+    <button class="dock-btn" data-tab="articles" data-mobile-primary="1" onclick="go('articles')" title="مقالات و پژوهش‌های حقوقی">
+      <span class="dock-icon">📚</span>
+      <span class="dock-label">مقالات</span>
     </button>
     <button class="dock-btn" data-tab="about" onclick="go('about')" title="معرفی گروه حقوقی و اعضا">
       <span class="dock-icon">🏛</span>
@@ -1476,7 +1468,7 @@ textarea {
       <span class="dock-icon">📞</span>
       <span class="dock-label">تماس با ما</span>
     </button>
-    <button class="dock-btn" id="dockAdminBtn" data-tab="admin" onclick="go('admin')" title="مدیریت سیستم">
+    <button class="dock-btn adm-only" id="dockAdminBtn" data-tab="admin" onclick="go('admin')" title="مدیریت سیستم">
       <span class="dock-icon">🛠</span>
       <span class="dock-label">مدیریت سیستم</span>
     </button>
@@ -1504,15 +1496,16 @@ textarea {
       <button type="button" class="btn small" onclick="toggleMobileDockDrawer(false)">✕ بستن</button>
     </div>
     <div class="mobile-drawer-grid">
-      <button type="button" class="mobile-drawer-tile" data-tab="search" onclick="go('search');toggleMobileDockDrawer(false)"><span>🔎</span><b>جستجوی مواد</b></button>
+      <button type="button" class="mobile-drawer-tile" data-tab="search" onclick="go('search');toggleMobileDockDrawer(false)"><span>🔎</span><b>قوانین</b></button>
       <button type="button" class="mobile-drawer-tile" data-tab="planner" onclick="go('planner');toggleMobileDockDrawer(false)"><span>📅</span><b>برنامه مطالعاتی</b></button>
-      <button type="button" class="mobile-drawer-tile" data-tab="cases" onclick="go('cases');toggleMobileDockDrawer(false)"><span>💼</span><b>دفتر کار وکیل</b></button>
-      <button type="button" class="mobile-drawer-tile" data-tab="articles" onclick="go('articles');toggleMobileDockDrawer(false)"><span>📚</span><b>مقالات و پژوهش</b></button>
+      <button type="button" class="mobile-drawer-tile" data-tab="exams" onclick="go('exams');toggleMobileDockDrawer(false)"><span>📝</span><b>آزمون‌ها</b></button>
+      <button type="button" class="mobile-drawer-tile" data-tab="cases" onclick="go('cases');toggleMobileDockDrawer(false)"><span>💼</span><b>دفتر وکالت</b></button>
       <button type="button" class="mobile-drawer-tile" data-tab="deadlines" onclick="go('deadlines');toggleMobileDockDrawer(false)"><span>⚖️</span><b>مواعد قانونی</b></button>
-      <button type="button" class="mobile-drawer-tile" data-tab="calculator" onclick="go('calculator');toggleMobileDockDrawer(false)"><span>🧮</span><b>محاسبه‌گرها</b></button>
+      <button type="button" class="mobile-drawer-tile" data-tab="calculator" onclick="go('calculator');toggleMobileDockDrawer(false)"><span>🧮</span><b>محاسبه‌گر</b></button>
+      <button type="button" class="mobile-drawer-tile" data-tab="articles" onclick="go('articles');toggleMobileDockDrawer(false)"><span>📚</span><b>مقالات</b></button>
       <button type="button" class="mobile-drawer-tile" data-tab="about" onclick="go('about');toggleMobileDockDrawer(false)"><span>🏛</span><b>معرفی گروه</b></button>
       <button type="button" class="mobile-drawer-tile" data-tab="contact" onclick="go('contact');toggleMobileDockDrawer(false)"><span>📞</span><b>تماس با ما</b></button>
-      <button type="button" class="mobile-drawer-tile" data-tab="admin" onclick="go('admin');toggleMobileDockDrawer(false)"><span>🛠</span><b>مدیریت سیستم</b></button>
+      <button type="button" class="mobile-drawer-tile adm-only" data-tab="admin" onclick="go('admin');toggleMobileDockDrawer(false)"><span>🛠</span><b>مدیریت</b></button>
     </div>
     <div class="row" style="gap:8px; margin-top:12px;">
       <button type="button" class="btn primary" style="flex:1;" onclick="toggleMobileDockDrawer(false);openAuthModal()">👤 حساب کاربری</button>
@@ -1538,14 +1531,12 @@ textarea {
 <div class="warn hidden" id="cfgWarn">تنظیمات Supabase کامل نیست: دو مقدار <b>SUPA_URL</b> و <b>SUPA_KEY</b> را اول فایل برنامه عوض کن.</div>
 <nav class="tabs glass-tabs-nav">
   <button class="active" data-tab="search" onclick="go('search')">🔎 قوانین</button>
-  <button data-tab="planner" onclick="go('planner')">📅 برنامه مطالعاتی</button>
-  <button data-tab="cases" onclick="go('cases')">💼 دفتر وکالت</button>
+  <button data-tab="students" onclick="go('students')">🎓 دانشجویان</button>
+  <button data-tab="lawyers" onclick="go('lawyers')">⚖️ وکلا</button>
   <button data-tab="articles" onclick="go('articles')">📚 مقالات</button>
-  <button data-tab="deadlines" onclick="go('deadlines')">⚖️ مواعد قانونی</button>
-  <button data-tab="calculator" onclick="go('calculator')">🧮 محاسبه‌گر</button>
   <button data-tab="about" onclick="go('about')">🏛 معرفی گروه</button>
   <button data-tab="contact" onclick="go('contact')">📞 تماس با ما</button>
-  <button data-tab="admin" onclick="go('admin')">🛠 مدیریت</button>
+  <button class="adm-only" data-tab="admin" onclick="go('admin')">🛠 مدیریت</button>
 </nav>
 
 <section id="tab-search" class="law-ui">
@@ -1581,61 +1572,6 @@ textarea {
   <div class="foot">این برنامه مشاوره حقوقی نیست؛ برای اطمینان، متون را با منابع رسمی تطبیق دهید.</div>
 </section>
 
-<section id="tab-planner" class="hidden">
- <div id="plannerGate" class="panel"><h2>برنامه مطالعاتی شخصی</h2><p class="muted">برای ساخت و ذخیره‌ی برنامه‌ی مطالعاتی خودت وارد حساب شو. اطلاعات هر نفر جداست و از هر دستگاهی در دسترس است.</p><button class="btn primary" onclick="openAuthModal()">ورود / ثبت‌نام</button></div>
- <div id="plannerApp" class="hidden">
-  <div class="actions" style="margin-bottom:14px">
-   <button class="btn primary adm-only" onclick="openAddPlanModal()">＋ افزودن / آپلود برنامه</button>
-   <button class="btn adm-only" onclick="if(window.openPlanAssignerModal)openPlanAssignerModal()">📤 آپلود برنامه برای کاربر</button>
-   <button class="btn adm-only" onclick="go('admin');setTimeout(()=>{const e=document.getElementById('admProgressMonitorCard');if(e)e.scrollIntoView({behavior:'smooth'});},120)">📊 مانیتورینگ پیشرفت کاربران</button>
-   <button class="btn" id="quickAdd">＋ افزودن واحد</button>
-   <button class="btn" id="exportBtn">پشتیبان</button>
-   <button class="btn adm-only" id="importBtn">بازیابی فایل برنامه</button>
-  </div>
-  <div id="plannerAdminNotice" class="muted small" style="margin-bottom:12px;"></div>
-  <div class="layout">
-  <aside class="sidebar">
-   <div class="nav-title">فضای مطالعاتی</div>
-   <nav class="nav">
-    <button class="active" data-view="dashboard">▦　داشبورد</button>
-    <button data-view="days">☷　روزهای مطالعاتی</button>
-    <button data-view="subjects">§　درس‌ها و قوانین</button>
-    <button data-view="progress">📊　پیگیری پیشرفت و سوال</button>
-   </nav>
-   <div class="side-note">اطلاعات روی سرور و در حساب خودت ذخیره می‌شود.</div>
-  </aside>
-  <main>
-   <section id="dashboardView">
-    <div class="stats">
-     <div class="stat"><div class="label">روزهای تعریف‌شده</div><strong id="statDays">۰</strong><small>روز مطالعاتی</small></div>
-     <div class="stat"><div class="label">واحدهای مطالعاتی</div><strong id="statBlocks">۰</strong><small>بازه‌های درس و ماده</small></div>
-     <div class="stat"><div class="label">مراحل انجام‌شده</div><strong id="statChecks">۰٪</strong><small id="statLeft">از کل چک‌لیست‌ها</small></div>
-     <div class="stat"><div class="label">واحدهای تکمیل‌شده</div><strong id="statDone">۰</strong><small>تمام مراحل هر واحد</small></div>
-    </div>
-    <div class="panel"><div class="panel-head"><h2>پیشرفت کلی برنامه</h2><span class="muted small" id="overallText">۰٪</span></div><div class="progress"><span id="overallBar" style="width:0%"></span></div></div>
-    <div class="panel"><div class="panel-head"><h2>پیشرفت هر درس (بر اساس تعداد مواد)</h2></div><div id="subjProg" class="subject-grid"></div></div>
-    <div class="panel"><div class="panel-head"><h2>ادامه برنامه مطالعاتی</h2><button class="btn primary" onclick="openDayModal()">＋ روز جدید</button></div><div id="dashboardDays" class="day-list"></div></div>
-   </section>
-   <section id="daysView" class="hidden">
-    <div class="panel">
-     <div class="panel-head"><div><h2>روزهای مطالعاتی</h2><div class="muted small">روز اول، روز دوم و ... بدون وابستگی به تاریخ</div></div>
-      <div class="row"><button class="btn" onclick="setAll(false)">بستن همه</button><button class="btn primary adm-only" onclick="openAddPlanModal()">＋ افزودن / آپلود برنامه</button><button class="btn primary" onclick="openDayModal()">＋ افزودن روز</button><button class="btn danger" onclick="openClearModal()">حذف همه‌ی روزها</button><button class="btn danger" onclick="openResetModal()">بازنشانی کامل</button></div></div>
-     <div id="allDays" class="day-list"></div>
-    </div>
-   </section>
-   <section id="subjectsView" class="hidden">
-    <div class="panel"><div class="panel-head"><div><h2>درس‌ها و قوانین</h2><div class="muted small">درس و قانون جدید اضافه کن یا فهرست را ویرایش کن.</div></div><button class="btn primary" onclick="openSubjectModal()">＋ افزودن درس</button></div><div id="subjectsList" class="subject-grid"></div></div>
-   </section>
-   <section id="progressView" class="hidden">
-    <div id="studentProgressRoot"></div>
-   </section>
-  </main>
-  </div>
- </div>
-</section>
-<section id="tab-cases" class="hidden">
- <div id="casesWorkspaceRoot"></div>
-</section>
 <section id="tab-articles" class="hidden">
   <div class="panel">
     <div class="panel-head">
@@ -1670,6 +1606,108 @@ textarea {
 
     <div id="articlesList"></div>
   </div>
+</section>
+
+<div id="hub-students" class="hidden">
+  <div class="hub-subnav" id="studentsHubSubNav">
+    <div class="hub-subnav-tabs">
+      <button type="button" class="hub-subbtn active" data-studentssub="planner" onclick="if(window.setStudentsSub)setStudentsSub('planner')">📅 برنامه مطالعاتی</button>
+      <button type="button" class="hub-subbtn" data-studentssub="exams" onclick="if(window.setStudentsSub)setStudentsSub('exams')">📝 آزمون‌ها</button>
+    </div>
+    <span class="hub-subnav-hint">بخش دانشجویان و داوطلبان آزمون‌های حقوقی</span>
+  </div>
+
+<section id="tab-planner">
+ <div id="plannerGate" class="panel"><h2>برنامه مطالعاتی شخصی</h2><p class="muted">برای ساخت و ذخیره‌ی برنامه‌ی مطالعاتی خودت (بر اساس روز یا بر اساس درس) وارد حساب شو. اطلاعات هر نفر جداست و از هر دستگاهی در دسترس است.</p><button class="btn primary" onclick="openAuthModal()">ورود / ثبت‌نام</button></div>
+ <div id="plannerApp" class="hidden">
+  <div class="actions" style="margin-bottom:14px">
+   <button class="btn primary adm-only" onclick="openAddPlanModal()">＋ افزودن / آپلود برنامه</button>
+   <button class="btn adm-only" onclick="if(window.openPlanAssignerModal)openPlanAssignerModal()">📤 آپلود برنامه برای کاربر</button>
+   <button class="btn adm-only" onclick="go('admin');setTimeout(()=>{const e=document.getElementById('admProgressMonitorCard');if(e)e.scrollIntoView({behavior:'smooth'});},120)">📊 مانیتورینگ پیشرفت کاربران</button>
+   <button class="btn" id="quickAdd">＋ افزودن واحد روزانه</button>
+   <button class="btn primary" onclick="openSubjectGenerator()">📚 بخش‌بندی خودکار بر اساس درس</button>
+   <button class="btn" onclick="openSubjectSectionModal()">＋ افزودن بخش درسی</button>
+   <button class="btn" id="exportBtn">پشتیبان</button>
+   <button class="btn adm-only" id="importBtn">بازیابی فایل برنامه</button>
+  </div>
+  <div id="plannerAdminNotice" class="muted small" style="margin-bottom:12px;"></div>
+  <div class="layout">
+  <aside class="sidebar">
+   <div class="nav-title">فضای مطالعاتی</div>
+   <nav class="nav">
+    <button class="active" data-view="dashboard">▦　داشبورد</button>
+    <button data-view="days">☷　برنامه بر اساس روز</button>
+    <button data-view="subjectPlan">📚　برنامه بر اساس درس</button>
+    <button data-view="subjects">§　درس‌ها و قوانین</button>
+    <button data-view="progress">📊　پیگیری پیشرفت و سوال</button>
+   </nav>
+   <div class="side-note">اطلاعات روی سرور و در حساب خودت ذخیره می‌شود.</div>
+  </aside>
+  <main>
+   <section id="dashboardView">
+    <div class="stats">
+     <div class="stat"><div class="label">روزها / بخش‌های درسی</div><strong id="statDays">۰</strong><small id="statDaysSub">روز مطالعاتی</small></div>
+     <div class="stat"><div class="label">واحدهای مطالعاتی</div><strong id="statBlocks">۰</strong><small>بازه‌های درس و ماده</small></div>
+     <div class="stat"><div class="label">مراحل انجام‌شده</div><strong id="statChecks">۰٪</strong><small id="statLeft">از کل چک‌لیست‌ها</small></div>
+     <div class="stat"><div class="label">واحدهای تکمیل‌شده</div><strong id="statDone">۰</strong><small>تمام مراحل هر واحد</small></div>
+    </div>
+    <div class="panel"><div class="panel-head"><h2>پیشرفت کلی برنامه</h2><span class="muted small" id="overallText">۰٪</span></div><div class="progress"><span id="overallBar" style="width:0%"></span></div></div>
+    <div class="panel"><div class="panel-head"><h2>پیشرفت هر درس (بر اساس تعداد مواد)</h2></div><div id="subjProg" class="subject-grid"></div></div>
+    <div class="panel"><div class="panel-head"><h2>ادامه برنامه بر اساس روز</h2><button class="btn primary" onclick="openDayModal()">＋ روز جدید</button></div><div id="dashboardDays" class="day-list"></div></div>
+    <div class="panel"><div class="panel-head"><h2>ادامه برنامه بر اساس درس</h2><button class="btn primary" onclick="openSubjectGenerator()">⚡ بخش‌بندی درس</button></div><div id="dashboardSubjSections" class="day-list"></div></div>
+   </section>
+   <section id="daysView" class="hidden">
+    <div class="panel">
+     <div class="panel-head"><div><h2>روزهای مطالعاتی</h2><div class="muted small">روز اول، روز دوم و ... بدون وابستگی به تاریخ</div></div>
+      <div class="row"><button class="btn" onclick="setAll(false)">بستن همه</button><button class="btn primary adm-only" onclick="openAddPlanModal()">＋ افزودن / آپلود برنامه</button><button class="btn primary" onclick="openDayModal()">＋ افزودن روز</button><button class="btn danger" onclick="openClearModal()">حذف همه‌ی روزها</button><button class="btn danger" onclick="openResetModal()">بازنشانی کامل</button></div></div>
+     <div id="allDays" class="day-list"></div>
+    </div>
+   </section>
+   <section id="subjectPlanView" class="hidden">
+    <div class="panel">
+     <div class="panel-head">
+      <div>
+       <h2>📚 برنامه مطالعاتی بر اساس درس و مباحث</h2>
+       <div class="muted small">هر درس را به بخش‌های مجزا (مثلاً مواد ۱ تا ۵۰، ۵۱ تا ۱۰۰) تقسیم کنید و با همان امکانات چک‌لیست، نکات، متن ماده و تسلط پیش بروید</div>
+      </div>
+      <div class="row">
+       <button class="btn" onclick="setAllSubjectSections(false)">بستن همه</button>
+       <button class="btn primary" onclick="openSubjectGenerator()">⚡ بخش‌بندی خودکار درس</button>
+       <button class="btn" onclick="openSubjectSectionModal()">＋ بخش تکی جدید</button>
+      </div>
+     </div>
+     <div id="subjectPlanFilterBar" class="row" style="gap:8px; margin-bottom:14px; flex-wrap:wrap;"></div>
+     <div id="subjectPlanList" class="subj-plan-list"></div>
+    </div>
+   </section>
+   <section id="subjectsView" class="hidden">
+    <div class="panel"><div class="panel-head"><div><h2>درس‌ها و قوانین</h2><div class="muted small">درس و قانون جدید اضافه کن یا فهرست را ویرایش کن.</div></div><button class="btn primary" onclick="openSubjectModal()">＋ افزودن درس</button></div><div id="subjectsList" class="subject-grid"></div></div>
+   </section>
+   <section id="progressView" class="hidden">
+    <div id="studentProgressRoot"></div>
+   </section>
+  </main>
+  </div>
+ </div>
+</section>
+
+<section id="tab-exams" class="hidden">
+  <div id="studentExamsRoot"></div>
+</section>
+</div>
+
+<div id="hub-lawyers" class="hidden">
+  <div class="hub-subnav" id="lawyersHubSubNav">
+    <div class="hub-subnav-tabs">
+      <button type="button" class="hub-subbtn active" data-lawyerssub="cases" onclick="if(window.setLawyersSub)setLawyersSub('cases')">💼 دفتر وکالت و پرونده‌ها</button>
+      <button type="button" class="hub-subbtn" data-lawyerssub="deadlines" onclick="if(window.setLawyersSub)setLawyersSub('deadlines')">⚖️ مواعد قانونی و ثنا</button>
+      <button type="button" class="hub-subbtn" data-lawyerssub="calculator" onclick="if(window.setLawyersSub)setLawyersSub('calculator')">🧮 محاسبه‌گرهای حقوقی</button>
+    </div>
+    <span class="hub-subnav-hint">میز کار تخصصی وکلا و مشاوران حقوقی</span>
+  </div>
+
+<section id="tab-cases">
+ <div id="casesWorkspaceRoot"></div>
 </section>
 
 <section id="tab-deadlines" class="hidden">
@@ -1726,16 +1764,18 @@ textarea {
     <div class="panel-head">
       <div>
         <h2>🧮 محاسبه‌گرهای جامع حقوقی</h2>
-        <div class="muted small">ابزار محاسبه مورد نظر را انتخاب کنید تا باکس اختصاصی همان محاسبه نمایش داده شود</div>
+        <div class="muted small">از باکس کشویی زیر موضوع مورد نظر را انتخاب کنید تا باکس اختصاصی محاسبه باز شود</div>
       </div>
       <div class="row" style="gap:8px;">
         <button class="btn primary adm-only" onclick="openCustomCalcEditor()">＋ افزودن فرمول سفارشی</button>
       </div>
     </div>
-    <div id="calcSelectorGrid" class="calc-selector-grid"></div>
+    <div id="calcDropdownWrap" class="calc-dropdown-wrap"></div>
     <div id="calcActiveStage" class="calc-single-stage"></div>
   </div>
 </section>
+</div>
+
 <section id="tab-about" class="hidden">
   <div id="aboutPageRoot"></div>
 </section>
@@ -1750,11 +1790,11 @@ textarea {
     <div style="font-size: 52px; margin-bottom: 14px;">🔒</div>
     <h2 style="font-size: 20px; font-weight: 800; color: #0f172a; margin-bottom: 10px;">بخش مدیریت سامانه برائت</h2>
     <p class="muted" style="max-width: 540px; margin: 0 auto 22px; font-size: 14px; line-height: 2;">
-      دسترسی به بخش مدیریت سامانه، انتشار مقالات پژوهشی، معرفی گروه و اعضا، تغییر مواعد قانونی، آپلود برنامه برای کاربران و تنقیح قوانین، <b>منحصراً برای مدیرانی است که ایمیل آن‌ها در پایگاه داده Supabase ثبت شده باشد</b>.
+      دسترسی به بخش مدیریت سامانه منحصراً برای مدیرانی است که ایمیل آن‌ها در پایگاه داده Supabase ثبت شده باشد.
     </p>
     <div class="row" style="justify-content: center; gap: 10px;">
       <button class="btn primary" onclick="openAuthModal()">ورود با حساب مدیریت</button>
-      <button class="btn" onclick="go('search')">بازگشت به جستجوی مواد</button>
+      <button class="btn" onclick="go('search')">بازگشت به صفحه اصلی</button>
     </div>
   </div>
 
@@ -1783,6 +1823,18 @@ textarea {
       <button class="btn primary" onclick="if(window.openPlanAssignerModal)openPlanAssignerModal()">📤 آپلود برنامه جدید برای کاربر</button>
     </div>
     <div id="admAssignedPlansList"></div>
+  </div>
+
+  <!-- پنل مدیریت و بارگذاری آزمون‌های حقوقی -->
+  <div class="panel" id="admExamsCard">
+    <div class="panel-head">
+      <div>
+        <h2>📝 مدیریت و بارگذاری آزمون‌های حقوقی</h2>
+        <div class="muted small">ایجاد آزمون بر اساس سال و نهاد (مثلاً کانون ۱۴۰۵)، مدیریت درس به درس و ورود گروهی سوالات (متن، اکسل یا JSON)</div>
+      </div>
+      <button class="btn primary" onclick="if(window.openExamMetaModal)openExamMetaModal()">＋ ایجاد آزمون جدید</button>
+    </div>
+    <div id="admExamsList"></div>
   </div>
 
   <!-- پنل مدیریت معرفی گروه و اعضای تیم -->
@@ -1868,6 +1920,7 @@ textarea {
   </div>
 </section>
 </div>
+<div id="examRunnerOverlay" class="exam-runner-overlay hidden"></div>
 <div class="modal-back" id="authBack"><div class="modal"><h2>ورود / ثبت‌نام</h2><div class="field"><label>ایمیل</label><input id="authEmail" type="email" dir="ltr"></div><div class="field" style="margin-top:10px"><label>رمز عبور (حداقل ۶ کاراکتر)</label><input id="authPass" type="password" dir="ltr"></div><p class="muted small" id="authMsg"></p><div class="modal-actions"><button class="btn" onclick="document.getElementById('authBack').classList.remove('show')">بستن</button><button class="btn" onclick="doAuth('up')">ثبت‌نام</button><button class="btn primary" onclick="doAuth('in')">ورود</button></div></div></div>
 <div class="modal-back" id="modalBack"><div class="modal" id="modal"></div></div>
 <div class="toast" id="toast">ذخیره شد</div>
@@ -2320,34 +2373,110 @@ function mergePlan4(s){return mergeGen(s,"آیین دادرسی مدنی",PLAN4_
 const uid=()=>Math.random().toString(36).slice(2,10);
 const fa=n=>String(n).replace(/\d/g,d=>"۰۱۲۳۴۵۶۷۸۹"[d]);
 let state=fresh();
-function fresh(){return {subjects:defaultSubjects.map((x,i)=>({id:"s"+i,name:x[0],laws:x[1].map(n=>({name:n,count:COUNTS[n]||0,unit:UNITS[n]||"ماده"}))})),days:[],marks:{},imports:[]}}
-function norm(s){if(!s||typeof s!=="object")s=fresh();if(!Array.isArray(s.subjects))s=fresh();if(!Array.isArray(s.days))s.days=[];s.subjects.forEach(u=>{if(u&&Array.isArray(u.laws)){u.laws=u.laws.map(l=>typeof l==="string"?{name:l,count:COUNTS[l]||0}:l);u.laws.forEach(l=>{if(l&&l.topics)l.count=l.topics.length})}else if(u){u.laws=[]}});s.days.forEach(d=>{if(d&&Array.isArray(d.blocks)){d.blocks.forEach(b=>{if(!b)return;if(!Array.isArray(b.checks))b.checks=Array(CHECKS.length).fill(false);if(b.checks.length<CHECKS.length)b.checks.splice(1,0,...Array(CHECKS.length-b.checks.length).fill(false));b.refs=b.refs||[];b.title=b.title||"";if(!b.items){b.spec=b.from===b.to?String(b.from):b.from+"-"+b.to;b.items=(typeof expand==="function")?expand(b.spec):[]}})}else if(d){d.blocks=[]}});s.marks=s.marks||{};s.imports=s.imports||[];return s}
+const SUB_CID="__sub__";
+let activeSubjectPlanFilter="all";
+const subjGroupOpen={};
+function fresh(){return {subjects:defaultSubjects.map((x,i)=>({id:"s"+i,name:x[0],laws:x[1].map(n=>({name:n,count:COUNTS[n]||0,unit:UNITS[n]||"ماده"}))})),days:[],subjectSections:[],marks:{},imports:[],examResults:[]}}
+function normBlockItem(b){
+ if(!b)return;
+ if(!Array.isArray(b.checks))b.checks=Array(CHECKS.length).fill(false);
+ if(b.checks.length<CHECKS.length)b.checks.splice(1,0,...Array(CHECKS.length-b.checks.length).fill(false));
+ b.refs=b.refs||[];b.title=b.title||"";
+ if(!b.items){b.spec=b.from===b.to?String(b.from):b.from+"-"+b.to;b.items=(typeof expand==="function")?expand(b.spec):[]}
+}
+function norm(s){if(!s||typeof s!=="object")s=fresh();if(!Array.isArray(s.subjects))s=fresh();if(!Array.isArray(s.days))s.days=[];if(!Array.isArray(s.subjectSections))s.subjectSections=[];s.subjects.forEach(u=>{if(u&&Array.isArray(u.laws)){u.laws=u.laws.map(l=>typeof l==="string"?{name:l,count:COUNTS[l]||0}:l);u.laws.forEach(l=>{if(l&&l.topics)l.count=l.topics.length})}else if(u){u.laws=[]}});s.days.forEach(d=>{if(d&&Array.isArray(d.blocks)){d.blocks.forEach(normBlockItem)}else if(d){d.blocks=[]}});s.subjectSections.forEach(normBlockItem);s.marks=s.marks||{};s.imports=s.imports||[];if(!Array.isArray(s.examResults))s.examResults=[];return s}
 function persist(){if(ready)cloudSave()}
 function save(){persist();render();toast("تغییرات ذخیره شد")}
 function toast(t){let e=document.getElementById("toast");e.textContent=t;e.classList.add("show");setTimeout(()=>e.classList.remove("show"),1800)}
-function allBlocks(){return state.days.flatMap(d=>d.blocks)}
+function allBlocks(){return [...state.days.flatMap(d=>d.blocks),...(state.subjectSections||[])]}
 function percent(b){return b.checks.filter(Boolean).length/CHECKS.length*100}
 function status(d){let n=d.blocks.length,done=d.blocks.filter(b=>percent(b)===100).length;if(n&&done===n)return "تکمیل‌شده";if(d.blocks.some(b=>b.checks.some(Boolean)))return "نیمه‌تمام";return "شروع‌نشده"}
 function statusClass(d){return status(d)==="تکمیل‌شده"?"done":status(d)==="نیمه‌تمام"?"partial":""}
+function setSubjectPlanFilter(fid){activeSubjectPlanFilter=fid||"all";renderSubjectPlanView();}
+function toggleSubjectGroup(sid){subjGroupOpen[sid]=!(subjGroupOpen[sid]!==false);renderSubjectPlanView();}
+function setAllSubjectSections(v){
+ (state.subjectSections||[]).forEach(b=>b.open=v);
+ state.subjects.forEach(s=>subjGroupOpen[s.id]=v);
+ persist();render();
+}
+function renderSubjectPlanView(){
+ const fBar=document.getElementById("subjectPlanFilterBar");
+ const listEl=document.getElementById("subjectPlanList");
+ if(!listEl)return;
+ const secs=state.subjectSections||[];
+ const usedSubIds=[...new Set(secs.map(b=>b.subjectId))];
+ const usedSubs=state.subjects.filter(s=>usedSubIds.includes(s.id));
+ if(fBar){
+  fBar.innerHTML=`<button type="button" class="btn small ${activeSubjectPlanFilter==='all'?'primary':''}" onclick="setSubjectPlanFilter('all')">همه درس‌ها (${fa(secs.length)} بخش)</button>`+
+   usedSubs.map(s=>{
+    const cnt=secs.filter(b=>b.subjectId===s.id).length;
+    return `<button type="button" class="btn small ${activeSubjectPlanFilter===s.id?'primary':''}" onclick="setSubjectPlanFilter('${s.id}')">${esc(s.name)} (${fa(cnt)})</button>`;
+   }).join("");
+ }
+ if(!secs.length){
+  listEl.innerHTML=`<div class="empty-glass-card" style="margin:10px auto;"><div class="empty-icon">📚</div><h3>هنوز برنامه‌ای بر اساس درس ساخته نشده است</h3><p>می‌توانید برای هر درس (مثل حقوق مدنی) یک قانون انتخاب کنید و بازه مواد را مثلاً از ماده ۱ تا ۱۳۳۵ به بخش‌های مساوی تقسیم کنید، یا به صورت تکی بخش اضافه کنید.</p><div class="row" style="justify-content:center;gap:8px;margin-top:16px;"><button class="btn primary" onclick="openSubjectGenerator()">⚡ بخش‌بندی خودکار درس</button><button class="btn" onclick="openSubjectSectionModal()">＋ افزودن بخش تکی</button></div></div>`;
+  return;
+ }
+ const targets=activeSubjectPlanFilter==="all"?usedSubs:usedSubs.filter(s=>s.id===activeSubjectPlanFilter);
+ listEl.innerHTML=targets.map(sub=>{
+  const sBlocks=secs.filter(b=>b.subjectId===sub.id).sort((a,b)=>(a.order||0)-(b.order||0));
+  const isOpen=subjGroupOpen[sub.id]!==false;
+  const totChecks=sBlocks.length*CHECKS.length;
+  const doneChecks=sBlocks.reduce((acc,b)=>acc+b.checks.filter(Boolean).length,0);
+  const pct=totChecks?Math.round(doneChecks/totChecks*100):0;
+  const doneSec=sBlocks.filter(b=>percent(b)===100).length;
+  const totalItems=sBlocks.reduce((acc,b)=>acc+(b.items?b.items.length:0),0);
+  return `<article class="subj-plan-card" id="subjplan-${sub.id}">
+   <div class="subj-plan-head" style="cursor:pointer" onclick="toggleSubjectGroup('${sub.id}')">
+    <div style="min-width:0">
+     <div class="day-title">${isOpen?"▾ ":"▸ "}${esc(sub.name)}</div>
+     <div class="muted small">${fa(sBlocks.length)} بخش · ${fa(totalItems)} مورد · ${fa(doneSec)} بخش تکمیل‌شده · ${fa(pct)}٪ پیشرفت کل</div>
+    </div>
+    <div class="row" onclick="event.stopPropagation()">
+     <span class="pill ${pct===100?'done':(doneChecks?'partial':'')}">${fa(pct)}٪</span>
+     <button class="btn small" onclick="openSubjectSectionModal('${sub.id}')">＋ بخش</button>
+     <button class="btn small primary" onclick="openSubjectGenerator('${sub.id}')">⚡ تقسیم مواد</button>
+    </div>
+   </div>
+   <div class="progress" style="margin-top:10px"><span style="width:${pct}%"></span></div>
+   ${isOpen?`<div style="margin-top:10px">${sBlocks.map(b=>blockHTML({id:SUB_CID,isSubjectSection:true},b)).join("")}</div>`:""}
+  </article>`;
+ }).join("");
+}
 function render(){
  const blocks=allBlocks(),total=blocks.length*CHECKS.length,checked=blocks.reduce((a,b)=>a+b.checks.filter(Boolean).length,0),done=blocks.filter(b=>percent(b)===100).length,p=total?Math.round(checked/total*100):0;
- document.getElementById("statDays").textContent=fa(state.days.length);document.getElementById("statBlocks").textContent=fa(blocks.length);document.getElementById("statChecks").textContent=fa(p)+"٪";document.getElementById("statDone").textContent=fa(done);
+ const secCount=(state.subjectSections||[]).length;
+ document.getElementById("statDays").textContent=fa(state.days.length)+" / "+fa(secCount);
+ const subEl=document.getElementById("statDaysSub");
+ if(subEl)subEl.textContent="روز مطالعاتی / بخش درسی";
+ document.getElementById("statBlocks").textContent=fa(blocks.length);document.getElementById("statChecks").textContent=fa(p)+"٪";document.getElementById("statDone").textContent=fa(done);
  document.getElementById("statLeft").textContent=total?fa(100-p)+"٪ باقی مانده":"از کل چک‌لیست‌ها";
  document.getElementById("overallText").textContent=fa(p)+"٪ انجام شده · "+fa(total?100-p:0)+"٪ مانده";document.getElementById("overallBar").style.width=p+"%";
  document.getElementById("dashboardDays").innerHTML=state.days.length?state.days.filter(d=>!isDone(d)).slice(0,3).map(d=>dayHTML(d,true)).join(""):emptyHTML("هنوز روز مطالعاتی نساخته‌ای. برای شروع، روز اول را اضافه کن.");
+ const dashSecEl=document.getElementById("dashboardSubjSections");
+ if(dashSecEl){
+  const pendingSecs=(state.subjectSections||[]).filter(b=>percent(b)<100).slice(0,4);
+  dashSecEl.innerHTML=pendingSecs.length?pendingSecs.map(b=>blockHTML({id:SUB_CID,isSubjectSection:true},b)).join(""):emptyHTML((state.subjectSections||[]).length?"همه بخش‌های درسی تکمیل شده‌اند.":"هنوز برنامه بر اساس درس نساخته‌ای. با دکمه «بخش‌بندی درس» شروع کن.");
+ }
  document.getElementById("allDays").innerHTML=state.days.length?state.days.map(d=>dayHTML(d)).join(""):emptyHTML("هنوز برنامه‌ای تعریف نشده است.");
+ renderSubjectPlanView();
  document.getElementById("subjectsList").innerHTML=state.subjects.map(subjProg).join("");document.getElementById("subjProg").innerHTML=state.subjects.filter(s=>subjTotal(s)||blocks.some(b=>b.subjectId===s.id)).map(subjProg).join("")||emptyHTML("هنوز درسی در برنامه نیست.");growAll();
 }
 function emptyHTML(t){return `<div class="empty">${t}</div>`}
 function dayHTML(d,dash){let open=dash||d.open,t=d.blocks.length*CHECKS.length,c=d.blocks.reduce((s,b)=>s+b.checks.filter(Boolean).length,0),pp=t?Math.round(c/t*100):0,sum=d.blocks.map(b=>{let s=state.subjects.find(x=>x.id===b.subjectId);return (s?s.name:"")+" "+(b.title||b.spec)}).join(" · ");
  return `<article class="day-card" ${dash?"":`id="day-${d.id}"`} style="${dayStyle(d)}"><div class="day-top" ${dash?"":`onclick="toggleDay('${d.id}')" style="cursor:pointer"`}><div style="min-width:0"><div class="day-title">${dash?"":(open?"▾ ":"▸ ")}روز ${fa(d.number)}</div>${d.group?`<div class="small" style="color:var(--muted)">${esc(d.group)}</div>`:""}<div class="muted small ${open?"":"sumline"}">${open?dayInfo(d):esc(sum||"بدون واحد مطالعاتی")}</div></div><div class="row" onclick="event.stopPropagation()"><span class="pill ${statusClass(d)}">${status(d)} · ${fa(pp)}٪</span>${open?`<button class="btn" onclick="openBlockModal('${d.id}')">＋ واحد</button><button class="btn" onclick="editDay('${d.id}')">ویرایش روز</button><button class="btn danger" onclick="deleteDay('${d.id}')">حذف</button>`+(dash?"":`<button class="btn" onclick="toggleDay('${d.id}')">بستن ▴</button>`):""}</div></div>${open?(d.blocks.length?d.blocks.map(b=>blockHTML(d,b)).join(""):emptyHTML("برای این روز هنوز واحد مطالعاتی ثبت نشده است.")):`<div class="progress" style="margin-top:8px"><span style="width:${pp}%"></span></div>`}</article>`}
 function blockHTML(d,b){let s=state.subjects.find(x=>x.id===b.subjectId),p=Math.round(percent(b)),open=b.open,ms=b.mastery&&b.mastery!=="نامشخص"?b.mastery:"";
- return `<div class="block ${masteryCls(b.mastery)}"><div class="block-head" style="cursor:pointer" onclick="toggleBlock('${d.id}','${b.id}')"><div style="min-width:0"><h3>${open?"▾ ":"▸ "}${esc(s?.name||"درس حذف شده")} — ${esc(b.law)}${b.title?" — "+esc(b.title):""}</h3><div class="block-meta">${open?blockMeta(b,p):shortMeta(b,p)}</div>${b.task?`<div class="small" style="margin-top:3px">تکلیف: ${esc(b.task)}</div>`:""}</div><div class="row" onclick="event.stopPropagation()">${ms?`<span class="pill">تسلط: ${ms}</span>`:""}${open?`<button class="btn" onclick="editBlock('${d.id}','${b.id}')">ویرایش</button><button class="btn danger" onclick="deleteBlock('${d.id}','${b.id}')">حذف</button>`:""}</div></div><div class="progress" style="margin-top:10px"><span style="width:${p}%"></span></div>${open?`<div class="checks">${CHECKS.map((c,i)=>`<label class="check"><input type="checkbox" ${b.checks[i]?"checked":""} onchange="toggleCheck('${d.id}','${b.id}',${i},this.checked)">${c}</label>`).join("")}</div><label class="note-label">ایرادات، اشکالات و نکات</label><textarea class="note" oninput="grow(this)" placeholder="ابهام‌ها، نکات دشوار و مواردی که باید دوباره بررسی شوند..." onchange="updateNote('${d.id}','${b.id}',this.value)">${esc(b.notes||"")}</textarea><div class="noterefs law-ui" id="nr-${b.id}">${window.LAWDB?LAWDB.noteRefs(b):""}</div>${window.LAWDB?LAWDB.textHtml(d,b):""}${refsHTML(d,b)}<div class="block-foot"><span class="muted small">وضعیت تسلط</span><select class="select-small" onchange="updateMastery('${d.id}','${b.id}',this.value)"><option value="نامشخص" ${b.mastery==="نامشخص"?"selected":""}>هنوز ارزیابی نشده</option><option value="ضعیف" ${b.mastery==="ضعیف"?"selected":""}>ضعیف — نیازمند مطالعه مجدد</option><option value="متوسط" ${b.mastery==="متوسط"?"selected":""}>متوسط — نیازمند مرور</option><option value="خوب" ${b.mastery==="خوب"?"selected":""}>خوب — مسلط</option></select></div>`:""}</div>`}
+ const secBadge=b.sectionLabel?`<span class="subj-sec-badge">${esc(b.sectionLabel)}</span>`:"";
+ return `<div class="block ${masteryCls(b.mastery)}" id="blk-${b.id}"><div class="block-head" style="cursor:pointer" onclick="toggleBlock('${d.id}','${b.id}')"><div style="min-width:0"><h3>${open?"▾ ":"▸ "}${secBadge}${esc(s?.name||"درس حذف شده")} — ${esc(b.law)}${b.title?" — "+esc(b.title):""}</h3><div class="block-meta">${open?blockMeta(b,p):shortMeta(b,p)}</div>${b.task?`<div class="small" style="margin-top:3px">تکلیف: ${esc(b.task)}</div>`:""}</div><div class="row" onclick="event.stopPropagation()">${ms?`<span class="pill">تسلط: ${ms}</span>`:""}${open?`<button class="btn" onclick="editBlock('${d.id}','${b.id}')">ویرایش</button><button class="btn danger" onclick="deleteBlock('${d.id}','${b.id}')">حذف</button>`:""}</div></div><div class="progress" style="margin-top:10px"><span style="width:${p}%"></span></div>${open?`<div class="checks">${CHECKS.map((c,i)=>`<label class="check"><input type="checkbox" ${b.checks[i]?"checked":""} onchange="toggleCheck('${d.id}','${b.id}',${i},this.checked)">${c}</label>`).join("")}</div><label class="note-label">ایرادات، اشکالات و نکات</label><textarea class="note" oninput="grow(this)" placeholder="ابهام‌ها، نکات دشوار و مواردی که باید دوباره بررسی شوند..." onchange="updateNote('${d.id}','${b.id}',this.value)">${esc(b.notes||"")}</textarea><div class="noterefs law-ui" id="nr-${b.id}">${window.LAWDB?LAWDB.noteRefs(b):""}</div>${window.LAWDB?LAWDB.textHtml(d,b):""}${refsHTML(d,b)}<div class="block-foot"><span class="muted small">وضعیت تسلط</span><select class="select-small" onchange="updateMastery('${d.id}','${b.id}',this.value)"><option value="نامشخص" ${b.mastery==="نامشخص"?"selected":""}>هنوز ارزیابی نشده</option><option value="ضعیف" ${b.mastery==="ضعیف"?"selected":""}>ضعیف — نیازمند مطالعه مجدد</option><option value="متوسط" ${b.mastery==="متوسط"?"selected":""}>متوسط — نیازمند مرور</option><option value="خوب" ${b.mastery==="خوب"?"selected":""}>خوب — مسلط</option></select></div>`:""}</div>`}
 function esc(s){return String(s??"").replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]))}
-function toggleCheck(did,bid,i,v){findBlock(did,bid).checks[i]=v;save()}
-function updateNote(did,bid,v){const b=findBlock(did,bid);b.notes=v;persist();const e=document.getElementById("nr-"+bid);if(e&&window.LAWDB)e.innerHTML=LAWDB.noteRefs(b)}
-function updateMastery(did,bid,v){findBlock(did,bid).mastery=v;save()}
-function findBlock(did,bid){return state.days.find(d=>d.id===did).blocks.find(b=>b.id===bid)}
+function toggleCheck(did,bid,i,v){const b=findBlock(did,bid);if(b){b.checks[i]=v;save()}}
+function updateNote(did,bid,v){const b=findBlock(did,bid);if(!b)return;b.notes=v;persist();const e=document.getElementById("nr-"+bid);if(e&&window.LAWDB)e.innerHTML=LAWDB.noteRefs(b)}
+function updateMastery(did,bid,v){const b=findBlock(did,bid);if(b){b.mastery=v;save()}}
+function findBlock(did,bid){
+ if(did===SUB_CID)return (state.subjectSections||[]).find(b=>b.id===bid);
+ const day=state.days.find(d=>d.id===did);
+ return (day&&day.blocks.find(b=>b.id===bid))||(state.subjectSections||[]).find(b=>b.id===bid);
+}
 function showModal(content){document.getElementById("modal").innerHTML=content;document.getElementById("modalBack").classList.add("show")}
 function closeModal(){document.getElementById("modalBack").classList.remove("show")}
 window.showModal=showModal;window.closeModal=closeModal;window.toast=toast;
@@ -2364,12 +2493,103 @@ function saveBlock(dayId,bid){let sid=document.getElementById("blockSubject").va
  if(L&&L.topics){items=[...document.querySelectorAll("input[name=tp]:checked")].map(c=>L.topics[+c.value]);spec=items.join("، ")}else{spec=document.getElementById("blockSpec").value.trim();items=expand(spec)}
  if(!items.length)return toast("حداقل یک شماره یا سرفصل وارد کن");let cn=L&&!L.topics?(+L.count||0):0;if(cn&&Math.max(...items.map(Number))>cn)return toast("شماره از تعداد کل منبع بیشتر است");
  let d=state.days.find(x=>x.id===dayId);if(bid)Object.assign(findBlock(dayId,bid),{subjectId:sid,law,spec,title,task,items});else d.blocks.push({id:uid(),subjectId:sid,law,spec,title,task,items,checks:Array(CHECKS.length).fill(false),notes:"",mastery:"نامشخص",refs:[],open:true});d.open=true;closeModal();save()}
-function editBlock(d,b){openBlockModal(d,b)}
-function deleteBlock(d,b){if(confirm("این واحد مطالعاتی حذف شود؟")){let day=state.days.find(x=>x.id===d);day.blocks=day.blocks.filter(x=>x.id!==b);save()}}
+function editBlock(d,b){
+ if(d===SUB_CID){const blk=(state.subjectSections||[]).find(x=>x.id===b);if(blk)openSubjectSectionModal(blk.subjectId,b);return;}
+ openBlockModal(d,b);
+}
+function deleteBlock(d,b){
+ if(!confirm("این واحد مطالعاتی حذف شود؟"))return;
+ if(d===SUB_CID){state.subjectSections=(state.subjectSections||[]).filter(x=>x.id!==b);save();return;}
+ let day=state.days.find(x=>x.id===d);day.blocks=day.blocks.filter(x=>x.id!==b);save();
+}
+function openSubjectSectionModal(prefillSubId="",bid=null){
+ const b=bid?(state.subjectSections||[]).find(x=>x.id===bid):null;
+ const curSubId=b?b.subjectId:(prefillSubId||state.subjects[0]?.id);
+ editBlk=b||{subjectId:curSubId,law:"",spec:"",title:"",task:"",items:[],sectionLabel:""};
+ const sub=state.subjects.find(s=>s.id===curSubId)||state.subjects[0];
+ const existingCount=(state.subjectSections||[]).filter(x=>x.subjectId===curSubId).length;
+ showModal(`<h2>${b?"ویرایش بخش درسی":"افزودن بخش جدید بر اساس درس"}</h2>
+ <div class="form-grid">
+  <div class="field"><label>درس</label><select id="blockSubject" onchange="refreshLawOptions()">${state.subjects.map(s=>`<option value="${s.id}" ${s.id===curSubId?"selected":""}>${esc(s.name)}</option>`).join("")}</select></div>
+  <div class="field"><label>قانون / منبع</label><select id="blockLaw" onchange="lawHint()">${(sub?.laws||[]).map(l=>`<option ${l.name===editBlk.law?"selected":""}>${esc(l.name)}</option>`).join("")}</select></div>
+  <div class="field"><label>برچسب بخش (مثلاً: بخش ۱)</label><input id="subSecLabel" value="${esc(editBlk.sectionLabel||("بخش "+fa(existingCount+1)))}"></div>
+  <div class="field"><label>عنوان مبحث (اختیاری)</label><input id="blockTitle" value="${esc(editBlk.title||"")}" placeholder="مثلاً: قواعد عمومی قراردادها"></div>
+  <div class="field" style="grid-column:1/-1"><label>تکلیف مطالعاتی (اختیاری)</label><input id="blockTask" value="${esc(editBlk.task||"")}" placeholder="مثلاً: مطالعه نص + ۲۰ تست"></div>
+  <div class="field" style="grid-column:1/-1" id="specBox"></div>
+  <div class="muted small" id="lawHint" style="grid-column:1/-1"></div>
+ </div>
+ <div class="modal-actions"><button class="btn" onclick="closeModal()">انصراف</button><button class="btn primary" onclick="saveSubjectSection('${bid||""}')">ذخیره بخش</button></div>`);
+ lawHint();
+}
+function saveSubjectSection(bid){
+ const sid=document.getElementById("blockSubject").value;
+ const law=document.getElementById("blockLaw").value;
+ const sectionLabel=document.getElementById("subSecLabel").value.trim()||"بخش";
+ const title=document.getElementById("blockTitle").value.trim();
+ const task=document.getElementById("blockTask").value.trim();
+ if(!sid||!law)return toast("درس و منبع را انتخاب کن");
+ const L=lawObj(sid,law);let items,spec;
+ if(L&&L.topics){items=[...document.querySelectorAll("input[name=tp]:checked")].map(c=>L.topics[+c.value]);spec=items.join("، ");}
+ else{spec=document.getElementById("blockSpec").value.trim();items=expand(spec);}
+ if(!items.length)return toast("حداقل یک شماره ماده یا سرفصل وارد کن");
+ const cn=L&&!L.topics?(+L.count||0):0;
+ if(cn&&Math.max(...items.map(Number))>cn)return toast("شماره از تعداد کل منبع بیشتر است");
+ state.subjectSections=state.subjectSections||[];
+ if(bid){
+  const target=state.subjectSections.find(x=>x.id===bid);
+  if(target)Object.assign(target,{subjectId:sid,law,sectionLabel,spec,title,task,items});
+ }else{
+  const order=(state.subjectSections.filter(x=>x.subjectId===sid).length)+1;
+  state.subjectSections.push({id:uid(),subjectId:sid,law,sectionLabel,order,spec,title,task,items,checks:Array(CHECKS.length).fill(false),notes:"",mastery:"نامشخص",refs:[],open:true});
+ }
+ subjGroupOpen[sid]=true;
+ closeModal();save();showView("subjectPlan");
+}
+function openSubjectGenerator(prefillSubId=""){
+ const curSubId=prefillSubId||state.subjects[0]?.id;
+ const curSub=state.subjects.find(s=>s.id===curSubId)||state.subjects[0];
+ setTimeout(()=>{genFill();},0);
+ showModal(`<h2>📚 بخش‌بندی خودکار بر اساس درس</h2>
+ <p class="muted small">یک درس و قانون انتخاب کنید (مثلاً حقوق مدنی · مواد ۱ تا ۵۰۰ · ۵۰ ماده در هر بخش) تا برنامه درس به درس و بخش‌بخش ساخته شود و تمام امکانات روزهای مطالعاتی را داشته باشد.</p>
+ <div class="form-grid">
+  <div class="field"><label>درس</label><select id="genSubject" onchange="refreshGenLaws()">${state.subjects.map(s=>`<option value="${s.id}" ${s.id===curSubId?"selected":""}>${esc(s.name)}</option>`).join("")}</select></div>
+  <div class="field"><label>قانون / منبع</label><select id="genLaw" onchange="genFill()">${(curSub?.laws||[]).map(l=>`<option>${esc(l.name)}</option>`).join("")}</select></div>
+  <div class="field"><label>از ماده / شماره</label><input id="genFrom" type="number" min="1" value="1"></div>
+  <div class="field"><label>تا ماده / شماره</label><input id="genTo" type="number" min="1" value="100"></div>
+  <div class="field"><label>تعداد در هر بخش</label><input id="genChunk" type="number" min="1" value="25"></div>
+  <div class="field"><label>شروع شماره‌گذاری از بخش</label><input id="genStart" type="number" min="1" value="${(state.subjectSections||[]).filter(x=>x.subjectId===curSubId).length+1}"></div>
+  <div class="field" style="grid-column:1/-1"><label>تکلیف پیش‌فرض بخش‌ها (اختیاری)</label><input id="genTask" placeholder="مثلاً: مطالعه نص + نکات و تست مبحث"></div>
+ </div>
+ <div class="modal-actions"><button class="btn" onclick="closeModal()">انصراف</button><button class="btn primary" onclick="generateSubjectSections()">تولید بخش‌های درس</button></div>`);
+}
+function generateSubjectSections(){
+ const g=id=>document.getElementById(id).value;
+ const sid=g("genSubject"),law=g("genLaw"),from=+g("genFrom"),to=+g("genTo"),chunk=+g("genChunk"),start=+g("genStart"),task=(document.getElementById("genTask")?.value||"").trim();
+ if(from<1||to<from||chunk<1||start<1)return toast("مقادیر واردشده معتبر نیستند");
+ const L=lawObj(sid,law),cn=lawCount(sid,law);
+ if(cn&&to>cn)return toast("شماره از تعداد کل منبع بیشتر است");
+ const list=L&&L.topics?L.topics.slice(from-1,to):null,total=list?list.length:to-from+1,count=Math.ceil(total/chunk);
+ state.subjectSections=state.subjectSections||[];
+ for(let i=0;i<count;i++){
+  let items,spec;
+  if(list){items=list.slice(i*chunk,(i+1)*chunk);spec=items.join("، ");}
+  else{let a=from+i*chunk,z=Math.min(to,a+chunk-1);spec=a===z?String(a):a+"-"+z;items=expand(spec);}
+  const secNum=start+i;
+  state.subjectSections.push({id:uid(),subjectId:sid,law,sectionLabel:"بخش "+fa(secNum),order:secNum,spec,title:"",task,items,checks:Array(CHECKS.length).fill(false),notes:"",mastery:"نامشخص",refs:[],open:false});
+ }
+ subjGroupOpen[sid]=true;
+ activeSubjectPlanFilter=sid;
+ closeModal();save();showView("subjectPlan");toast(fa(count)+" بخش درسی ساخته شد");
+}
+window.openSubjectGenerator=openSubjectGenerator;
+window.openSubjectSectionModal=openSubjectSectionModal;
+window.setSubjectPlanFilter=setSubjectPlanFilter;
+window.toggleSubjectGroup=toggleSubjectGroup;
+window.setAllSubjectSections=setAllSubjectSections;
 function openSubjectModal(id=null){let s=id?state.subjects.find(x=>x.id===id):{name:"",laws:[]};showModal(`<h2>${id?"ویرایش درس و قوانین":"افزودن درس جدید"}</h2><div class="field"><label>عنوان درس</label><input id="subjectName" value="${esc(s.name)}" placeholder="مثلاً حقوق مدنی"></div><div class="field" style="margin-top:12px"><label>منابع — هر مورد در یک خط:<br>با تعداد ماده: قانون مدنی | 1335<br>با واحد دیگر: آرای وحدت رویه | | رای (تعداد اختیاری)<br>با سرفصل: اصول فقه: امر، نهی، عام و خاص</label><textarea id="subjectLaws" rows="5" placeholder="قانون مدنی | 1335">${esc(s.laws.map(lawLine).join("\n"))}</textarea></div><div class="modal-actions"><button class="btn" onclick="closeModal()">انصراف</button><button class="btn primary" onclick="saveSubject('${id||""}')">ذخیره</button></div>`)}
 function editSubject(id){openSubjectModal(id)}
-function deleteSubject(id){let s=state.subjects.find(x=>x.id===id),n=allBlocks().filter(b=>b.subjectId===id).length;showModal(`<h2>حذف درس «${esc(s.name)}»</h2><p>${n?`این درس در ${fa(n)} واحد مطالعاتی استفاده شده و آن واحدها هم از برنامه‌ی روزانه حذف می‌شوند.`:"این درس در هیچ روزی استفاده نشده است."} مطمئنی؟</p><div class="modal-actions"><button class="btn" onclick="closeModal()">انصراف</button><button class="btn danger" onclick="confirmDeleteSubject('${id}')">بله، حذف شود</button></div>`)}
-function confirmDeleteSubject(id){state.subjects=state.subjects.filter(x=>x.id!==id);state.days.forEach(d=>d.blocks=d.blocks.filter(b=>b.subjectId!==id));closeModal();save()}
+function deleteSubject(id){let s=state.subjects.find(x=>x.id===id),n=allBlocks().filter(b=>b.subjectId===id).length;showModal(`<h2>حذف درس «${esc(s.name)}»</h2><p>${n?`این درس در ${fa(n)} واحد مطالعاتی استفاده شده و آن واحدها هم از برنامه حذف می‌شوند.`:"این درس در هیچ برنامه‌ای استفاده نشده است."} مطمئنی؟</p><div class="modal-actions"><button class="btn" onclick="closeModal()">انصراف</button><button class="btn danger" onclick="confirmDeleteSubject('${id}')">بله، حذف شود</button></div>`)}
+function confirmDeleteSubject(id){state.subjects=state.subjects.filter(x=>x.id!==id);state.days.forEach(d=>d.blocks=d.blocks.filter(b=>b.subjectId!==id));state.subjectSections=(state.subjectSections||[]).filter(b=>b.subjectId!==id);closeModal();save()}
 function saveSubject(id){let name=document.getElementById("subjectName").value.trim(),laws=document.getElementById("subjectLaws").value.split("\n").map(x=>x.trim()).filter(Boolean).map(parseLaw).map(l=>keepLink(id,l));if(!name)return toast("نام درس را وارد کن");if(id)Object.assign(state.subjects.find(x=>x.id===id),{name,laws});else state.subjects.push({id:uid(),name,laws});closeModal();save()}
 function openGenerator(){setTimeout(genFill,0);showModal(`<h2>ساخت خودکار روزهای مطالعاتی</h2><p class="muted small">یک درس و قانون انتخاب کن؛ بازه مواد به قطعه‌های مساوی تقسیم می‌شود و برای هر قطعه یک روز جدا ساخته می‌شود.</p><div class="form-grid"><div class="field"><label>درس</label><select id="genSubject" onchange="refreshGenLaws()">${state.subjects.map(s=>`<option value="${s.id}">${esc(s.name)}</option>`).join("")}</select></div><div class="field"><label>قانون / منبع</label><select id="genLaw" onchange="genFill()">${(state.subjects[0]?.laws||[]).map(l=>`<option>${esc(l.name)}</option>`).join("")}</select></div><div class="field"><label>از شماره</label><input id="genFrom" type="number" min="1" value="1"></div><div class="field"><label>تا شماره</label><input id="genTo" type="number" min="1" value="100"></div><div class="field"><label>تعداد در هر روز</label><input id="genChunk" type="number" min="1" value="10"></div><div class="field"><label>شروع از روز شماره</label><input id="genStart" type="number" min="1" value="${state.days.length?Math.max(...state.days.map(d=>d.number))+1:1}"></div></div><div class="modal-actions"><button class="btn" onclick="closeModal()">انصراف</button><button class="btn primary" onclick="generateDays()">تولید روزها</button></div>`)}
 function refreshGenLaws(){setTimeout(genFill,0);let s=state.subjects.find(x=>x.id===document.getElementById("genSubject").value);document.getElementById("genLaw").innerHTML=(s?.laws||[]).map(l=>`<option>${esc(l.name)}</option>`).join("");}
@@ -2380,10 +2600,11 @@ function generateDays(){let g=id=>document.getElementById(id).value,sid=g("genSu
 function copyFrom(id){let t=document.getElementById(id);t.select();try{navigator.clipboard.writeText(t.value);toast("کپی شد")}catch(e){try{document.execCommand("copy");toast("کپی شد")}catch(x){toast("متن را دستی کپی کن")}}}
 function showView(v){
   document.querySelectorAll(".nav button").forEach(x=>x.classList.toggle("active",x.dataset.view===v));
-  ["dashboard","days","subjects","progress"].forEach(n=>{
+  ["dashboard","days","subjectPlan","subjects","progress"].forEach(n=>{
     const el=document.getElementById(n+"View");
     if(el) el.classList.toggle("hidden",n!==v);
   });
+  if(v==="subjectPlan") renderSubjectPlanView();
   if(v==="progress" && window.renderStudentProgressView) window.renderStudentProgressView();
 }
 window.BARAAT_PLANNER_API={
@@ -2678,6 +2899,13 @@ async function applyAdminAssignedPlans(currentState){
           });
         });
         next.days.sort((a, b) => a.number - b.number);
+        next.subjectSections = next.subjectSections || [];
+        (inc.subjectSections || []).forEach(b => {
+          const mappedSid = subIdMap[b.subjectId] || b.subjectId;
+          if (!next.subjectSections.some(eb => eb.subjectId === mappedSid && eb.spec === b.spec && eb.law === b.law && eb.sectionLabel === b.sectionLabel)) {
+            next.subjectSections.push(Object.assign({}, b, { id: uid(), subjectId: mappedSid, checks: Array(CHECKS.length).fill(false) }));
+          }
+        });
       }
     } else if (entry.planKind === "lib" && Array.isArray(entry.libIds)) {
       entry.libIds.forEach(lid => {
@@ -2691,6 +2919,43 @@ async function applyAdminAssignedPlans(currentState){
         lawName: entry.lawName,
         dbLaw: entry.dbLaw
       });
+    } else if (entry.planKind === "subjectSplit") {
+      const subName = (entry.subjectName || "درس اختصاصی").trim();
+      const lawName = (entry.lawName || entry.dbLaw || subName).trim();
+      let sub = next.subjects.find(x => x.name === subName);
+      if (!sub) { sub = { id: uid(), name: subName, laws: [] }; next.subjects.push(sub); }
+      let L = sub.laws.find(x => x.name === lawName && !x.topics);
+      if (!L) { L = { name: lawName, count: Number(entry.toNum) || 0, unit: "ماده" }; sub.laws.push(L); }
+      if (entry.dbLaw && !L.db) L.db = entry.dbLaw;
+      const from = Math.max(1, Number(entry.fromNum) || 1);
+      const to = Math.max(from, Number(entry.toNum) || from);
+      const chunk = Math.max(1, Number(entry.chunkSize) || 25);
+      const count = Math.ceil((to - from + 1) / chunk);
+      next.subjectSections = next.subjectSections || [];
+      const baseOrder = next.subjectSections.filter(x => x.subjectId === sub.id).length;
+      for (let i = 0; i < count; i++) {
+        const a = from + i * chunk;
+        const z = Math.min(to, a + chunk - 1);
+        const spec = a === z ? String(a) : a + "-" + z;
+        const items = expand(spec);
+        const secNum = baseOrder + i + 1;
+        next.subjectSections.push({
+          id: uid(),
+          subjectId: sub.id,
+          law: lawName,
+          sectionLabel: "بخش " + fa(secNum),
+          order: secNum,
+          spec,
+          title: entry.sectionTitlePrefix ? entry.sectionTitlePrefix + " " + fa(i + 1) : "",
+          task: entry.taskText || "",
+          items,
+          checks: Array(CHECKS.length).fill(false),
+          notes: "",
+          mastery: "نامشخص",
+          refs: [],
+          open: false
+        });
+      }
     }
     next._lastAssignedAt = entry.updatedAt;
     next._lastAssignedNote = entry.note || "";
@@ -2731,9 +2996,10 @@ async function loadPlanner(){
   updateAuthUI();
   if(window.renderCases) window.renderCases();
   if(window.renderStudentProgressView) window.renderStudentProgressView();
+  if(window.renderExamsHub) window.renderExamsHub();
 }
 function buildProgressSnapshot(s){
-  const bs=(s.days||[]).flatMap(d=>d.blocks||[]);
+  const bs=[...(s.days||[]).flatMap(d=>d.blocks||[]),...(s.subjectSections||[])];
   const totChecks=bs.length*CHECKS.length;
   const doneChecks=bs.reduce((a,b)=>a+(b.checks||[]).filter(Boolean).length,0);
   const doneBlocks=bs.filter(b=>percent(b)===100).length;
@@ -2747,6 +3013,7 @@ function buildProgressSnapshot(s){
   }).filter(Boolean);
   return {
     days:(s.days||[]).length,
+    subjectSections:(s.subjectSections||[]).length,
     blocks:bs.length,
     doneBlocks,
     pct,
@@ -3175,6 +3442,7 @@ $('out').addEventListener('click',e=>{
 
 function fill(o){const sv=o.sections.map(x=>x.v).join(' ');o.norm=norm([o.text,o.path.join(' '),sv].join(' '));o.tn=norm(o.text+' '+sv);o.pn=norm(o.path.join(' ')+' '+o.sections.filter(x=>/عنوان|موضوع/.test(x.h)).map(x=>x.v).join(' '));}
 function loadXLSX(){return XP||(XP=new Promise((res,rej)=>{const t=document.createElement('script');t.src='https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js';t.onload=res;t.onerror=rej;document.head.appendChild(t);}));}
+window.loadXLSX=loadXLSX;
 
 /* =====================================================================
    بخش قوانین: بارگذاری از Supabase (با حافظه‌ی نهان)، مدیریت، و اتصال به برنامه‌ی مطالعاتی
@@ -3276,10 +3544,13 @@ function noteRefs(b){const t=b.notes||'';if(!t.trim()||!DB.length)return '';cons
   const lk=linkOf(b.subjectId,b.law),cur=lk?lk.db:null;
   const btns=refs.flatMap(r=>{const info=resolveLaws(t.slice(r.end,r.end+90),cur);return r.units.map(u=>relBtn(u,info));});
   return `<div class="small muted">مواد اشاره‌شده در نکته (برای دیدن متن کلیک کن):</div><div class="refrow">${btns.join(' ')}</div>`;}
-function planChips(o){const hits=[];
-  state.days.forEach(d=>d.blocks.forEach(b=>{if(!b.items||!b.items.includes(o.num))return;const m=linkOf(b.subjectId,b.law);if(!m||m.db!==o.law||!inRange(m,o.num))return;hits.push([d,b]);}));
+function planChips(o){
+  const hits=[];
+  state.days.forEach(d=>d.blocks.forEach(b=>{if(!b.items||!b.items.includes(o.num))return;const m=linkOf(b.subjectId,b.law);if(!m||m.db!==o.law||!inRange(m,o.num))return;hits.push({type:'day',d,b});}));
+  (state.subjectSections||[]).forEach(b=>{if(!b.items||!b.items.includes(o.num))return;const m=linkOf(b.subjectId,b.law);if(!m||m.db!==o.law||!inRange(m,o.num))return;hits.push({type:'sec',b});});
   if(!hits.length)return '';
-  return '<div class="plan-chips"><span class="path">📅 در برنامه:</span> '+hits.slice(0,8).map(([d,b])=>`<button type="button" class="pchip" data-goday="${d.id}" data-gob="${b.id}">روز ${fa(d.number)}</button>`).join('')+(hits.length>8?` <small>(+${fa(hits.length-8)})</small>`:'')+'</div>';}
+  return '<div class="plan-chips"><span class="path">📅 در برنامه:</span> '+hits.slice(0,8).map(h=>h.type==='day'?`<button type="button" class="pchip" data-goday="${h.d.id}" data-gob="${h.b.id}">روز ${fa(h.d.number)}</button>`:`<button type="button" class="pchip" data-gosubsec="${h.b.id}">${esc(h.b.sectionLabel||'بخش درسی')}</button>`).join('')+(hits.length>8?` <small>(+${fa(hits.length-8)})</small>`:'')+'</div>';
+}
 const mkKey=o=>o.law+'|'+o.numText;
 const MK=()=>state.marks||(state.marks={});
 const isMarked=o=>!!(me&&MK()[mkKey(o)]);
@@ -3294,6 +3565,12 @@ function renderMarks(){const law=$('lawSel').value;CUR.re=null;$('pathchip').inn
 function goDay(did,bid){const d=state.days.find(x=>x.id===did);if(!d)return;d.open=true;const b=d.blocks.find(x=>x.id===bid);if(b)b.open=true;persist();
   window.go('planner');window.showView('days');render();
   setTimeout(()=>{const e=document.getElementById('day-'+did);if(e)e.scrollIntoView({behavior:'smooth',block:'start'});},60);}
+function goSubSec(bid){
+  const b=(state.subjectSections||[]).find(x=>x.id===bid);if(!b)return;
+  b.open=true;subjGroupOpen[b.subjectId]=true;activeSubjectPlanFilter='all';persist();
+  window.go('planner');window.showView('subjectPlan');render();
+  setTimeout(()=>{const e=document.getElementById('blk-'+bid);if(e)e.scrollIntoView({behavior:'smooth',block:'start'});},60);
+}
 window.LAWDB={
   init:async()=>{await loadDB();refreshMeta();renderSearch();},
   names:()=>LAWS.map(l=>l.name),textHtml,noteRefs,autoLink,admRefresh,
@@ -3306,6 +3583,7 @@ window.LAWDB={
 /* رویدادها */
 $('out').addEventListener('click',e=>{
   const g=e.target.closest('[data-goday]');if(g){goDay(g.dataset.goday,g.dataset.gob);return;}
+  const gs=e.target.closest('[data-gosubsec]');if(gs){goSubSec(gs.dataset.gosubsec);return;}
   const mk=e.target.closest('.mk');if(mk){const card=mk.closest('.res'),i=+mk.dataset.i;if(!toggleMark(DB[i]))return;
     if(mode==='marks')renderMarks();else card.outerHTML=cardHtml(i,card.dataset.g==='1');return;}
   const ed=e.target.closest('.aedit');if(ed&&ADMIN){const i=+ed.dataset.i,o=DB[i];
@@ -3366,6 +3644,6 @@ if ('serviceWorker' in navigator) {
   });
 }
 </script>
-<script src="./baraat_engine.js?v=20261113_2"></script>
+<script src="./baraat_engine.js?v=20261114_2"></script>
 </body>
 </html>
