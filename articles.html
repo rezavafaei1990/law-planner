@@ -1,0 +1,79 @@
+<!doctype html>
+<html lang="fa" dir="rtl">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="theme-color" content="#faf9f6">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<title>نشریه و مقالات حقوقی برائت</title>
+<meta name="description" content="نشریه تحلیلی، مقالات پژوهشی و نقد آرای قضایی گروه حقوقی برائت">
+<link rel="manifest" href="./manifest.json">
+<link rel="apple-touch-icon" href="./icons/apple-touch-icon.png">
+<link rel="icon" type="image/svg+xml" href="./icons/icon.svg">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="preconnect" href="https://cdn.jsdelivr.net" crossorigin>
+<link rel="preconnect" href="https://xfmdpeeuzhuvqwoalfea.supabase.co" crossorigin>
+<script>
+(function(){try{var t=localStorage.getItem('baraat_theme_v1');if(t==='dark'){document.documentElement.dataset.theme='dark';var m=document.querySelector('meta[name="theme-color"]');if(m)m.setAttribute('content','#0f141d');}}catch(e){}})();
+</script>
+<link href="https://fonts.googleapis.com/css2?family=Vazirmatn:wght@400;500;700;800&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="/src/articles.css">
+</head>
+<body>
+<div class="reading-progress-track hidden" id="readingProgressTrack" aria-hidden="true">
+  <div class="reading-progress-fill" id="readingProgressFill"></div>
+</div>
+
+<header class="ed-topbar">
+  <div class="ed-topbar-inner">
+    <button type="button" class="ed-brand-link" id="edBrandHomeBtn" title="نمای نخست نشریه">
+      <span class="ed-brand-mark" aria-hidden="true">⚖</span>
+      <span>نشریه حقوقی برائت</span>
+    </button>
+
+    <nav class="ed-nav-links" id="edCatNav" aria-label="دپارتمان‌های نشریه">
+      <button type="button" class="ed-nav-btn active" data-cat="all">همه مقالات</button>
+      <button type="button" class="ed-nav-btn" data-cat="حقوق مدنی">حقوق مدنی</button>
+      <button type="button" class="ed-nav-btn" data-cat="حقوق تجارت">تجارت</button>
+      <button type="button" class="ed-nav-btn" data-cat="آیین دادرسی مدنی">آیین دادرسی</button>
+      <button type="button" class="ed-nav-btn" data-cat="رویه قضایی و دیوان عالی">رویه قضایی</button>
+    </nav>
+
+    <div class="ed-topbar-actions">
+      <button type="button" class="ed-btn icon-btn" id="edThemeBtn" title="تغییر تم روز و شب" aria-label="تغییر تم">🌙</button>
+      <button type="button" class="ed-btn hidden" id="edAdminNewBtn">✍️ نگارش مقاله</button>
+      <a class="ed-btn primary" href="./index.html#search">بازگشت به سامانه</a>
+    </div>
+  </div>
+</header>
+
+<main class="ed-container">
+  <section id="edCatalogView">
+    <div class="ed-masthead">
+      <div>
+        <div class="ed-kicker">فصلنامه تخصصی پژوهش و دکترین حقوقی</div>
+        <h1 class="ed-title">مقالات، تحلیل‌ها و نقد آرای قضایی</h1>
+        <p class="ed-subtitle">مجموعه یادداشت‌های تحلیلی و پژوهش‌های کاربردی گروه حقوقی برائت در حوزه حقوق خصوصی، کیفری و رویه دیوان عالی کشور.</p>
+      </div>
+      <div class="ed-search-wrap">
+        <input id="edSearchInput" class="ed-input" type="search" placeholder="جستجو در عنوان، نویسنده یا کلیدواژه...">
+      </div>
+    </div>
+
+    <div id="edLeadSlot"></div>
+    <div id="edGridSlot" class="ed-grid"></div>
+  </section>
+
+  <section id="edReaderView" class="ed-reader-shell hidden"></section>
+</main>
+
+<div class="ed-modal-back" id="edModalBack">
+  <div class="ed-modal" id="edModal"></div>
+</div>
+<div class="ed-toast" id="edToast"></div>
+
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.110.9/dist/umd/supabase.js"></script>
+<script type="module" src="/src/articles_page.js"></script>
+</body>
+</html>
