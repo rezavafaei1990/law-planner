@@ -247,7 +247,10 @@
 
   window.saveArticle = async function(art) {
     if (!window.isAdmin) { if (typeof toast === "function") toast("خطای دسترسی: نگارش مقاله فقط برای مدیر سامانه مجاز است."); return; }
-    const list = window.getArticles();
+    let list = window.getArticles();
+    if (art.featured) {
+      list = list.map(a => Object.assign({}, a, { featured: a.id === art.id }));
+    }
     const idx = list.findIndex(a => a.id === art.id);
     if (idx >= 0) list[idx] = art;
     else list.unshift(art);
@@ -347,15 +350,16 @@
 
   window.openArticleEditor = function(id) {
     if (!window.isAdmin) { if (typeof toast === "function") toast("خطای دسترسی: نگارش مقاله فقط برای مدیر سامانه مجاز است."); return; }
-    let art = { id: 'art_' + Date.now(), title: '', category: 'حقوق مدنی', author: '', abstract: '', content: '', tags: [] };
+    let art = { id: 'art_' + Date.now(), title: '', category: 'حقوق مدنی', author: '', abstract: '', content: '', tags: [], coverImage: '', coverCaption: '', featured: false };
     if (id) {
       const found = window.getArticles().find(a => a.id === id);
-      if (found) art = found;
+      if (found) art = Object.assign({}, art, found);
     }
 
     const m = document.getElementById('modal');
     if (!m) return;
 
+    window.__tmpArticleCover = art.coverImage || '';
     m.innerHTML = `
       <h2>${id ? 'ویرایش مقاله حقوقی' : 'نگارش و انتشار مقاله جدید'}</h2>
       <div class="form-grid">
@@ -380,6 +384,29 @@
           <label>نام نویسنده / پژوهشگر</label>
           <input id="edArtAuthor" value="${esc(art.author || '')}" placeholder="دکتر ... / وکیل دادگستری">
         </div>
+        <div class="field" style="grid-column: 1 / -1;">
+          <label>تصویر شاخص / کاور مقاله در صفحه مجله (آپلود یا لینک)</label>
+          <div class="baraat-photo-upload-box">
+            <img id="edArtCoverPreview" class="baraat-photo-preview" src="${esc(window.__tmpArticleCover)}" style="${window.__tmpArticleCover ? '' : 'display:none;'}">
+            <div style="flex:1; display:grid; gap:6px;">
+              <div class="row" style="gap:6px; flex-wrap:wrap;">
+                <input type="file" id="edArtCoverFile" accept="image/*" style="font-size:12px; flex:1;">
+                <button type="button" class="btn small danger" id="edArtCoverClearBtn">حذف تصویر</button>
+              </div>
+              <input id="edArtCoverUrl" dir="ltr" value="${esc(window.__tmpArticleCover)}" placeholder="یا آدرس اینترنتی تصویر کاور را وارد کنید (اختیاری)">
+            </div>
+          </div>
+        </div>
+        <div class="field">
+          <label>زیرنویس تصویر کاور (اختیاری)</label>
+          <input id="edArtCoverCap" value="${esc(art.coverCaption || '')}" placeholder="توضیح کوتاه زیر تصویر">
+        </div>
+        <div class="field" style="justify-content:flex-end;">
+          <label class="check" style="cursor:pointer; width:auto; border:0; padding:4px 0; background:transparent;">
+            <input type="checkbox" id="edArtFeatured" ${art.featured ? 'checked' : ''}>
+            <span>نمایش به عنوان پژوهش برگزیده صفحه مقالات</span>
+          </label>
+        </div>
       </div>
       <div class="field" style="margin-top:12px;">
         <label>چکیده و مقدمه مقاله</label>
@@ -398,6 +425,42 @@
         <button class="btn primary" onclick="submitArticle('${art.id}')">ذخیره و انتشار مقاله</button>
       </div>
     `;
+    const fileEl = document.getElementById('edArtCoverFile');
+    const urlEl = document.getElementById('edArtCoverUrl');
+    const prevEl = document.getElementById('edArtCoverPreview');
+    const clearBtn = document.getElementById('edArtCoverClearBtn');
+    if (fileEl) {
+      fileEl.onchange = async (e) => {
+        const f = e.target.files && e.target.files[0];
+        if (!f) return;
+        try {
+          const dataUrl = await compressImageFileToDataUrl(f, 1100, 0.8);
+          window.__tmpArticleCover = dataUrl;
+          if (urlEl) urlEl.value = dataUrl;
+          if (prevEl) { prevEl.src = dataUrl; prevEl.style.display = 'block'; }
+          if (typeof toast === 'function') toast('تصویر کاور آماده انتشار شد.');
+        } catch (err) {
+          if (typeof toast === 'function') toast('خواندن تصویر ناموفق بود');
+        }
+      };
+    }
+    if (urlEl) {
+      urlEl.oninput = () => {
+        window.__tmpArticleCover = urlEl.value.trim();
+        if (prevEl) {
+          if (window.__tmpArticleCover) { prevEl.src = window.__tmpArticleCover; prevEl.style.display = 'block'; }
+          else prevEl.style.display = 'none';
+        }
+      };
+    }
+    if (clearBtn) {
+      clearBtn.onclick = () => {
+        window.__tmpArticleCover = '';
+        if (urlEl) urlEl.value = '';
+        if (fileEl) fileEl.value = '';
+        if (prevEl) prevEl.style.display = 'none';
+      };
+    }
     document.getElementById('modalBack').classList.add('show');
   };
 
@@ -405,11 +468,15 @@
     const title = (document.getElementById('edArtTitle')?.value || '').trim();
     if (!title) return alert('لطفاً عنوان مقاله را وارد کنید.');
 
+    const existing = window.getArticles().find(a => a.id === id);
     const category = document.getElementById('edArtCat')?.value || 'حقوق مدنی';
     const author = (document.getElementById('edArtAuthor')?.value || '').trim();
     const abstract = (document.getElementById('edArtAbstract')?.value || '').trim();
     const content = (document.getElementById('edArtContent')?.value || '').trim();
-    const rawTags = (document.getElementById('edArtTags')?.value || '').split(/[,،،-]/).map(t => t.trim()).filter(Boolean);
+    const coverImage = (document.getElementById('edArtCoverUrl')?.value || window.__tmpArticleCover || '').trim();
+    const coverCaption = (document.getElementById('edArtCoverCap')?.value || '').trim();
+    const featured = !!document.getElementById('edArtFeatured')?.checked;
+    const rawTags = (document.getElementById('edArtTags')?.value || '').split(/[,،؛-]/).map(t => t.trim()).filter(Boolean);
 
     window.saveArticle({
       id,
@@ -418,8 +485,11 @@
       author,
       abstract,
       content,
+      coverImage,
+      coverCaption,
+      featured,
       tags: rawTags,
-      date: new Date().toLocaleDateString('fa-IR')
+      date: existing && existing.date ? existing.date : new Date().toLocaleDateString('fa-IR')
     });
     closeModal();
   };
@@ -6047,6 +6117,11 @@
     const t = String(tab || 'search').replace(/^#/, '');
     if (t === 'admin' && !window.isAdmin) {
       return window.go('search');
+    }
+
+    if (t === 'articles') {
+      window.location.href = './articles.html';
+      return;
     }
 
     let topHub = 'search';

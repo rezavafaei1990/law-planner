@@ -3,11 +3,12 @@
 // قابلیت کارکرد کامل آفلاین + دریافت همیشگی نسخه جدید کدها هنگام آنلاین بودن
 // =====================================================================
 
-const CACHE_NAME = 'baraat-cache-v17';
+const CACHE_NAME = 'baraat-cache-v18';
 
 const ASSETS_TO_CACHE = [
   './',
   './index.html',
+  './articles.html',
   './manifest.json',
   './baraat_engine.js',
   './images/baraat-law-hero.jpg',
