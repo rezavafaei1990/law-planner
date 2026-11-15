@@ -258,6 +258,7 @@ body{margin:0;background:var(--bg);color:var(--text);font-family:'Vazirmatn',-ap
      <div class="stat"><div class="label">مراحل انجام‌شده</div><strong id="statChecks">۰٪</strong><small id="statLeft">از کل چک‌لیست‌ها</small></div>
      <div class="stat"><div class="label">واحدهای تکمیل‌شده</div><strong id="statDone">۰</strong><small>تمام مراحل هر واحد</small></div>
     </div>
+    <div class="panel subj-overview-panel" id="subjectsOverviewPanel"></div>
     <div class="panel"><div class="panel-head"><h2>پیشرفت کلی برنامه</h2><span class="muted small" id="overallText">۰٪</span></div><div class="progress"><span id="overallBar" style="width:0%"></span></div></div>
     <div class="panel"><div class="panel-head"><h2>پیشرفت هر درس (بر اساس تعداد مواد)</h2></div><div id="subjProg" class="subject-grid"></div></div>
     <div class="panel"><div class="panel-head"><h2>ادامه برنامه بر اساس روز</h2><button class="btn primary" onclick="openDayModal()">＋ روز جدید</button></div><div id="dashboardDays" class="day-list"></div></div>
@@ -1049,7 +1050,152 @@ function renderSubjectPlanView(){
    ${isOpen?`<div style="margin-top:10px">${sBlocks.map(b=>blockHTML({id:SUB_CID,isSubjectSection:true},b)).join("")}</div>`:""}
   </article>`;
  }).join("");
+ growAll();
 }
+let overviewFilter="all";
+function setOverviewFilter(f){overviewFilter=f||"all";renderSubjectsOverviewWidget();}
+function openSubjectFromOverview(sid){
+  const hasSec=(state.subjectSections||[]).some(b=>b.subjectId===sid);
+  if(hasSec){
+    activeSubjectPlanFilter=sid;
+    subjGroupOpen[sid]=true;
+    showView("subjectPlan");
+    renderSubjectPlanView();
+    return;
+  }
+  const dayWithSub=(state.days||[]).find(d=>(d.blocks||[]).some(b=>b.subjectId===sid));
+  if(dayWithSub){
+    dayWithSub.open=true;
+    showView("days");
+    render();
+    setTimeout(()=>{const el=document.getElementById("day-"+dayWithSub.id);if(el)el.scrollIntoView({behavior:"smooth",block:"start"});},60);
+    return;
+  }
+  showView("subjects");
+}
+function collectAllSubjectStats(){
+  const blocks=allBlocks();
+  return (state.subjects||[]).map(s=>{
+    const rows=(s.laws||[]).map(l=>({l,r:readOf(b=>b.subjectId===s.id&&b.law===l.name)}));
+    let tot=0,read=0;
+    rows.forEach(x=>{const c=x.l.topics?x.l.topics.length:(+x.l.count||0);if(c){tot+=c;read+=Math.min(c,x.r);}});
+    const bs=blocks.filter(b=>b.subjectId===s.id);
+    const t=bs.length*CHECKS.length;
+    const c2=bs.reduce((a,b)=>a+(b.checks||[]).filter(Boolean).length,0);
+    const doneBlocks=bs.filter(b=>percent(b)===100).length;
+    const checklistPct=t?Math.round(c2/t*100):0;
+    const pct=tot?Math.round(read/tot*100):checklistPct;
+    const tier=pct>=100?"done":(pct>=35?"mid":(pct>0?"low":"zero"));
+    const tierLabel=pct>=100?"تکمیل‌شده":(pct>0?"در حال مطالعه":(bs.length?"برنامه‌دار · ۰٪":"شروع‌نشده"));
+    return {
+      id:s.id,
+      name:s.name,
+      lawsCount:(s.laws||[]).length,
+      totalItems:tot,
+      readItems:read,
+      blocksCount:bs.length,
+      doneBlocks,
+      checklistPct,
+      pct,
+      tier,
+      tierLabel
+    };
+  });
+}
+function renderSubjectsOverviewWidget(){
+  const panel=document.getElementById("subjectsOverviewPanel");
+  if(!panel)return;
+  const rows=collectAllSubjectStats();
+  if(!rows.length){
+    panel.innerHTML=`<div class="panel-head"><h2>📊 خلاصه پیشرفت تمام دروس در یک نگاه</h2><button class="btn primary" onclick="openSubjectModal()">＋ افزودن درس</button></div><div class="empty">هنوز درسی ثبت نشده است. اولین درس خود را اضافه کنید تا نمودار پیشرفت نمایش داده شود.</div>`;
+    return;
+  }
+  const doneCnt=rows.filter(r=>r.pct>=100).length;
+  const zeroCnt=rows.filter(r=>r.pct===0).length;
+  const avgPct=Math.round(rows.reduce((a,r)=>a+r.pct,0)/rows.length);
+  const totAll=rows.reduce((a,r)=>a+r.totalItems,0);
+  const readAll=rows.reduce((a,r)=>a+r.readItems,0);
+
+  const filtered=rows.filter(r=>{
+    if(overviewFilter==="active")return r.blocksCount>0||r.pct>0;
+    if(overviewFilter==="done")return r.pct>=100;
+    if(overviewFilter==="zero")return r.pct===0;
+    return true;
+  });
+
+  const n=rows.length;
+  const midOnly=rows.filter(r=>r.pct>=35&&r.pct<100).length;
+  const lowOnly=rows.filter(r=>r.pct>0&&r.pct<35).length;
+  const R=18,C=2*Math.PI*R;
+
+  panel.innerHTML=`
+    <div class="subj-overview-head">
+      <div>
+        <h2>📊 خلاصه پیشرفت تمام دروس در یک نگاه</h2>
+        <div class="subj-overview-meta">
+          <span>${fa(n)} درس کل</span>
+          <span aria-hidden="true">·</span>
+          <span>میانگین پیشرفت ${fa(avgPct)}٪</span>
+          ${totAll?`<span aria-hidden="true">·</span><span>${fa(readAll)} از ${fa(totAll)} ماده مطالعه شده</span>`:""}
+        </div>
+      </div>
+      <div class="subj-overview-tabs" role="tablist" aria-label="فیلتر نمایش دروس">
+        <button type="button" class="subj-overview-tab ${overviewFilter==="all"?"active":""}" onclick="setOverviewFilter('all')">همه دروس (${fa(n)})</button>
+        <button type="button" class="subj-overview-tab ${overviewFilter==="active"?"active":""}" onclick="setOverviewFilter('active')">دارای برنامه (${fa(rows.filter(r=>r.blocksCount>0||r.pct>0).length)})</button>
+        <button type="button" class="subj-overview-tab ${overviewFilter==="done"?"active":""}" onclick="setOverviewFilter('done')">تکمیل‌شده (${fa(doneCnt)})</button>
+        <button type="button" class="subj-overview-tab ${overviewFilter==="zero"?"active":""}" onclick="setOverviewFilter('zero')">شروع‌نشده (${fa(zeroCnt)})</button>
+      </div>
+    </div>
+
+    <div class="subj-overview-dist">
+      <div class="subj-dist-bar" title="نسبت وضعیت دروس">
+        ${doneCnt?`<span class="subj-dist-seg seg-done" style="width:${(doneCnt/n*100).toFixed(1)}%"></span>`:""}
+        ${midOnly?`<span class="subj-dist-seg seg-mid" style="width:${(midOnly/n*100).toFixed(1)}%"></span>`:""}
+        ${lowOnly?`<span class="subj-dist-seg seg-low" style="width:${(lowOnly/n*100).toFixed(1)}%"></span>`:""}
+        ${zeroCnt?`<span class="subj-dist-seg seg-zero" style="width:${(zeroCnt/n*100).toFixed(1)}%"></span>`:""}
+      </div>
+      <div class="subj-dist-legend">
+        <span class="subj-dist-item"><span class="subj-dist-swatch" style="background:#16a34a"></span>تکمیل‌شده: <b>${fa(doneCnt)}</b></span>
+        <span class="subj-dist-item"><span class="subj-dist-swatch" style="background:#0d9488"></span>در حال پیشرفت خوب: <b>${fa(midOnly)}</b></span>
+        <span class="subj-dist-item"><span class="subj-dist-swatch" style="background:#d97706"></span>آغازشده: <b>${fa(lowOnly)}</b></span>
+        <span class="subj-dist-item"><span class="subj-dist-swatch" style="background:#94a3b8"></span>شروع‌نشده: <b>${fa(zeroCnt)}</b></span>
+      </div>
+    </div>
+
+    ${filtered.length?`<div class="subj-overview-grid">
+      ${filtered.map(r=>{
+        const clamped=Math.max(0,Math.min(100,r.pct));
+        const dashOffset=(C*(1-clamped/100)).toFixed(2);
+        const detailLine=r.totalItems
+          ? `${fa(r.readItems)} از ${fa(r.totalItems)} مورد`
+          : (r.blocksCount ? `${fa(r.doneBlocks)} از ${fa(r.blocksCount)} واحد` : `${fa(r.lawsCount)} منبع ثبت‌شده`);
+        const extraLine=r.blocksCount?`${fa(r.blocksCount)} واحد · چک‌لیست ${fa(r.checklistPct)}٪`:"بدون واحد در برنامه";
+        return `<button type="button" class="subj-ov-card" data-tier="${r.tier}" onclick="openSubjectFromOverview('${r.id}')" title="مشاهده برنامه درس ${esc(r.name)}">
+          <div class="subj-ov-top">
+            <div class="subj-ov-info">
+              <div class="subj-ov-title">${esc(r.name)}</div>
+              <div class="subj-ov-sub">${detailLine}</div>
+            </div>
+            <div class="subj-ov-ring" aria-hidden="true">
+              <svg class="subj-ring-svg" viewBox="0 0 44 44">
+                <circle class="subj-ring-bg" cx="22" cy="22" r="${R}"></circle>
+                <circle class="subj-ring-fg" cx="22" cy="22" r="${R}" stroke-dasharray="${C.toFixed(2)}" stroke-dashoffset="${dashOffset}"></circle>
+              </svg>
+              <span class="subj-ring-val">${fa(clamped)}٪</span>
+            </div>
+          </div>
+          <div class="subj-ov-bar"><div class="subj-ov-bar-fill" style="width:${clamped}%"></div></div>
+          <div class="subj-ov-foot">
+            <span class="subj-ov-state">${r.tierLabel}</span>
+            <span>${extraLine}</span>
+          </div>
+        </button>`;
+      }).join("")}
+    </div>`:`<div class="empty">هیچ درسی در این فیلتر قرار ندارد.</div>`}
+  `;
+}
+window.setOverviewFilter=setOverviewFilter;
+window.openSubjectFromOverview=openSubjectFromOverview;
 function render(){
  const blocks=allBlocks(),total=blocks.length*CHECKS.length,checked=blocks.reduce((a,b)=>a+b.checks.filter(Boolean).length,0),done=blocks.filter(b=>percent(b)===100).length,p=total?Math.round(checked/total*100):0;
  const secCount=(state.subjectSections||[]).length;
@@ -1059,6 +1205,7 @@ function render(){
  document.getElementById("statBlocks").textContent=fa(blocks.length);document.getElementById("statChecks").textContent=fa(p)+"٪";document.getElementById("statDone").textContent=fa(done);
  document.getElementById("statLeft").textContent=total?fa(100-p)+"٪ باقی مانده":"از کل چک‌لیست‌ها";
  document.getElementById("overallText").textContent=fa(p)+"٪ انجام شده · "+fa(total?100-p:0)+"٪ مانده";document.getElementById("overallBar").style.width=p+"%";
+ renderSubjectsOverviewWidget();
  document.getElementById("dashboardDays").innerHTML=state.days.length?state.days.filter(d=>!isDone(d)).slice(0,3).map(d=>dayHTML(d,true)).join(""):emptyHTML("هنوز روز مطالعاتی نساخته‌ای. برای شروع، روز اول را اضافه کن.");
  const dashSecEl=document.getElementById("dashboardSubjSections");
  if(dashSecEl){
@@ -1074,10 +1221,97 @@ function dayHTML(d,dash){let open=dash||d.open,t=d.blocks.length*CHECKS.length,c
  return `<article class="day-card" ${dash?"":`id="day-${d.id}"`} style="${dayStyle(d)}"><div class="day-top" ${dash?"":`onclick="toggleDay('${d.id}')" style="cursor:pointer"`}><div style="min-width:0"><div class="day-title">${dash?"":(open?"▾ ":"▸ ")}روز ${fa(d.number)}</div>${d.group?`<div class="small" style="color:var(--muted)">${esc(d.group)}</div>`:""}<div class="muted small ${open?"":"sumline"}">${open?dayInfo(d):esc(sum||"بدون واحد مطالعاتی")}</div></div><div class="row" onclick="event.stopPropagation()"><span class="pill ${statusClass(d)}">${status(d)} · ${fa(pp)}٪</span>${open?`<button class="btn" onclick="openBlockModal('${d.id}')">＋ واحد</button><button class="btn" onclick="editDay('${d.id}')">ویرایش روز</button><button class="btn danger" onclick="deleteDay('${d.id}')">حذف</button>`+(dash?"":`<button class="btn" onclick="toggleDay('${d.id}')">بستن ▴</button>`):""}</div></div>${open?(d.blocks.length?d.blocks.map(b=>blockHTML(d,b)).join(""):emptyHTML("برای این روز هنوز واحد مطالعاتی ثبت نشده است.")):`<div class="progress" style="margin-top:8px"><span style="width:${pp}%"></span></div>`}</article>`}
 function blockHTML(d,b){let s=state.subjects.find(x=>x.id===b.subjectId),p=Math.round(percent(b)),open=b.open,ms=b.mastery&&b.mastery!=="نامشخص"?b.mastery:"";
  const secBadge=b.sectionLabel?`<span class="subj-sec-badge">${esc(b.sectionLabel)}</span>`:"";
- return `<div class="block ${masteryCls(b.mastery)}" id="blk-${b.id}"><div class="block-head" style="cursor:pointer" onclick="toggleBlock('${d.id}','${b.id}')"><div style="min-width:0"><h3>${open?"▾ ":"▸ "}${secBadge}${esc(s?.name||"درس حذف شده")} — ${esc(b.law)}${b.title?" — "+esc(b.title):""}</h3><div class="block-meta">${open?blockMeta(b,p):shortMeta(b,p)}</div>${b.task?`<div class="small" style="margin-top:3px">تکلیف: ${esc(b.task)}</div>`:""}</div><div class="row" onclick="event.stopPropagation()">${ms?`<span class="pill">تسلط: ${ms}</span>`:""}${open?`<button class="btn" onclick="editBlock('${d.id}','${b.id}')">ویرایش</button><button class="btn danger" onclick="deleteBlock('${d.id}','${b.id}')">حذف</button>`:""}</div></div><div class="progress" style="margin-top:10px"><span style="width:${p}%"></span></div>${open?`<div class="checks">${CHECKS.map((c,i)=>`<label class="check"><input type="checkbox" ${b.checks[i]?"checked":""} onchange="toggleCheck('${d.id}','${b.id}',${i},this.checked)">${c}</label>`).join("")}</div><label class="note-label">ایرادات، اشکالات و نکات</label><textarea class="note" oninput="grow(this)" placeholder="ابهام‌ها، نکات دشوار و مواردی که باید دوباره بررسی شوند..." onchange="updateNote('${d.id}','${b.id}',this.value)">${esc(b.notes||"")}</textarea><div class="noterefs law-ui" id="nr-${b.id}">${window.LAWDB?LAWDB.noteRefs(b):""}</div>${window.LAWDB?LAWDB.textHtml(d,b):""}${refsHTML(d,b)}<div class="block-foot"><span class="muted small">وضعیت تسلط</span><select class="select-small" onchange="updateMastery('${d.id}','${b.id}',this.value)"><option value="نامشخص" ${b.mastery==="نامشخص"?"selected":""}>هنوز ارزیابی نشده</option><option value="ضعیف" ${b.mastery==="ضعیف"?"selected":""}>ضعیف — نیازمند مطالعه مجدد</option><option value="متوسط" ${b.mastery==="متوسط"?"selected":""}>متوسط — نیازمند مرور</option><option value="خوب" ${b.mastery==="خوب"?"selected":""}>خوب — مسلط</option></select></div>`:""}</div>`}
+ return `<div class="block ${masteryCls(b.mastery)}" id="blk-${b.id}"><div class="block-head" style="cursor:pointer" onclick="toggleBlock('${d.id}','${b.id}')"><div style="min-width:0"><h3>${open?"▾ ":"▸ "}${secBadge}${esc(s?.name||"درس حذف شده")} — ${esc(b.law)}${b.title?" — "+esc(b.title):""}</h3><div class="block-meta">${open?blockMeta(b,p):shortMeta(b,p)}</div>${b.task?`<div class="small" style="margin-top:3px">تکلیف: ${esc(b.task)}</div>`:""}</div><div class="row" onclick="event.stopPropagation()">${ms?`<span class="pill">تسلط: ${ms}</span>`:""}${open?`<button class="btn" onclick="editBlock('${d.id}','${b.id}')">ویرایش</button><button class="btn danger" onclick="deleteBlock('${d.id}','${b.id}')">حذف</button>`:""}</div></div><div class="progress" style="margin-top:10px"><span style="width:${p}%"></span></div>${open?`<div class="checks">${CHECKS.map((c,i)=>`<label class="check"><input type="checkbox" ${b.checks[i]?"checked":""} onchange="toggleCheck('${d.id}','${b.id}',${i},this.checked)">${c}</label>`).join("")}</div><div class="note-header-row"><label class="note-label" for="note-${b.id}">ایرادات، اشکالات و نکات</label><div class="note-actions-inline"><span class="note-status" id="ns-${b.id}">${b.notes&&b.notes.trim()?"ذخیره شد ✓":""}</span><button type="button" class="btn small" onclick="saveNoteNow('${d.id}','${b.id}')">ذخیره نکته</button></div></div><textarea id="note-${b.id}" class="note" data-did="${d.id}" data-bid="${b.id}" oninput="onNoteInput('${d.id}','${b.id}',this)" onblur="saveNoteNow('${d.id}','${b.id}',true)" onchange="saveNoteNow('${d.id}','${b.id}',true)" placeholder="ابهام‌ها، نکات دشوار و مواردی که باید دوباره بررسی شوند...">${esc(b.notes||"")}</textarea><div class="noterefs law-ui" id="nr-${b.id}">${window.LAWDB?LAWDB.noteRefs(b):""}</div>${window.LAWDB?LAWDB.textHtml(d,b):""}${refsHTML(d,b)}<div class="block-foot"><span class="muted small">وضعیت تسلط</span><select class="select-small" onchange="updateMastery('${d.id}','${b.id}',this.value)"><option value="نامشخص" ${b.mastery==="نامشخص"?"selected":""}>هنوز ارزیابی نشده</option><option value="ضعیف" ${b.mastery==="ضعیف"?"selected":""}>ضعیف — نیازمند مطالعه مجدد</option><option value="متوسط" ${b.mastery==="متوسط"?"selected":""}>متوسط — نیازمند مرور</option><option value="خوب" ${b.mastery==="خوب"?"selected":""}>خوب — مسلط</option></select></div>`:""}</div>`}
 function esc(s){return String(s??"").replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]))}
 function toggleCheck(did,bid,i,v){const b=findBlock(did,bid);if(b){b.checks[i]=v;save()}}
-function updateNote(did,bid,v){const b=findBlock(did,bid);if(!b)return;b.notes=v;persist();const e=document.getElementById("nr-"+bid);if(e&&window.LAWDB)e.innerHTML=LAWDB.noteRefs(b)}
+function notesDraftKey(){return me&&me.id?("baraat_notes_draft_v1_"+me.id):"baraat_notes_draft_v1_anon";}
+function setNoteStatusUI(bid,cls,msg){
+  document.querySelectorAll('[id="ns-'+bid+'"]').forEach(el=>{
+    el.className="note-status"+(cls?" "+cls:"");
+    el.textContent=msg||"";
+  });
+}
+function saveNotesDraftLocal(bid,notesVal){
+  try{
+    const k=notesDraftKey();
+    const raw=localStorage.getItem(k);
+    const map=raw?JSON.parse(raw):{};
+    map[bid]={notes:String(notesVal||""),t:Date.now()};
+    localStorage.setItem(k,JSON.stringify(map));
+  }catch(e){}
+}
+function clearNotesDraftLocal(){
+  try{localStorage.removeItem(notesDraftKey());}catch(e){}
+}
+function restoreNotesDraftLocal(s){
+  let changed=false;
+  try{
+    const k=notesDraftKey();
+    const raw=localStorage.getItem(k);
+    if(!raw)return false;
+    const map=JSON.parse(raw);
+    if(!map||typeof map!=="object")return false;
+    const applyBlock=b=>{
+      if(b&&b.id&&Object.prototype.hasOwnProperty.call(map,b.id)){
+        const entry=map[b.id];
+        if(entry&&typeof entry.notes==="string"&&entry.notes!==b.notes){
+          b.notes=entry.notes;
+          changed=true;
+        }
+      }
+    };
+    (s.days||[]).forEach(d=>(d.blocks||[]).forEach(applyBlock));
+    (s.subjectSections||[]).forEach(applyBlock);
+  }catch(e){}
+  return changed;
+}
+let dirtyNoteIds=new Set();
+function onNoteInput(did,bid,el){
+  grow(el);
+  const b=findBlock(did,bid);
+  if(!b)return;
+  b.notes=el.value;
+  dirtyNoteIds.add(bid);
+  saveNotesDraftLocal(bid,el.value);
+  setNoteStatusUI(bid,"saving","در حال ذخیره…");
+  document.querySelectorAll('textarea.note[data-bid="'+bid+'"]').forEach(t=>{if(t!==el&&t.value!==el.value){t.value=el.value;grow(t);}});
+  if(window.LAWDB){const html=LAWDB.noteRefs(b);document.querySelectorAll('[id="nr-'+bid+'"]').forEach(nr=>{nr.innerHTML=html;});}
+  persist();
+}
+function updateNote(did,bid,v){
+  const b=findBlock(did,bid);if(!b)return;
+  b.notes=v;
+  dirtyNoteIds.add(bid);
+  saveNotesDraftLocal(bid,v);
+  persist();
+  if(window.LAWDB){const html=LAWDB.noteRefs(b);document.querySelectorAll('[id="nr-'+bid+'"]').forEach(e=>{e.innerHTML=html;});}
+}
+async function saveNoteNow(did,bid,silent){
+  const candidates=[...document.querySelectorAll('textarea.note[data-bid="'+bid+'"]')];
+  const el=candidates.find(t=>t.offsetParent!==null)||candidates[0];
+  const b=findBlock(did,bid);
+  if(b&&el){
+    b.notes=el.value;
+    saveNotesDraftLocal(bid,el.value);
+    candidates.forEach(t=>{if(t!==el&&t.value!==el.value){t.value=el.value;grow(t);}});
+    if(window.LAWDB){const html=LAWDB.noteRefs(b);document.querySelectorAll('[id="nr-'+bid+'"]').forEach(e=>{e.innerHTML=html;});}
+  }
+  if(!ready||!me||!sb){
+    if(b)setNoteStatusUI(bid,"offline","ذخیره موقت روی دستگاه");
+    if(!silent)toast("نکته روی حافظه دستگاه ذخیره شد");
+    return;
+  }
+  dirtyNoteIds.add(bid);
+  setNoteStatusUI(bid,"saving","در حال ذخیره…");
+  const ok=await flushCloudSave();
+  if(ok){
+    setNoteStatusUI(bid,"saved","ذخیره شد ✓");
+    if(!silent)toast("نکته و ایرادات با موفقیت ذخیره شد");
+  }else{
+    setNoteStatusUI(bid,"offline","ذخیره در دستگاه (آفلاین)");
+    if(!silent)toast("روی دستگاه ذخیره شد و با اتصال اینترنت همگام می‌شود");
+  }
+}
 function updateMastery(did,bid,v){const b=findBlock(did,bid);if(b){b.mastery=v;save()}}
 function findBlock(did,bid){
  if(did===SUB_CID)return (state.subjectSections||[]).find(b=>b.id===bid);
@@ -1278,9 +1512,68 @@ function setAll(v){state.days.forEach(d=>d.open=v);persist();render()}
 function goFirst(){let d=state.days.find(x=>!isDone(x));if(!d)return toast("همه‌ی روزها تکمیل شده‌اند");d.open=true;persist();render();let e=document.getElementById("day-"+d.id);if(e)e.scrollIntoView({behavior:"smooth",block:"start"})}
 let sb=null,me=null,ready=false,saveT=null,fileCtx=null;const urlCache={};
 function pickFile(did,bid){if(!sb||!me)return toast("برای افزودن فایل باید وارد حساب شده باشی");fileCtx={did,bid};let i=document.getElementById("filePick");if(!i){i=document.createElement("input");i.type="file";i.id="filePick";i.accept="application/pdf,image/*";i.multiple=true;i.className="hidden";i.onchange=upFiles;document.body.appendChild(i)}i.value="";i.click()}
-async function upFiles(e){let fs=[...e.target.files];if(!fs.length||!fileCtx)return;let b=findBlock(fileCtx.did,fileCtx.bid);b.files=b.files||[];toast("در حال آپلود...");for(let f of fs){if(f.size>20*1024*1024){toast("حجم "+f.name+" بیشتر از ۲۰ مگابایت است");continue}let ext=(f.name.match(/\.[A-Za-z0-9]+$/)||[""])[0],path=me.id+"/"+uid()+uid()+ext,r=await sb.storage.from("files").upload(path,f,{contentType:f.type});if(r.error)toast("آپلود "+f.name+" ناموفق بود");else b.files.push({path,name:f.name,type:f.type})}save()}
-function loadThumbs(){if(!sb)return;document.querySelectorAll("img[data-p]").forEach(async im=>{let u=await signed(im.dataset.p);if(u)im.src=u})}
-function delFile(did,bid,i){let f=findBlock(did,bid).files.splice(i,1)[0];if(f&&sb)sb.storage.from("files").remove([f.path]);save()}
+function isImgFile(f){return !!(f&&(/^image\//i.test(f.type||"")||/\.(png|jpe?g|gif|webp|bmp|heic|svg)$/i.test(f.name||"")));}
+function compressPlannerImage(file,maxSide=1280,quality=0.78){
+  return new Promise((resolve,reject)=>{
+    const reader=new FileReader();
+    reader.onerror=()=>reject(new Error("خطا در خواندن فایل تصویر"));
+    reader.onload=ev=>{
+      const img=new Image();
+      img.onerror=()=>reject(new Error("فرمت تصویر قابل پردازش نیست"));
+      img.onload=()=>{
+        const ratio=Math.min(1,maxSide/Math.max(img.width,img.height));
+        const w=Math.max(1,Math.round(img.width*ratio)),h=Math.max(1,Math.round(img.height*ratio));
+        const canvas=document.createElement("canvas");
+        canvas.width=w;canvas.height=h;
+        const ctx=canvas.getContext("2d");
+        ctx.drawImage(img,0,0,w,h);
+        resolve(canvas.toDataURL("image/jpeg",quality));
+      };
+      img.src=ev.target.result;
+    };
+    reader.readAsDataURL(file);
+  });
+}
+async function upFiles(e){
+  const fs=[...e.target.files];if(!fs.length||!fileCtx)return;
+  const b=findBlock(fileCtx.did,fileCtx.bid);if(!b)return;
+  b.files=b.files||[];
+  toast("در حال آپلود...");
+  let added=0;
+  for(const f of fs){
+    const img=isImgFile(f);
+    if(!img&&f.size>20*1024*1024){toast("حجم "+f.name+" بیشتر از ۲۰ مگابایت است");continue;}
+    let uploaded=false;
+    if(sb&&me){
+      const ext=(f.name.match(/\.[A-Za-z0-9]+$/)||[""])[0];
+      const path=me.id+"/"+uid()+uid()+ext;
+      const ctype=f.type||(img?"image/jpeg":"application/octet-stream");
+      try{
+        const r=await sb.storage.from("files").upload(path,f,{contentType:ctype});
+        if(!r.error){
+          b.files.push({id:uid(),path,name:f.name,type:ctype});
+          uploaded=true;added++;
+        }else if(!img){
+          toast("آپلود "+f.name+" ناموفق بود: "+(r.error.message||"خطای فضای ذخیره‌سازی"));
+        }
+      }catch(err){
+        if(!img)toast("آپلود "+f.name+" ناموفق بود");
+      }
+    }
+    if(!uploaded&&img){
+      try{
+        const dataUrl=await compressPlannerImage(f,1280,0.78);
+        b.files.push({id:uid(),name:f.name,type:"image/jpeg",dataUrl,inline:true});
+        added++;
+      }catch(err){
+        toast("پردازش عکس "+f.name+" ناموفق بود");
+      }
+    }
+  }
+  if(added>0)save();
+}
+function loadThumbs(){if(!sb)return;document.querySelectorAll("img[data-p]").forEach(async im=>{const u=await signed(im.dataset.p);if(u)im.src=u})}
+function delFile(did,bid,i){const f=findBlock(did,bid).files.splice(i,1)[0];if(f&&f.path&&sb)sb.storage.from("files").remove([f.path]);save()}
 function masteryCls(m){return m==="خوب"?"m-good":m==="متوسط"?"m-mid":m==="ضعیف"?"m-bad":""}
 function specText(b){let u=lawUnit(b.subjectId,b.law),L=lawObj(b.subjectId,b.law);return L&&L.topics?`${fa(b.items.length)} ${esc(u)}: ${esc(b.spec)}`:`${u==="ماده"?"مواد":esc(u)} ${esc(fa(b.spec))} (${fa(b.items.length)} ${esc(u)})`}
 function shortMeta(b,p){return `${specText(b)} · ${fa(p)}٪ انجام‌شده`}
@@ -1589,6 +1882,7 @@ async function loadPlanner(){
   let payload=null;if(r.data){if(r.data.data!==undefined&&r.data.data!==null)payload=r.data.data;else if(r.data.subjects||r.data.days)payload=r.data;}
   state=payload?norm(payload):fresh();
   if(payload && payload._lastAssignedAt) state._lastAssignedAt = payload._lastAssignedAt;
+  const restoredNotes=restoreNotesDraftLocal(state);
   const assignedRes = await applyAdminAssignedPlans(state);
   if(assignedRes.updated){
     state = assignedRes.state;
@@ -1597,6 +1891,7 @@ async function loadPlanner(){
     toast("برنامه مطالعاتی جدید از طرف مدیر برای شما بارگذاری شد");
   }
   ready=true;
+  if(restoredNotes) cloudSave();
   if(window.LAWDB)LAWDB.autoLink();
   showView("dashboard");
   render();
@@ -1631,13 +1926,38 @@ function buildProgressSnapshot(s){
     updatedAt:new Date().toISOString()
   };
 }
-function cloudSave(){clearTimeout(saveT);saveT=setTimeout(async()=>{
-  if(me&&me.email)state._userEmail=me.email;
-  state._summary=buildProgressSnapshot(state);
-  const r=await sb.from("planner").upsert({user_id:me.id,data:state,updated_at:new Date().toISOString()});
-  if(r.error)toast("ذخیره روی سرور ناموفق بود");
-  if(window.syncStudentSnapshotToReport && me) window.syncStudentSnapshotToReport(me, state);
-},500)}
+let saveInFlight=false,saveDirtyAfter=false;
+async function flushCloudSave(){
+  clearTimeout(saveT);saveT=null;
+  if(!sb||!me||!ready)return false;
+  if(saveInFlight){saveDirtyAfter=true;return false;}
+  saveInFlight=true;
+  let ok=false;
+  try{
+    if(me&&me.email)state._userEmail=me.email;
+    state._summary=buildProgressSnapshot(state);
+    const r=await sb.from("planner").upsert({user_id:me.id,data:state,updated_at:new Date().toISOString()});
+    if(r.error){
+      toast("ذخیره روی سرور ناموفق بود");
+      dirtyNoteIds.forEach(bid=>setNoteStatusUI(bid,"offline","ذخیره در دستگاه (خطای سرور)"));
+    }else{
+      ok=true;
+      clearNotesDraftLocal();
+      dirtyNoteIds.forEach(bid=>setNoteStatusUI(bid,"saved","ذخیره شد ✓"));
+      dirtyNoteIds.clear();
+    }
+    if(window.syncStudentSnapshotToReport && me) window.syncStudentSnapshotToReport(me, state);
+  }catch(e){
+    dirtyNoteIds.forEach(bid=>setNoteStatusUI(bid,"offline","ذخیره در دستگاه (آفلاین)"));
+  }finally{
+    saveInFlight=false;
+    if(saveDirtyAfter){saveDirtyAfter=false;flushCloudSave();}
+  }
+  return ok;
+}
+function cloudSave(){clearTimeout(saveT);saveT=setTimeout(()=>{flushCloudSave();},450)}
+window.addEventListener("pagehide",()=>{if(saveT||dirtyNoteIds.size)flushCloudSave();});
+document.addEventListener("visibilitychange",()=>{if(document.visibilityState==="hidden"&&(saveT||dirtyNoteIds.size))flushCloudSave();});
 async function logout(){await sb.auth.signOut();location.reload()}
 function initAuth(){sb.auth.getSession().then(async r=>{if(r.data&&r.data.session)await afterAuth(r.data.session.user);else updateAuthUI();}).catch(()=>updateAuthUI());}
 function enterPlanner(){const ok=!!me;document.getElementById("plannerGate").classList.toggle("hidden",ok);document.getElementById("plannerApp").classList.toggle("hidden",!ok);if(ok&&!ready)loadPlanner();else if(ok&&ready&&window.refreshAssignedPlannerForMe)window.refreshAssignedPlannerForMe();}
@@ -1671,20 +1991,25 @@ function go(tab){
    ===================================================================== */
 const blobCache={};
 async function signed(path){const c=urlCache[path];if(c&&Date.now()-c.t<3000000)return c.u;const r=await sb.storage.from("files").createSignedUrl(path,3600);if(r.error)return null;urlCache[path]={u:r.data.signedUrl,t:Date.now()};return r.data.signedUrl}
-async function fileUrl(path,type){
- const u=await signed(path);if(!u||/^image\//.test(type))return u;if(blobCache[path])return blobCache[path];
- try{const r=await fetch(u);if(!r.ok)throw 0;const b=await r.blob();return blobCache[path]=URL.createObjectURL(new Blob([b],{type:type||b.type||"application/pdf"}))}catch(e){return u}}
-const fileBoxId=f=>"pf-"+f.path.replace(/\W/g,"");
-function filesHTML(d,b){return (b.files||[]).map((f,i)=>{const img=/^image\//.test(f.type),at=`'${d.id}','${b.id}',${i}`;
- return `<div class="fileitem"><div class="row between"><span>${img?"🖼":"📄"} ${esc(f.name)}</span><span class="row">${img?"":`<button class="btn" onclick="togglePdfAt(${at})">👁 نمایش همین‌جا</button>`}<button class="btn" onclick="viewFileAt(${at})">${img?"بزرگ‌نمایی":"باز کردن"}</button><button class="btn danger" onclick="delFile('${d.id}','${b.id}',${i})">✕</button></span></div>${img?`<img class="fimg" data-p="${esc(f.path)}" alt="${esc(f.name)}" onclick="viewFileAt(${at})">`:`<div id="${fileBoxId(f)}"></div>`}</div>`}).join("")}
+async function fileUrl(pathOrObj,type){
+ if(pathOrObj&&typeof pathOrObj==="object"){
+  if(pathOrObj.dataUrl)return pathOrObj.dataUrl;
+  pathOrObj=pathOrObj.path;
+ }
+ if(!pathOrObj)return null;
+ const u=await signed(pathOrObj);if(!u||/^image\//.test(type||""))return u;if(blobCache[pathOrObj])return blobCache[pathOrObj];
+ try{const r=await fetch(u);if(!r.ok)throw 0;const b=await r.blob();return blobCache[pathOrObj]=URL.createObjectURL(new Blob([b],{type:type||b.type||"application/pdf"}))}catch(e){return u}}
+const fileBoxId=f=>"pf-"+String((f&&(f.path||f.id||f.name))||"file").replace(/\W/g,"");
+function filesHTML(d,b){return (b.files||[]).map((f,i)=>{const img=isImgFile(f),at=`'${d.id}','${b.id}',${i}`;
+ return `<div class="fileitem"><div class="row between"><span>${img?"🖼":"📄"} ${esc(f.name)}</span><span class="row">${img?"":`<button class="btn" onclick="togglePdfAt(${at})">👁 نمایش همین‌جا</button>`}<button class="btn" onclick="viewFileAt(${at})">${img?"بزرگ‌نمایی":"باز کردن"}</button><button class="btn danger" onclick="delFile('${d.id}','${b.id}',${i})">✕</button></span></div>${img?(f.dataUrl?`<img class="fimg" src="${esc(f.dataUrl)}" alt="${esc(f.name)}" onclick="viewFileAt(${at})">`:`<img class="fimg" data-p="${esc(f.path||"")}" alt="${esc(f.name)}" onclick="viewFileAt(${at})">`):`<div id="${fileBoxId(f)}"></div>`}</div>`}).join("")}
 const fileOf=(did,bid,i)=>findBlock(did,bid).files[i];
 async function togglePdfAt(did,bid,i){const f=fileOf(did,bid,i),box=document.getElementById(fileBoxId(f));if(!box)return;
  if(box.firstChild){box.innerHTML="";return}box.innerHTML='<div class="muted small" style="margin-top:6px">در حال بارگذاری…</div>';
- const u=await fileUrl(f.path,f.type);box.innerHTML=u?`<iframe class="fpdf" src="${esc(u)}"></iframe>`:'<div class="muted small" style="margin-top:6px">باز کردن فایل ممکن نشد.</div>'}
-async function viewFileAt(did,bid,i){const f=fileOf(did,bid,i),u=await fileUrl(f.path,f.type);if(!u)return toast("باز کردن فایل ممکن نشد");
+ const u=await fileUrl(f,f.type);box.innerHTML=u?`<iframe class="fpdf" src="${esc(u)}"></iframe>`:'<div class="muted small" style="margin-top:6px">باز کردن فایل ممکن نشد.</div>'}
+async function viewFileAt(did,bid,i){const f=fileOf(did,bid,i),u=f.dataUrl||await fileUrl(f,f.type);if(!u)return toast("باز کردن فایل ممکن نشد");
  let v=document.getElementById("viewer");if(!v){v=document.createElement("div");v.id="viewer";v.className="modal-back";v.addEventListener("click",e=>{if(e.target===v)closeViewer()});document.body.appendChild(v)}
- const img=/^image\//.test(f.type);
- v.innerHTML=`<div class="modal" style="width:min(1000px,100%)"><div class="row between"><b>${esc(f.name)}</b><span class="row"><a class="btn" href="${esc(u)}" target="_blank" rel="noopener">باز کردن در تب جدید</a><button class="btn" onclick="closeViewer()">بستن</button></span></div>${img?`<img src="${esc(u)}" alt="" style="max-width:100%;margin-top:10px;border-radius:10px">`:`<iframe src="${esc(u)}" style="width:100%;height:78vh;border:0;margin-top:10px;border-radius:10px;background:#fff"></iframe>`}</div>`;
+ const img=isImgFile(f);
+ v.innerHTML=`<div class="modal" style="width:min(1000px,100%)"><div class="row between"><b>${esc(f.name)}</b><span class="row"><a class="btn" href="${esc(u)}" ${f.dataUrl?`download="${esc(f.name||'image.jpg')}"`:'target="_blank" rel="noopener"'}>${f.dataUrl?"دانلود":"باز کردن در تب جدید"}</a><button class="btn" onclick="closeViewer()">بستن</button></span></div>${img?`<img src="${esc(u)}" alt="" style="max-width:100%;margin-top:10px;border-radius:10px">`:`<iframe src="${esc(u)}" style="width:100%;height:78vh;border:0;margin-top:10px;border-radius:10px;background:#fff"></iframe>`}</div>`;
  v.classList.add("show")}
 function closeViewer(){const v=document.getElementById("viewer");if(v){v.classList.remove("show");v.innerHTML=""}}
 
@@ -2244,7 +2569,8 @@ $('out').addEventListener('click',e=>{
   const dl=e.target.closest('.adel');if(dl&&ADMIN){const i=+dl.dataset.i,o=DB[i];
     window.showModal(`<h2>حذف ${esc(numLabel(o))}</h2><p>این ماده از قانون «${esc(o.law)}» برای همه حذف می‌شود. مطمئنی؟</p><div class="modal-actions"><button class="btn" onclick="closeModal()">انصراف</button><button class="btn danger" onclick="LAWDB.delArt(${i})">بله، حذف شود</button></div>`);return;}
 });
-$('out').addEventListener('change',e=>{if(e.target.classList.contains('mknote')){const o=DB[+e.target.dataset.i],m=me&&MK()[mkKey(o)];if(m){m.note=e.target.value;persist();}}});
+$('out').addEventListener('input',e=>{if(e.target.classList.contains('mknote')){const o=DB[+e.target.dataset.i],m=me&&MK()[mkKey(o)];if(m){m.note=e.target.value;persist();}}});
+$('out').addEventListener('change',e=>{if(e.target.classList.contains('mknote')){const o=DB[+e.target.dataset.i],m=me&&MK()[mkKey(o)];if(m){m.note=e.target.value;flushCloudSave();}}});
 document.addEventListener('click',e=>{
   const rb=e.target.closest('.noterefs [data-rel-nums]');if(rb){toggleRelatedInline(rb);return;}
   const cl=e.target.closest('.noterefs [data-close-inline]');if(cl){const p=cl.closest('.decision-inline'),pv=p&&p.previousElementSibling;if(pv)pv.setAttribute('aria-expanded','false');if(p)p.remove();return;}
