@@ -482,7 +482,10 @@ body{margin:0;background:var(--bg);color:var(--text);font-family:'Vazirmatn',-ap
         <h2>📚 مدیریت و نگارش مقالات پژوهشی</h2>
         <div class="muted small">نگارش، انتشار، ویرایش و حذف مقالات تخصصی و یادداشت‌های تحلیلی گروه حقوقی برائت</div>
       </div>
-      <button class="btn primary" onclick="openArticleEditor()">✍️ نگارش مقاله جدید</button>
+      <div class="row" style="gap:6px;">
+        <a class="btn" href="./articles.html">📰 مشاهده صفحه مجله مقالات ↗</a>
+        <button class="btn primary" onclick="openArticleEditor()">✍️ نگارش مقاله جدید</button>
+      </div>
     </div>
     <div id="admArticlesList"></div>
   </div>
@@ -1964,6 +1967,7 @@ function enterPlanner(){const ok=!!me;document.getElementById("plannerGate").cla
 const ALL_TABS=["search","planner","cases","articles","deadlines","calculator","about","contact","admin"];
 function go(tab){
   if(window.go && window.go !== go){ return window.go(tab); }
+  if(tab==="articles"){ window.location.href="./articles.html"; return; }
   if(!ALL_TABS.includes(tab)) tab="search";
   ALL_TABS.forEach(n=>{
     const el=document.getElementById("tab-"+n);
@@ -2435,20 +2439,20 @@ async function loadDB(force){
       return;
     }
     const [verRes,laws,arts,decs]=await Promise.all([
-      sb.from('meta').select('value').eq('key','ver').maybeSingle().catch(()=>({data:null})),
+      Promise.resolve(sb.from('meta').select('value').eq('key','ver').maybeSingle()).then(r=>r,()=>({data:null})),
       fetchAll('laws','id,name,sort',['sort','id']),
       fetchAll('articles','id,law_id,ord,num,num_text,text,path,sections',['law_id','ord']),
       fetchAll('decisions','number,year,date,subject,text',['year','number'])
     ]);
     const ver=(verRes&&verRes.data&&verRes.data.value)||null;
-    const o={ver,laws,arts,decs};applyDB(o);idbSet('db',o);
+    const o={ver,laws,arts,decs};applyDB(o);await idbSet('db',o);
   }catch(e){
     console.warn('Network fetch error, loading from local offline cache:', e);
     const c=await idbGet('db');
-    if(c){applyDB(c);LOADERR=false;} else {LOADERR=true;}
+    if(c&&Array.isArray(c.laws)){applyDB(c);LOADERR=false;} else {LOADERR=true;}
   }
 }
-async function reloadAll(){await idbDel('db');await loadDB(true);refreshMeta();renderSearch();autoLink();if(ready)render();admRefresh();}
+async function reloadAll(){await loadDB(true);refreshMeta();renderSearch();autoLink();if(ready)render();admRefresh();}
 
 /* ---------- مدیریت: افزودن قانون و ماده ---------- */
 const alog=m=>{const e=A('admLog');if(!e)return;e.textContent+=m+'\n';e.scrollTop=e.scrollHeight;};
@@ -2623,6 +2627,6 @@ if ('serviceWorker' in navigator) {
   });
 }
 </script>
-<script src="./baraat_engine.js?v=20261114_6"></script>
+<script src="./baraat_engine.js?v=20261115_1"></script>
 </body>
 </html>
