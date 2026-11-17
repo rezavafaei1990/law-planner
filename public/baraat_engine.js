@@ -2311,6 +2311,7 @@
           `).join('')}</div>`;
     }
     if (window.renderAdminExamsList) window.renderAdminExamsList();
+    if (window.renderExamsHub) window.renderExamsHub();
     if (window.isAdmin && window.renderAdminMonitor) window.renderAdminMonitor();
   };
 

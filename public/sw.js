@@ -1,66 +1,52 @@
-// =====================================================================
-// Service Worker اختصاصی سامانه برائت (گروه حقوقی برائت)
-// قابلیت کارکرد کامل آفلاین + دریافت همیشگی نسخه جدید کدها هنگام آنلاین بودن
-// =====================================================================
+// Service Worker سامانه گروه حقوقی برائت
+const CACHE_NAME = 'baraat-cache-v21';
 
-const CACHE_NAME = 'baraat-cache-v19';
-
-const ASSETS_TO_CACHE = [
-  './',
-  './index.html',
-  './articles.html',
-  './manifest.json',
-  './baraat_engine.js',
-  './images/baraat-law-hero.jpg',
-  './icons/icon-192.png',
-  './icons/icon-512.png',
-  './icons/icon-maskable-512.png',
-  './icons/apple-touch-icon.png',
-  './icons/icon.svg'
+const CORE_ASSETS = [
+  '/',
+  '/manifest.json',
+  '/icons/icon-192.png',
+  '/icons/icon-512.png',
+  '/icons/icon-maskable-512.png',
+  '/icons/apple-touch-icon.png',
+  '/icons/icon.svg'
 ];
 
 self.addEventListener('install', event => {
   self.skipWaiting();
   event.waitUntil(
-    caches.open(CACHE_NAME).then(cache => {
-      return Promise.all(
-        ASSETS_TO_CACHE.map(asset =>
-          cache.add(new Request(asset, { cache: 'reload' })).catch(err => {
-            console.warn('Pre-cache notice for ' + asset + ':', err);
-          })
+    caches.open(CACHE_NAME).then(cache =>
+      Promise.all(
+        CORE_ASSETS.map(url =>
+          cache.add(new Request(url, { cache: 'reload' })).catch(() => {})
         )
-      );
-    })
+      )
+    )
   );
 });
 
 self.addEventListener('activate', event => {
   event.waitUntil(
-    caches.keys().then(keys => {
-      return Promise.all(
-        keys.filter(key => key !== CACHE_NAME).map(key => caches.delete(key))
-      );
-    }).then(() => self.clients.claim())
+    caches.keys()
+      .then(keys => Promise.all(keys.filter(k => k !== CACHE_NAME).map(k => caches.delete(k))))
+      .then(() => self.clients.claim())
   );
 });
 
 self.addEventListener('fetch', event => {
   const req = event.request;
+  if (req.method !== 'GET') return;
+
   const url = new URL(req.url);
 
-  if (req.method !== 'GET') {
-    return;
-  }
-
-  // Google fonts and CDN assets: Cache-First
-  if (url.origin.includes('fonts.googleapis.com') || url.origin.includes('fonts.gstatic.com') || url.origin.includes('jsdelivr.net')) {
+  // Fonts: Cache-First
+  if (url.origin.includes('fonts.googleapis.com') || url.origin.includes('fonts.gstatic.com')) {
     event.respondWith(
       caches.match(req).then(cached => {
         if (cached) return cached;
         return fetch(req).then(res => {
           if (res && (res.status === 200 || res.type === 'opaque')) {
-            const resClone = res.clone();
-            caches.open(CACHE_NAME).then(cache => cache.put(req, resClone));
+            const clone = res.clone();
+            caches.open(CACHE_NAME).then(c => c.put(req, clone));
           }
           return res;
         }).catch(() => cached);
@@ -69,52 +55,37 @@ self.addEventListener('fetch', event => {
     return;
   }
 
-  // Only handle same-origin internal requests below; bypass APK binary downloads
-  if (url.origin !== self.location.origin || url.pathname.endsWith('.apk')) {
+  // Only handle same-origin internal requests; bypass API and APK binaries
+  if (url.origin !== self.location.origin || url.pathname.startsWith('/api/') || url.pathname.endsWith('.apk')) {
     return;
   }
 
-  // HTML, JS, CSS, and Navigation: Stale-While-Revalidate (instant startup + background freshness)
-  const isCodeOrDoc =
-    req.mode === 'navigate' ||
-    url.pathname.endsWith('.html') ||
-    url.pathname.endsWith('.js') ||
-    url.pathname.endsWith('.css') ||
-    url.pathname.endsWith('/');
-
-  if (isCodeOrDoc) {
+  // Navigation & unhashed engine script requests: Network-First so updates appear immediately
+  if (req.mode === 'navigate' || url.pathname.endsWith('/baraat_engine.js') || url.pathname.endsWith('/manifest.json')) {
     event.respondWith(
-      caches.match(req, { ignoreSearch: true }).then(cached => {
-        const networkPromise = fetch(req, { cache: 'no-cache' }).then(res => {
-          if (res && res.status === 200) {
-            const clone = res.clone();
-            caches.open(CACHE_NAME).then(cache => cache.put(req, clone));
-          }
-          return res;
-        }).catch(() => null);
-
-        if (cached) {
-          event.waitUntil(networkPromise);
-          return cached;
+      fetch(new Request(req, { cache: 'no-store' })).then(res => {
+        if (res && res.status === 200) {
+          const clone = res.clone();
+          const cacheKey = req.mode === 'navigate' ? '/' : req;
+          caches.open(CACHE_NAME).then(c => c.put(cacheKey, clone));
         }
-        return networkPromise.then(res => res || caches.match('./index.html') || caches.match('./'));
-      })
+        return res;
+      }).catch(() => caches.match(req).then(m => m || (req.mode === 'navigate' ? caches.match('/') : undefined)))
     );
     return;
   }
 
-  // Static images/icons/manifest: Stale-While-Revalidate
+  // Static bundled assets (/assets/*, /icons/*): Stale-While-Revalidate
   event.respondWith(
-    caches.match(req, { ignoreSearch: true }).then(cachedResponse => {
-      const fetchPromise = fetch(req).then(networkResponse => {
-        if (networkResponse && networkResponse.status === 200) {
-          const responseToCache = networkResponse.clone();
-          caches.open(CACHE_NAME).then(cache => cache.put(req, responseToCache));
+    caches.match(req).then(cached => {
+      const net = fetch(req).then(res => {
+        if (res && res.status === 200) {
+          const clone = res.clone();
+          caches.open(CACHE_NAME).then(c => c.put(req, clone));
         }
-        return networkResponse;
-      }).catch(() => cachedResponse);
-
-      return cachedResponse || fetchPromise;
+        return res;
+      }).catch(() => cached);
+      return cached || net;
     })
   );
 });
