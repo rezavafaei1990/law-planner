@@ -4956,12 +4956,24 @@
     return [...chSet];
   }
 
+  let examHubSection = 'exams'; // 'exams' | 'lessons'
+  let examLessonSearch = '';
   let examHubCat = 'all';      // نام دسته انتخاب‌شده یا 'all' برای نمای پوشه‌های اصلی
   let examHubFilterType = 'all';
   let examHubFilterYear = 'all';
   let examHubFilterChapter = 'all';
   let examHubQuery = '';
   let examHubSubViewMode = 'auto'; // 'auto' | 'folders' | 'list'
+
+  window.setExamHubSection = function(sec) {
+    examHubSection = sec === 'lessons' ? 'lessons' : 'exams';
+    window.renderExamsHub();
+  };
+
+  window.setExamLessonSearch = function(val) {
+    examLessonSearch = String(val || '');
+    window.renderExamsHub();
+  };
 
   window.setExamHubFilters = function(kind, val) {
     if (kind === 'org' || kind === 'cat') {
@@ -5127,7 +5139,99 @@
       scopeLabel: (kind === 'chapter' ? 'سرفصل: ' : 'بخش: ') + val,
       activeSubjIdx: 0,
       activeQIdx: 0,
-      viewMode: runMode === 'study' ? 'list' : 'single',
+      viewMode: 'list',
+      answers: {},
+      revealed: {},
+      flags: {},
+      secondsLeft: defaultSeconds,
+      totalSeconds: defaultSeconds,
+      paused: false,
+      submitted: false,
+      reviewFilter: 'all'
+    };
+
+    const overlay = document.getElementById('examRunnerOverlay');
+    if (overlay) overlay.classList.remove('hidden');
+    document.body.style.overflow = 'hidden';
+    if (runMode === 'exam') startExamCountdown();
+    renderExamRunner();
+  };
+
+  function getLessonGroupsAcrossAllExams() {
+    const coreOrder = ['حقوق مدنی', 'آیین دادرسی مدنی', 'حقوق تجارت', 'اصول فقه', 'حقوق جزا', 'آیین دادرسی کیفری'];
+    const map = new Map();
+    getVisibleExams().forEach(ex => {
+      (ex.subjects || []).forEach(sb => {
+        const qs = sb.questions || [];
+        if (!qs.length) return;
+        const name = String(sb.name || '').trim() || 'سایر دروس';
+        if (!map.has(name)) map.set(name, { name, totalQ: 0, exams: [], chapters: new Set() });
+        const entry = map.get(name);
+        entry.totalQ += qs.length;
+        entry.exams.push({ examId: ex.id, examTitle: ex.title, year: ex.year || '', qCount: qs.length });
+        qs.forEach(q => {
+          if (q.chapter && String(q.chapter).trim()) entry.chapters.add(String(q.chapter).trim());
+        });
+      });
+    });
+    return [...map.values()].sort((a, b) => {
+      const ia = coreOrder.indexOf(a.name);
+      const ib = coreOrder.indexOf(b.name);
+      if (ia >= 0 && ib >= 0) return ia - ib;
+      if (ia >= 0) return -1;
+      if (ib >= 0) return 1;
+      return b.totalQ - a.totalQ;
+    });
+  }
+
+  window.openLessonAcrossExamsRunner = function(encLessonName, mode, onlyExamId) {
+    const lessonName = decodeURIComponent(encLessonName || '');
+    const exams = getVisibleExams();
+    const rawSubjs = [];
+    let totalQ = 0;
+
+    exams.forEach(ex => {
+      if (onlyExamId && ex.id !== onlyExamId) return;
+      (ex.subjects || []).forEach(sb => {
+        if ((String(sb.name || '').trim() || 'سایر دروس') !== lessonName) return;
+        const qs = sb.questions || [];
+        if (!qs.length) return;
+        totalQ += qs.length;
+        const tagged = qs.map(q => Object.assign({}, q, {
+          sourceLabel: q.sourceLabel || buildExamSourceLabel('', ex.examType, ex.year) || ex.title
+        }));
+        rawSubjs.push({
+          id: 'ls_' + ex.id + '_' + sb.id,
+          name: ex.title + (ex.year ? ` (${toFa(ex.year)})` : ''),
+          questions: tagged
+        });
+      });
+    });
+
+    if (!rawSubjs.length || !totalQ) {
+      if (typeof toast === 'function') toast('سوالی برای این درس یافت نشد.');
+      return;
+    }
+
+    stopExamTimer();
+    const runMode = mode === 'exam' ? 'exam' : 'study';
+    const defaultSeconds = Math.max(300, totalQ * 75);
+
+    examSession = {
+      exam: {
+        id: 'lesson_' + Date.now(),
+        title: 'مطالعه درس به درس: ' + lessonName,
+        category: 'مطالعه درس به درس',
+        examType: onlyExamId ? rawSubjs[0].name : ('تجمیع ' + toFa(rawSubjs.length) + ' آزمون'),
+        negativeMarking: true
+      },
+      retryParams: { type: 'lesson', encLessonName, onlyExamId: onlyExamId || '' },
+      mode: runMode,
+      subjects: rawSubjs,
+      scopeLabel: 'درس: ' + lessonName,
+      activeSubjIdx: 0,
+      activeQIdx: 0,
+      viewMode: 'list',
       answers: {},
       revealed: {},
       flags: {},
@@ -5152,6 +5256,11 @@
       window.openTopicChapterRunner(p.encCat, p.encKind, p.encVal, newMode);
       return;
     }
+    if (examSession.retryParams && examSession.retryParams.type === 'lesson') {
+      const p = examSession.retryParams;
+      window.openLessonAcrossExamsRunner(p.encLessonName, newMode, p.onlyExamId);
+      return;
+    }
     const singleId = examSession.subjects.length === 1 && examSession.scopeLabel !== 'همه دروس' ? examSession.subjects[0].id : null;
     window.openExamRunner(examSession.exam.id, singleId, newMode);
   };
@@ -5160,6 +5269,12 @@
     injectExamUpgradeStyles();
     const root = document.getElementById('studentExamsRoot');
     if (!root) return;
+    const prevFocusId = document.activeElement && (document.activeElement.id === 'examHubSearchInp' || document.activeElement.id === 'examLessonSearchInp')
+      ? document.activeElement.id
+      : '';
+    const prevSelEnd = prevFocusId && typeof document.activeElement.selectionEnd === 'number'
+      ? document.activeElement.selectionEnd
+      : null;
 
     const exams = getVisibleExams();
     const allCats = [...new Set(exams.map(getExamCategory).filter(Boolean))];
@@ -5218,12 +5333,21 @@
       ? [...topicCounts.entries()].map(([name, cnt]) => ({ kind: 'chapter', name, cnt }))
       : [...subjTopicCounts.entries()].map(([name, cnt]) => ({ kind: 'subject', name, cnt }));
 
+    const lessonGroups = getLessonGroupsAcrossAllExams();
+    const lessonQNorm = examLessonSearch.trim().toLowerCase();
+    const filteredLessons = lessonGroups.filter(ls => {
+      if (!lessonQNorm) return true;
+      return ls.name.toLowerCase().includes(lessonQNorm)
+        || [...ls.chapters].some(ch => ch.toLowerCase().includes(lessonQNorm))
+        || ls.exams.some(exRef => (exRef.examTitle || '').toLowerCase().includes(lessonQNorm));
+    });
+
     root.innerHTML = `
       <div class="panel">
         <div class="panel-head">
           <div>
             <h2>📚 بانک سوالات و آزمون‌های حقوقی</h2>
-            <div class="muted small">پوشه‌بندی و طبقه‌بندی بر اساس سرفصل، تالیفی و سال، یادداشت شخصی زیر هر سوال و کارنامه</div>
+            <div class="muted small">آزمون‌های جامع با پیمایش متوالی دروس · یا بخش جداگانه مطالعه درس به درس کل آزمون‌ها</div>
           </div>
           <div class="row" style="gap:8px; flex-wrap:wrap;">
             ${window.isAdmin ? `<button type="button" class="btn primary" onclick="openExamMetaModal()">＋ ایجاد آزمون جدید</button>` : ''}
@@ -5232,6 +5356,68 @@
           </div>
         </div>
 
+        <div class="row" style="gap:8px; flex-wrap:wrap; margin:0 0 14px; padding:10px; border-radius:14px; background:var(--surface-2, rgba(15,118,110,.06)); border:1px solid var(--line);">
+          <button type="button" class="btn ${examHubSection === 'exams' ? 'primary' : ''}" onclick="setExamHubSection('exams')">
+            📂 آزمون‌های جامع و سنواتی (${toFa(exams.length)})
+          </button>
+          <button type="button" class="btn ${examHubSection === 'lessons' ? 'primary' : ''}" onclick="setExamHubSection('lessons')">
+            📚 مطالعه درس به درس سوالات (${toFa(lessonGroups.length)} درس)
+          </button>
+          <span class="muted small" style="margin-right:auto;">
+            ${examHubSection === 'lessons' ? 'کل سوالات تمام آزمون‌ها به تفکیک هر درس یکجا دسته‌بندی شده‌اند' : 'در هر آزمون، تمام درس‌ها پشت سر هم با اسکرول نمایش داده می‌شوند'}
+          </span>
+        </div>
+
+        ${examHubSection === 'lessons' ? `
+          <div class="field" style="margin-bottom:14px;">
+            <label>جستجو در بانک درس به درس</label>
+            <input id="examLessonSearchInp" value="${esc(examLessonSearch)}" placeholder="مثلاً: حقوق مدنی، تجارت، جزا، دادرسی..." oninput="setExamLessonSearch(this.value)">
+          </div>
+          ${!filteredLessons.length ? `
+            <div class="empty-glass-card" style="margin:24px auto;">
+              <div class="empty-icon">📚</div>
+              <h3>درسی با این عنوان پیدا نشد</h3>
+              <p>تمام دروس آزمون‌های بارگذاری‌شده در این بخش به صورت خودکار دسته‌بندی می‌شوند.</p>
+            </div>
+          ` : `
+            <div class="exams-grid">
+              ${filteredLessons.map(ls => {
+                const encName = encodeURIComponent(ls.name);
+                return `
+                  <article class="exam-card">
+                    <div class="row between" style="gap:6px; flex-wrap:wrap;">
+                      <span class="art-tag">مطالعه درس به درس</span>
+                      <span class="pill done">${toFa(ls.totalQ)} سوال · ${toFa(ls.exams.length)} آزمون</span>
+                    </div>
+                    <div>
+                      <h3 style="margin:0 0 6px; font-size:17px; font-weight:800; color:var(--text);">📘 ${esc(ls.name)}</h3>
+                      <div class="muted small">تمام سوالات درس «${esc(ls.name)}» از همه آزمون‌های موجود یکجا قابل مشاهده و آزمون هستند.</div>
+                    </div>
+                    <div>
+                      <div style="font-size:12px; font-weight:700; color:var(--text); margin-bottom:7px;">آزمون‌های شامل این درس (کلیک برای مطالعه تک‌آزمون):</div>
+                      <div class="exam-subj-pills">
+                        ${ls.exams.map(exRef => `
+                          <button type="button" class="exam-subj-btn" onclick="openLessonAcrossExamsRunner('${encName}', 'study', '${exRef.examId}')">
+                            <span>${esc(exRef.examTitle)}</span>
+                            <small class="muted">(${toFa(exRef.qCount)})</small>
+                          </button>
+                        `).join('')}
+                      </div>
+                    </div>
+                    <div class="row between" style="gap:6px; flex-wrap:wrap; padding-top:12px; border-top:1px solid var(--line); margin-top:auto;">
+                      <button type="button" class="btn primary" style="flex:1; justify-content:center;" onclick="openLessonAcrossExamsRunner('${encName}', 'study')">
+                        👁 مشاهده سوالات و پاسخ (${toFa(ls.totalQ)})
+                      </button>
+                      <button type="button" class="btn small" onclick="openLessonAcrossExamsRunner('${encName}', 'exam')">
+                        ⏱ آزمون زمان‌دار
+                      </button>
+                    </div>
+                  </article>
+                `;
+              }).join('')}
+            </div>
+          `}
+        ` : `
         <div class="ex-breadcrumb">
           <button type="button" class="ex-crumb-btn ${examHubCat === 'all' && examHubSubViewMode !== 'list' ? 'active' : ''}" onclick="setExamHubFilters('view','auto');setExamHubFilters('cat','all')">📁 همه دسته‌بندی‌ها (${toFa(exams.length)})</button>
           ${examHubCat !== 'all' ? `<span>›</span><button type="button" class="ex-crumb-btn ${examHubFilterYear === 'all' && examHubFilterChapter === 'all' ? 'active' : ''}" onclick="selectExamCategoryEnc('${encodeURIComponent(examHubCat)}')">📂 ${esc(examHubCat)}</button>` : ''}
@@ -5338,8 +5524,8 @@
                       </div>
                       <div class="row" style="gap:6px; flex-wrap:wrap;">
                         ${item.kind === 'chapter' ? `<button type="button" class="btn small" style="flex:1;" onclick="setExamHubFilters('chapter', decodeURIComponent('${encVal}'))">🔍 فیلتر آزمون‌ها</button>` : ''}
-                        <button type="button" class="btn small primary" style="flex:1;" onclick="openTopicChapterRunner('${encCat}', '${item.kind}', '${encVal}', 'study')">📖 مطالعه سرفصل</button>
-                        <button type="button" class="btn small" onclick="openTopicChapterRunner('${encCat}', '${item.kind}', '${encVal}', 'exam')">⏱ آزمون</button>
+                        <button type="button" class="btn small primary" style="flex:1;" onclick="openTopicChapterRunner('${encCat}', '${item.kind}', '${encVal}', 'study')">👁 مشاهده سوالات و پاسخ</button>
+                        <button type="button" class="btn small" onclick="openTopicChapterRunner('${encCat}', '${item.kind}', '${encVal}', 'exam')">⏱ آزمون زمان‌دار</button>
                       </div>
                     </div>
                   `;
@@ -5390,10 +5576,10 @@
                     </div>
                   ` : ''}
                   <div>
-                    <div style="font-size:12px; font-weight:700; color:var(--text); margin-bottom:7px;">مطالعه بر اساس سرفصل / درس:</div>
+                    <div style="font-size:12px; font-weight:700; color:var(--text); margin-bottom:7px;">درس‌ها به ترتیب در این آزمون (کلیک برای پرش مستقیم):</div>
                     <div class="exam-subj-pills">
                       ${subjs.length ? subjs.map(s => `
-                        <button type="button" class="exam-subj-btn" onclick="openExamRunner('${ex.id}', '${s.id}', 'study')">
+                        <button type="button" class="exam-subj-btn" onclick="openExamRunner('${ex.id}', null, 'study', '${s.id}')">
                           <span>${esc(s.name)}</span>
                           <small class="muted">(${toFa((s.questions || []).length)})</small>
                         </button>
@@ -5402,7 +5588,7 @@
                   </div>
                   <div class="row between" style="gap:6px; flex-wrap:wrap; padding-top:12px; border-top:1px solid var(--line); margin-top:auto;">
                     <button type="button" class="btn primary" style="flex:1; justify-content:center;" ${totalQ ? `onclick="openExamRunner('${ex.id}', null, 'study')"` : 'disabled'}>
-                      📖 مطالعه و نکته
+                      👁 مشاهده سوالات و پاسخ
                     </button>
                     <button type="button" class="btn small" ${totalQ ? `onclick="openExamRunner('${ex.id}', null, 'exam')"` : 'disabled'} title="آزمون زمان‌دار با ثبت کارنامه">
                       ⏱ آزمون زمان‌دار
@@ -5417,6 +5603,7 @@
             }).join('')}
           </div>
         `) : ''}
+        `}
       </div>
 
       ${results.length ? `
@@ -5447,6 +5634,16 @@
         </div>
       ` : ''}
     `;
+
+    if (prevFocusId) {
+      const ref = document.getElementById(prevFocusId);
+      if (ref) {
+        ref.focus();
+        if (prevSelEnd !== null && typeof ref.setSelectionRange === 'function') {
+          try { ref.setSelectionRange(prevSelEnd, prevSelEnd); } catch (e) {}
+        }
+      }
+    }
   };
 
   // --- محیط اختصاصی مدیر برای مدیریت آزمون‌ها، نمایش/عدم نمایش، ورود فایل و حذف نتایج ---
@@ -6425,7 +6622,7 @@ WITH CHECK (key &lt;&gt; 'baraat_exams_private_v1' OR EXISTS (SELECT 1 FROM publ
     }, 1000);
   }
 
-  window.openExamRunner = function(examId, singleSubjId, mode) {
+  window.openExamRunner = function(examId, singleSubjId, mode, jumpToSubjId) {
     const ex = getVisibleExams().find(x => x.id === examId);
     if (!ex) {
       if (typeof toast === 'function') toast('این آزمون در دسترس نیست.');
@@ -6443,15 +6640,16 @@ WITH CHECK (key &lt;&gt; 'baraat_exams_private_v1' OR EXISTS (SELECT 1 FROM publ
     const defaultSeconds = singleSubjId
       ? Math.max(300, Math.round((Number(ex.durationMinutes || 60) * 60 * totalQ) / Math.max(totalQ, totalQuestionsCount(ex))))
       : (Number(ex.durationMinutes || 60) * 60);
+    const jumpIdx = jumpToSubjId ? Math.max(0, rawSubjs.findIndex(s => s.id === jumpToSubjId)) : 0;
 
     examSession = {
       exam: ex,
       mode: runMode,
       subjects: rawSubjs,
-      scopeLabel: singleSubjId ? rawSubjs[0].name : 'همه دروس',
-      activeSubjIdx: 0,
+      scopeLabel: singleSubjId ? rawSubjs[0].name : 'همه دروس به ترتیب',
+      activeSubjIdx: jumpIdx,
       activeQIdx: 0,
-      viewMode: runMode === 'study' ? 'list' : 'single',
+      viewMode: 'list',
       answers: {},
       revealed: {},
       flags: {},
@@ -6471,6 +6669,12 @@ WITH CHECK (key &lt;&gt; 'baraat_exams_private_v1' OR EXISTS (SELECT 1 FROM publ
     }
 
     renderExamRunner();
+    if (jumpToSubjId && jumpIdx > 0) {
+      setTimeout(() => {
+        const secEl = document.getElementById('exSubjSec-' + jumpIdx);
+        if (secEl) secEl.scrollIntoView({ behavior: 'smooth', block: 'start' });
+      }, 60);
+    }
   };
 
   window.closeExamRunner = function(force) {
@@ -6571,7 +6775,7 @@ WITH CHECK (key &lt;&gt; 'baraat_exams_private_v1' OR EXISTS (SELECT 1 FROM publ
       examSession.paused = false;
       examSession.revealed = {};
       examSession.secondsLeft = examSession.totalSeconds;
-      examSession.viewMode = 'single';
+      examSession.viewMode = 'list';
       examSession.activeQIdx = 0;
       startExamCountdown();
     } else {
@@ -6891,15 +7095,15 @@ WITH CHECK (key &lt;&gt; 'baraat_exams_private_v1' OR EXISTS (SELECT 1 FROM publ
       overlay.innerHTML = `
         <div class="exam-runner-head">
           <div>
-            <b style="font-size:15.5px; color:var(--text);">📖 ${esc(s.exam.title)}</b>
-            <div class="muted small">حالت مطالعه پیوسته همه دروس (بدون تایمر) · ${toFa(allQs.length)} سوال</div>
+            <b style="font-size:15.5px; color:var(--text);">👁 ${esc(s.exam.title)}</b>
+            <div class="muted small">مشاهده سوالات و پاسخ (پیوسته بین همه دروس با اسکرول، بدون تایمر) · ${toFa(allQs.length)} سوال</div>
           </div>
           <div class="row" style="gap:8px; flex-wrap:wrap;">
             <button type="button" class="btn small" onclick="examToggleRevealAll()">
               ${allRevealedInExam ? '🙈 بستن همه پاسخ‌ها' : '👁 نمایش همه پاسخ‌ها'}
             </button>
-            <button type="button" class="btn small" onclick="examSwitchSessionMode('exam')" title="تغییر اختیاری به آزمون زمان‌دار با کارنامه">
-              ⏱ آزمون زمان‌دار و نمره (اختیاری)
+            <button type="button" class="btn small" onclick="examSwitchSessionMode('exam')" title="تغییر به آزمون زمان‌دار با کارنامه">
+              ⏱ آزمون زمان‌دار
             </button>
             <button type="button" class="btn primary small" onclick="closeExamRunner(true)">✕ بستن</button>
           </div>
@@ -7013,7 +7217,7 @@ WITH CHECK (key &lt;&gt; 'baraat_exams_private_v1' OR EXISTS (SELECT 1 FROM publ
             <span id="exTimerDisplay">${formatMmSs(s.secondsLeft)}</span>
             <button type="button" class="btn small" style="padding:2px 8px; font-size:11px;" onclick="examTogglePause()">${s.paused ? '▶ ادامه' : '⏸ توقف'}</button>
           </div>
-          <button type="button" class="btn small" onclick="examSwitchSessionMode('study')">📖 تغییر به حالت مرور</button>
+          <button type="button" class="btn small" onclick="examSwitchSessionMode('study')">👁 مشاهده سوالات و پاسخ</button>
           <button type="button" class="btn small" onclick="examToggleViewMode('${s.viewMode === 'single' ? 'list' : 'single'}')">
             ${s.viewMode === 'single' ? '☰ نمای لیستی' : '🎯 تک‌سوالی'}
           </button>
