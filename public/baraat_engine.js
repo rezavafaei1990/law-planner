@@ -4128,6 +4128,7 @@
             subjectSections: Array.isArray(d.subjectSections) ? d.subjectSections : [],
             subjects: Array.isArray(d.subjects) ? d.subjects : [],
             questions: Array.isArray(d.questions) ? d.questions : [],
+            examTags: (d.examTags && typeof d.examTags === 'object') ? d.examTags : {},
             updatedAt: row.updated_at || (d._summary && d._summary.updatedAt) || ''
           });
         });
@@ -4285,6 +4286,36 @@
           ${weakList.slice(0, 10).map(w => `<li>${esc(w)}</li>`).join('')}
         </ul>
       ` : ''}
+      ${(() => {
+        const tagEntries = Object.entries(u.examTags || {}).filter(([, t]) => {
+          const fl = (t && (t.tags || t.flags)) || [];
+          return t && (t.difficulty || (Array.isArray(fl) && fl.length));
+        });
+        if (!tagEntries.length) return '';
+        const diffLbl = { easy: 'آسان', medium: 'متوسط', hard: 'سخت' };
+        const flagLbl = { review: 'مرور', noteworthy: 'نکته‌دار', careless: 'بی‌دقتی' };
+        return `
+          <h4 style="margin:12px 0 6px;">🏷 تیک‌ها و برچسب‌های سوالات آزمون (${toFa(tagEntries.length)})</h4>
+          <div style="display:grid; gap:6px; max-height:200px; overflow:auto; margin-bottom:10px;">
+            ${tagEntries.slice(0, 25).map(([, t]) => {
+              const fl = Array.isArray(t.tags) ? t.tags : (Array.isArray(t.flags) ? t.flags : []);
+              const prev = t.qPreview || t.questionPreview || '';
+              return `
+              <div class="surface-box" style="padding:8px 10px; border-radius:10px; font-size:12px;">
+                <div class="row between" style="gap:6px; flex-wrap:wrap; margin-bottom:4px;">
+                  <b>${esc(t.examTitle || 'آزمون')}${t.subjectName ? ' · ' + esc(t.subjectName) : ''}</b>
+                  <div class="row" style="gap:4px; flex-wrap:wrap;">
+                    ${t.difficulty ? `<span class="ex-tag-pill diff-${t.difficulty}">${diffLbl[t.difficulty] || t.difficulty}</span>` : ''}
+                    ${fl.map(f => `<span class="ex-tag-pill flag-${f}">${flagLbl[f] || f}</span>`).join('')}
+                  </div>
+                </div>
+                ${prev ? `<div class="muted small" style="line-height:1.6;">${esc(prev)}</div>` : ''}
+              </div>
+            `;
+            }).join('')}
+          </div>
+        `;
+      })()}
       <div class="modal-actions">
         <button class="btn" onclick="closeModal();openPlanAssignerModal('${esc(u.email)}')">📤 ارسال برنامه جدید</button>
         <button class="btn primary" onclick="closeModal()">بستن</button>
@@ -4396,6 +4427,7 @@
   const EXAMS_PRIVATE_KEY = 'baraat_exams_private_v1';
   const EXAM_RESULTS_LOCAL_KEY = 'baraat_exam_results_v1';
   const EXAM_NOTES_LOCAL_PREFIX = 'baraat_exam_notes_v1_';
+  const EXAM_TAGS_LOCAL_PREFIX = 'baraat_exam_tags_v1_';
   const EXAM_ATTEMPTS_KEY = 'baraat_exam_attempts_v1';
   const EXAM_DELETED_ATTEMPTS_KEY = 'baraat_deleted_exam_attempts_v1';
   const EXAM_ORGS = [
@@ -4452,6 +4484,61 @@
       @media (max-width: 899px) {
         #examRunnerOverlay .exam-palette-card { max-height:240px; overflow-y:auto; overscroll-behavior:contain; }
       }
+      /* تیک‌های سطح سختی و برچسب مطالعه زیر هر سوال */
+      .ex-tag-bar { margin-top:12px; padding:10px 12px; border-radius:12px; background:var(--soft); border:1px solid var(--line); display:flex; flex-wrap:wrap; align-items:center; justify-content:space-between; gap:10px; }
+      .ex-tag-group { display:flex; flex-wrap:wrap; align-items:center; gap:6px; }
+      .ex-tag-lbl { font-size:11px; font-weight:800; color:var(--muted); margin-left:2px; }
+      .ex-tag-chip { display:inline-flex; align-items:center; gap:5px; padding:4px 10px; border-radius:8px; border:1px solid var(--line); background:var(--panel); color:var(--muted); font-family:inherit; font-size:11.5px; font-weight:700; cursor:pointer; transition:all .15s ease; }
+      .ex-tag-chip:hover { color:var(--text); border-color:var(--main); }
+      .ex-tag-chip .ex-dot { width:7px; height:7px; border-radius:50%; background:currentColor; opacity:.45; }
+      .ex-tag-chip.active .ex-dot { opacity:1; }
+      .ex-tag-chip.diff-easy.active { background:rgba(16,185,129,.14); border-color:rgba(16,185,129,.55); color:#047857; }
+      .ex-tag-chip.diff-medium.active { background:rgba(245,158,11,.15); border-color:rgba(245,158,11,.55); color:#b45309; }
+      .ex-tag-chip.diff-hard.active { background:rgba(244,63,94,.14); border-color:rgba(244,63,94,.55); color:#be123c; }
+      .ex-tag-chip.flag-review.active { background:rgba(14,165,233,.14); border-color:rgba(14,165,233,.55); color:#0369a1; }
+      .ex-tag-chip.flag-noteworthy.active { background:rgba(139,92,246,.14); border-color:rgba(139,92,246,.55); color:#6d28d9; }
+      .ex-tag-chip.flag-careless.active { background:rgba(249,115,22,.14); border-color:rgba(249,115,22,.55); color:#c2410c; }
+      [data-theme="dark"] .ex-tag-chip.diff-easy.active { color:#6ee7b7; }
+      [data-theme="dark"] .ex-tag-chip.diff-medium.active { color:#fcd34d; }
+      [data-theme="dark"] .ex-tag-chip.diff-hard.active { color:#fda4af; }
+      [data-theme="dark"] .ex-tag-chip.flag-review.active { color:#7dd3fc; }
+      [data-theme="dark"] .ex-tag-chip.flag-noteworthy.active { color:#c4b5fd; }
+      [data-theme="dark"] .ex-tag-chip.flag-careless.active { color:#fdba74; }
+      .ex-tag-pill { display:inline-flex; align-items:center; padding:2px 8px; border-radius:6px; font-size:10.5px; font-weight:800; }
+      .ex-tag-pill.diff-easy { background:rgba(16,185,129,.15); color:#047857; }
+      .ex-tag-pill.diff-medium { background:rgba(245,158,11,.16); color:#b45309; }
+      .ex-tag-pill.diff-hard { background:rgba(244,63,94,.15); color:#be123c; }
+      .ex-tag-pill.flag-review { background:rgba(14,165,233,.15); color:#0369a1; }
+      .ex-tag-pill.flag-noteworthy { background:rgba(139,92,246,.15); color:#6d28d9; }
+      .ex-tag-pill.flag-careless { background:rgba(249,115,22,.15); color:#c2410c; }
+      [data-theme="dark"] .ex-tag-pill.diff-easy { color:#6ee7b7; }
+      [data-theme="dark"] .ex-tag-pill.diff-medium { color:#fcd34d; }
+      [data-theme="dark"] .ex-tag-pill.diff-hard { color:#fda4af; }
+      [data-theme="dark"] .ex-tag-pill.flag-review { color:#7dd3fc; }
+      [data-theme="dark"] .ex-tag-pill.flag-noteworthy { color:#c4b5fd; }
+      [data-theme="dark"] .ex-tag-pill.flag-careless { color:#fdba74; }
+      .exam-q-dot { position:relative; }
+      .exam-q-dot.has-tag::after { content:''; position:absolute; top:2px; left:2px; width:6px; height:6px; border-radius:50%; background:#8b5cf6; }
+      .exam-q-dot.tag-hard::after { background:#f43f5e; }
+      .exam-q-dot.tag-medium::after { background:#f59e0b; }
+      .exam-q-dot.tag-easy::after { background:#10b981; }
+      /* رنگ‌بندی مجزا و شیک برای باکس هر درس در برنامه مطالعه روزانه */
+      .baraat-subj-theme-0 { border-right:4px solid #0d9488 !important; background:linear-gradient(270deg, rgba(20,184,166,.10) 0%, var(--panel) 55%) !important; border-color:rgba(20,184,166,.32) !important; }
+      .baraat-subj-theme-1 { border-right:4px solid #2563eb !important; background:linear-gradient(270deg, rgba(59,130,246,.10) 0%, var(--panel) 55%) !important; border-color:rgba(59,130,246,.32) !important; }
+      .baraat-subj-theme-2 { border-right:4px solid #d97706 !important; background:linear-gradient(270deg, rgba(245,158,11,.10) 0%, var(--panel) 55%) !important; border-color:rgba(245,158,11,.34) !important; }
+      .baraat-subj-theme-3 { border-right:4px solid #e11d48 !important; background:linear-gradient(270deg, rgba(244,63,94,.09) 0%, var(--panel) 55%) !important; border-color:rgba(244,63,94,.30) !important; }
+      .baraat-subj-theme-4 { border-right:4px solid #7c3aed !important; background:linear-gradient(270deg, rgba(139,92,246,.10) 0%, var(--panel) 55%) !important; border-color:rgba(139,92,246,.32) !important; }
+      .baraat-subj-theme-5 { border-right:4px solid #ea580c !important; background:linear-gradient(270deg, rgba(249,115,22,.10) 0%, var(--panel) 55%) !important; border-color:rgba(249,115,22,.32) !important; }
+      .baraat-subj-theme-6 { border-right:4px solid #0891b2 !important; background:linear-gradient(270deg, rgba(6,182,212,.10) 0%, var(--panel) 55%) !important; border-color:rgba(6,182,212,.32) !important; }
+      .baraat-subj-theme-7 { border-right:4px solid #c026d3 !important; background:linear-gradient(270deg, rgba(217,70,239,.09) 0%, var(--panel) 55%) !important; border-color:rgba(217,70,239,.30) !important; }
+      [data-theme="dark"] .baraat-subj-theme-0 { background:linear-gradient(270deg, rgba(20,184,166,.16) 0%, var(--panel) 60%) !important; }
+      [data-theme="dark"] .baraat-subj-theme-1 { background:linear-gradient(270deg, rgba(59,130,246,.16) 0%, var(--panel) 60%) !important; }
+      [data-theme="dark"] .baraat-subj-theme-2 { background:linear-gradient(270deg, rgba(245,158,11,.15) 0%, var(--panel) 60%) !important; }
+      [data-theme="dark"] .baraat-subj-theme-3 { background:linear-gradient(270deg, rgba(244,63,94,.15) 0%, var(--panel) 60%) !important; }
+      [data-theme="dark"] .baraat-subj-theme-4 { background:linear-gradient(270deg, rgba(139,92,246,.16) 0%, var(--panel) 60%) !important; }
+      [data-theme="dark"] .baraat-subj-theme-5 { background:linear-gradient(270deg, rgba(249,115,22,.15) 0%, var(--panel) 60%) !important; }
+      [data-theme="dark"] .baraat-subj-theme-6 { background:linear-gradient(270deg, rgba(6,182,212,.16) 0%, var(--panel) 60%) !important; }
+      [data-theme="dark"] .baraat-subj-theme-7 { background:linear-gradient(270deg, rgba(217,70,239,.15) 0%, var(--panel) 60%) !important; }
     `;
     document.head.appendChild(st);
   }
@@ -4724,6 +4811,164 @@
     `;
   }
 
+  // --- تیک‌ها و برچسب‌های سطح سختی و مطالعه هر سوال (ذخیره برای دانشجو و قابل مشاهده برای مدیر) ---
+  const examQuestionTagMetaRegistry = {};
+  function getTagsLocalStorageKey() {
+    const uid = (window.me && (window.me.id || window.me.email)) ? String(window.me.id || window.me.email).toLowerCase() : 'guest';
+    return EXAM_TAGS_LOCAL_PREFIX + uid;
+  }
+
+  function getExamTagsMap() {
+    const merged = {};
+    try {
+      const raw = localStorage.getItem(getTagsLocalStorageKey());
+      const localObj = raw ? JSON.parse(raw) : {};
+      if (localObj && typeof localObj === 'object') Object.assign(merged, localObj);
+    } catch (e) {}
+    try {
+      const api = window.BARAAT_PLANNER_API;
+      if (api && window.me && api.isReady()) {
+        const st = api.getState();
+        if (st && st.examTags && typeof st.examTags === 'object') {
+          Object.assign(merged, st.examTags);
+        }
+      }
+    } catch (e) {}
+    return merged;
+  }
+
+  window.getExamQuestionTag = function(qId) {
+    if (!qId) return null;
+    const map = getExamTagsMap();
+    return map[qId] || null;
+  };
+
+  async function persistExamQuestionTag(qId, nextTag) {
+    if (!qId) return;
+    const fl = (nextTag && (nextTag.tags || nextTag.flags)) || [];
+    const isEmpty = !nextTag || (!nextTag.difficulty && (!Array.isArray(fl) || !fl.length));
+    const localKey = getTagsLocalStorageKey();
+    let localObj = {};
+    try { localObj = JSON.parse(localStorage.getItem(localKey) || '{}') || {}; } catch (e) { localObj = {}; }
+    if (isEmpty) delete localObj[qId];
+    else localObj[qId] = nextTag;
+    try { localStorage.setItem(localKey, JSON.stringify(localObj)); } catch (e) {}
+
+    try {
+      const api = window.BARAAT_PLANNER_API;
+      if (api && window.me && api.isReady()) {
+        const st = api.getState();
+        st.examTags = (st.examTags && typeof st.examTags === 'object') ? st.examTags : {};
+        if (isEmpty) delete st.examTags[qId];
+        else st.examTags[qId] = nextTag;
+        if (api.persist) api.persist();
+        if (api.saveImmediate) await api.saveImmediate();
+      }
+    } catch (e) {}
+  }
+
+  function getTagFlagsArr(tg) {
+    if (!tg) return [];
+    if (Array.isArray(tg.tags)) return tg.tags;
+    if (Array.isArray(tg.flags)) return tg.flags;
+    return [];
+  }
+
+  function renderQuestionTagBarInnerHtml(qId, domPrefix) {
+    const tg = window.getExamQuestionTag(qId) || {};
+    const diff = tg.difficulty || '';
+    const flags = getTagFlagsArr(tg);
+    const diffs = [
+      { id: 'easy', label: 'آسان' },
+      { id: 'medium', label: 'متوسط' },
+      { id: 'hard', label: 'سخت' }
+    ];
+    const flagItems = [
+      { id: 'review', label: 'مرور' },
+      { id: 'noteworthy', label: 'نکته‌دار' },
+      { id: 'careless', label: 'بی‌دقتی' }
+    ];
+    return `
+      <div class="ex-tag-group">
+        <span class="ex-tag-lbl">سطح سوال:</span>
+        ${diffs.map(d => `
+          <button type="button" class="ex-tag-chip diff-${d.id} ${diff === d.id ? 'active' : ''}" onclick="toggleExamQuestionDifficulty('${qId}', '${d.id}', '${domPrefix}')">
+            <span class="ex-dot"></span>${d.label}
+          </button>
+        `).join('')}
+      </div>
+      <div class="ex-tag-group">
+        <span class="ex-tag-lbl">برچسب:</span>
+        ${flagItems.map(f => `
+          <button type="button" class="ex-tag-chip flag-${f.id} ${flags.includes(f.id) ? 'active' : ''}" onclick="toggleExamQuestionFlag('${qId}', '${f.id}', '${domPrefix}')">
+            <span class="ex-dot"></span>${f.label}
+          </button>
+        `).join('')}
+      </div>
+    `;
+  }
+
+  function renderQuestionTagBarHtml(qId, examTitle, subjName, qText, domPrefix) {
+    if (!qId) return '';
+    examQuestionTagMetaRegistry[qId] = {
+      examTitle: String(examTitle || '').trim(),
+      subjectName: String(subjName || '').trim(),
+      qPreview: String(qText || '').trim().slice(0, 140)
+    };
+    const barId = 'exTagBar_' + domPrefix + '_' + qId;
+    return `<div id="${barId}" class="ex-tag-bar" data-qid="${qId}">${renderQuestionTagBarInnerHtml(qId, domPrefix)}</div>`;
+  }
+
+  function refreshTagBarsInDom(qId, domPrefix) {
+    document.querySelectorAll('.ex-tag-bar[data-qid="' + qId + '"]').forEach(el => {
+      const pfx = (el.id || '').replace('exTagBar_', '').replace('_' + qId, '') || domPrefix || 'ex';
+      el.innerHTML = renderQuestionTagBarInnerHtml(qId, pfx);
+    });
+    const tg = window.getExamQuestionTag(qId);
+    const hasAny = !!(tg && (tg.difficulty || getTagFlagsArr(tg).length));
+    document.querySelectorAll('.exam-q-dot[data-qid="' + qId + '"]').forEach(dot => {
+      dot.classList.remove('has-tag', 'tag-hard', 'tag-medium', 'tag-easy');
+      if (hasAny) {
+        dot.classList.add('has-tag');
+        if (tg.difficulty) dot.classList.add('tag-' + tg.difficulty);
+      }
+    });
+  }
+
+  window.toggleExamQuestionDifficulty = async function(qId, diff, domPrefix) {
+    const cur = window.getExamQuestionTag(qId) || {};
+    const meta = examQuestionTagMetaRegistry[qId] || {};
+    const nextDiff = cur.difficulty === diff ? undefined : diff;
+    const nextTags = getTagFlagsArr(cur).slice();
+    const nextTag = {
+      difficulty: nextDiff,
+      tags: nextTags.length ? nextTags : undefined,
+      examTitle: meta.examTitle || cur.examTitle || '',
+      subjectName: meta.subjectName || cur.subjectName || '',
+      qPreview: meta.qPreview || cur.qPreview || cur.questionPreview || '',
+      updatedAt: new Date().toISOString()
+    };
+    await persistExamQuestionTag(qId, nextTag);
+    refreshTagBarsInDom(qId, domPrefix);
+  };
+
+  window.toggleExamQuestionFlag = async function(qId, flag, domPrefix) {
+    const cur = window.getExamQuestionTag(qId) || {};
+    const meta = examQuestionTagMetaRegistry[qId] || {};
+    const prevTags = getTagFlagsArr(cur).slice();
+    const nextTags = prevTags.includes(flag) ? prevTags.filter(f => f !== flag) : [...prevTags, flag];
+    const nextTag = {
+      difficulty: cur.difficulty,
+      tags: nextTags.length ? nextTags : undefined,
+      examTitle: meta.examTitle || cur.examTitle || '',
+      subjectName: meta.subjectName || cur.subjectName || '',
+      qPreview: meta.qPreview || cur.qPreview || cur.questionPreview || '',
+      updatedAt: new Date().toISOString()
+    };
+    await persistExamQuestionTag(qId, nextTag);
+    refreshTagBarsInDom(qId, domPrefix);
+  };
+
   // --- نتایج و سوابق آزمون‌ها + حذف فقط توسط مدیر ---
   function getDeletedAttemptIdsSet() {
     try {
@@ -4819,6 +5064,7 @@
             total: rec.total,
             rawPct: rec.rawPct,
             netPct: rec.netPct,
+            questionTags: rec.questionTags || {},
             createdAt: rec.createdAt
           });
           localStorage.setItem(EXAM_ATTEMPTS_KEY, JSON.stringify(arr.slice(0, 200)));
@@ -4831,10 +5077,20 @@
   }
 
   let adminAttemptsCache = [];
+  let adminStudentTagsCache = [];
+  let adminTagFilterType = 'all';
+
+  window.setAdminTagFilter = function(val) {
+    adminTagFilterType = val || 'all';
+    const tagBox = document.getElementById('admExamTagsBox');
+    if (tagBox) tagBox.innerHTML = renderAdminStudentTagsInnerHtml();
+  };
+
   window.refreshAdminExamAttempts = async function() {
     if (!window.isAdmin) return;
     const deletedSet = getDeletedAttemptIdsSet();
     const map = new Map();
+    const tagsList = [];
     const addRec = (r, srcEmail) => {
       if (!r || !r.id || deletedSet.has(r.id)) return;
       const existing = map.get(r.id);
@@ -4863,6 +5119,12 @@
             if (Array.isArray(d.examResults)) {
               d.examResults.forEach(r => addRec(Object.assign({ userId: row.user_id }, r), email));
             }
+            if (d.examTags && typeof d.examTags === 'object') {
+              Object.entries(d.examTags).forEach(([qId, tg]) => {
+                if (!tg || (!tg.difficulty && !getTagFlagsArr(tg).length)) return;
+                tagsList.push({ userId: row.user_id, email, qId, tag: tg });
+              });
+            }
           });
         }
       } catch (e) {}
@@ -4870,9 +5132,70 @@
 
     getExamResults().forEach(r => addRec(r, r.userEmail || (window.me && window.me.email) || 'مدیر'));
     adminAttemptsCache = [...map.values()].sort((a, b) => String(b.createdAt || '').localeCompare(String(a.createdAt || '')));
+    adminStudentTagsCache = tagsList.sort((a, b) => String(b.tag.updatedAt || '').localeCompare(String(a.tag.updatedAt || '')));
     const box = document.getElementById('admExamAttemptsBox');
     if (box) box.innerHTML = renderAdminAttemptsInnerHtml();
+    const tagBox = document.getElementById('admExamTagsBox');
+    if (tagBox) tagBox.innerHTML = renderAdminStudentTagsInnerHtml();
   };
+
+  function renderAdminStudentTagsInnerHtml() {
+    if (!adminStudentTagsCache.length) {
+      return '<div class="muted small surface-box">هنوز سوالی توسط دانشجویان تیک نخورده است (پس از زدن تیک آسان/متوسط/سخت یا مرور/نکته‌دار/بی‌دقتی، در این بخش نمایش داده می‌شود).</div>';
+    }
+    const c = {
+      all: adminStudentTagsCache.length,
+      hard: adminStudentTagsCache.filter(x => x.tag.difficulty === 'hard').length,
+      medium: adminStudentTagsCache.filter(x => x.tag.difficulty === 'medium').length,
+      easy: adminStudentTagsCache.filter(x => x.tag.difficulty === 'easy').length,
+      review: adminStudentTagsCache.filter(x => getTagFlagsArr(x.tag).includes('review')).length,
+      noteworthy: adminStudentTagsCache.filter(x => getTagFlagsArr(x.tag).includes('noteworthy')).length,
+      careless: adminStudentTagsCache.filter(x => getTagFlagsArr(x.tag).includes('careless')).length
+    };
+    const filtered = adminStudentTagsCache.filter(x => {
+      if (adminTagFilterType === 'all') return true;
+      if (['easy', 'medium', 'hard'].includes(adminTagFilterType)) return x.tag.difficulty === adminTagFilterType;
+      return getTagFlagsArr(x.tag).includes(adminTagFilterType);
+    });
+    const btns = [
+      ['all', 'همه (' + toFa(c.all) + ')'],
+      ['hard', 'سخت (' + toFa(c.hard) + ')'],
+      ['medium', 'متوسط (' + toFa(c.medium) + ')'],
+      ['easy', 'آسان (' + toFa(c.easy) + ')'],
+      ['review', 'مرور (' + toFa(c.review) + ')'],
+      ['noteworthy', 'نکته‌دار (' + toFa(c.noteworthy) + ')'],
+      ['careless', 'بی‌دقتی (' + toFa(c.careless) + ')']
+    ];
+    const diffLbl = { easy: 'آسان', medium: 'متوسط', hard: 'سخت' };
+    const flagLbl = { review: 'مرور', noteworthy: 'نکته‌دار', careless: 'بی‌دقتی' };
+    return `
+      <div class="row" style="gap:6px; flex-wrap:wrap; margin-bottom:10px;">
+        ${btns.map(([id, lbl]) => `<button type="button" class="btn small ${adminTagFilterType === id ? 'primary' : ''}" onclick="setAdminTagFilter('${id}')">${lbl}</button>`).join('')}
+      </div>
+      <div style="display:grid; gap:8px; max-height:300px; overflow:auto;">
+        ${filtered.length ? filtered.slice(0, 100).map(item => {
+          const fl = getTagFlagsArr(item.tag);
+          const prev = item.tag.qPreview || item.tag.questionPreview || '';
+          return `
+          <div class="admin-list-row" style="display:grid; gap:6px;">
+            <div class="row between" style="gap:8px; flex-wrap:wrap;">
+              <div class="row" style="gap:6px; flex-wrap:wrap; align-items:center;">
+                <b dir="ltr" style="font-size:12.5px;">${esc(item.email)}</b>
+                ${item.tag.examTitle ? `<span class="pill">${esc(item.tag.examTitle)}</span>` : ''}
+                ${item.tag.subjectName ? `<span class="art-tag">${esc(item.tag.subjectName)}</span>` : ''}
+              </div>
+              <div class="row" style="gap:4px; flex-wrap:wrap;">
+                ${item.tag.difficulty ? `<span class="ex-tag-pill diff-${item.tag.difficulty}">${diffLbl[item.tag.difficulty] || item.tag.difficulty}</span>` : ''}
+                ${fl.map(f => `<span class="ex-tag-pill flag-${f}">${flagLbl[f] || f}</span>`).join('')}
+              </div>
+            </div>
+            ${prev ? `<div class="muted small" style="line-height:1.6;">${esc(prev)}</div>` : ''}
+          </div>
+        `;
+        }).join('') : '<div class="muted small surface-box">موردی با این فیلتر یافت نشد.</div>'}
+      </div>
+    `;
+  }
 
   function renderAdminAttemptsInnerHtml() {
     if (!adminAttemptsCache.length) {
@@ -4880,17 +5203,34 @@
     }
     return `
       <div style="display:grid; gap:8px; max-height:300px; overflow:auto;">
-        ${adminAttemptsCache.map(r => `
-          <div class="row between admin-list-row" style="flex-wrap:wrap; gap:8px;">
-            <div>
-              <b>${esc(r.examTitle)}</b> ${r.scopeLabel ? `<span class="muted small">(${esc(r.scopeLabel)})</span>` : ''}
-              <div class="muted small" style="margin-top:3px;">
-                کاربر: <b dir="ltr">${esc(r.userEmail || 'مهمان')}</b> · ${esc(r.dateLabel || '')} · صحیح: <b>${toFa(r.correct)}</b> · غلط: <b>${toFa(r.wrong)}</b> · تراز: <b>${toFa(r.netPct)}٪</b>
+        ${adminAttemptsCache.map(r => {
+          const vals = r.questionTags && typeof r.questionTags === 'object' ? Object.values(r.questionTags) : [];
+          const badges = [];
+          const cEasy = vals.filter(t => t && t.difficulty === 'easy').length;
+          const cMed = vals.filter(t => t && t.difficulty === 'medium').length;
+          const cHard = vals.filter(t => t && t.difficulty === 'hard').length;
+          const cRev = vals.filter(t => t && getTagFlagsArr(t).includes('review')).length;
+          const cNote = vals.filter(t => t && getTagFlagsArr(t).includes('noteworthy')).length;
+          const cCare = vals.filter(t => t && getTagFlagsArr(t).includes('careless')).length;
+          if (cEasy) badges.push(`<span class="ex-tag-pill diff-easy">آسان ${toFa(cEasy)}</span>`);
+          if (cMed) badges.push(`<span class="ex-tag-pill diff-medium">متوسط ${toFa(cMed)}</span>`);
+          if (cHard) badges.push(`<span class="ex-tag-pill diff-hard">سخت ${toFa(cHard)}</span>`);
+          if (cRev) badges.push(`<span class="ex-tag-pill flag-review">مرور ${toFa(cRev)}</span>`);
+          if (cNote) badges.push(`<span class="ex-tag-pill flag-noteworthy">نکته‌دار ${toFa(cNote)}</span>`);
+          if (cCare) badges.push(`<span class="ex-tag-pill flag-careless">بی‌دقتی ${toFa(cCare)}</span>`);
+          return `
+            <div class="row between admin-list-row" style="flex-wrap:wrap; gap:8px;">
+              <div>
+                <b>${esc(r.examTitle)}</b> ${r.scopeLabel ? `<span class="muted small">(${esc(r.scopeLabel)})</span>` : ''}
+                <div class="muted small" style="margin-top:3px;">
+                  کاربر: <b dir="ltr">${esc(r.userEmail || 'مهمان')}</b> · ${esc(r.dateLabel || '')} · صحیح: <b>${toFa(r.correct)}</b> · غلط: <b>${toFa(r.wrong)}</b> · تراز: <b>${toFa(r.netPct)}٪</b>
+                </div>
+                ${badges.length ? `<div class="row" style="gap:4px; flex-wrap:wrap; margin-top:5px;">${badges.join('')}</div>` : ''}
               </div>
+              <button type="button" class="btn small danger" onclick="adminDeleteExamAttempt('${r.id}')">🗑 حذف نتیجه (بدون حذف نکات)</button>
             </div>
-            <button type="button" class="btn small danger" onclick="adminDeleteExamAttempt('${r.id}')">🗑 حذف نتیجه (بدون حذف نکات)</button>
-          </div>
-        `).join('')}
+          `;
+        }).join('')}
       </div>
     `;
   }
@@ -5071,6 +5411,7 @@
               }).join('')}
             </div>
             ${item.exp ? `<div class="exam-exp-box"><b>💡 پاسخ تشریحی:</b> ${esc(item.exp)}</div>` : ''}
+            ${renderQuestionTagBarHtml(item.id, rec.examTitle || '', item.subjName || '', item.q || '', 'past_' + attemptId)}
             ${renderQuestionNoteBoxHtml(item.id, 'past_' + attemptId)}
           </div>
         `;
@@ -5703,6 +6044,17 @@
         <div id="admExamAttemptsBox">${renderAdminAttemptsInnerHtml()}</div>
       </div>
 
+      <div style="margin-top:18px; padding-top:14px; border-top:1px solid var(--line);">
+        <div class="row between" style="gap:8px; flex-wrap:wrap; margin-bottom:8px;">
+          <div>
+            <b style="font-size:13.5px; color:var(--text);">🏷 تیک‌ها و برچسب‌های سوالات دانشجویان (آسان · متوسط · سخت · مرور · نکته‌دار · بی‌دقتی)</b>
+            <div class="muted small">مشاهده همه سوالاتی که داوطلبان روی آن‌ها تیک سطح سختی یا برچسب مطالعه زده‌اند.</div>
+          </div>
+          <button type="button" class="btn small" onclick="refreshAdminExamAttempts()">🔄 بروزرسانی تیک‌ها</button>
+        </div>
+        <div id="admExamTagsBox">${renderAdminStudentTagsInnerHtml()}</div>
+      </div>
+
       <details class="callout-warn" style="margin-top:16px; padding:12px 14px; border-style:dashed; border-radius:12px;">
         <summary style="cursor:pointer; font-size:12.5px; font-weight:800;">🔒 قفل امنیتی آزمون‌های مخفی در سرور Supabase (ضد دسترسی از F12 و API)</summary>
         <p class="small" style="margin:8px 0; line-height:1.8;">
@@ -5718,8 +6070,15 @@ USING (key &lt;&gt; 'baraat_exams_private_v1' OR EXISTS (SELECT 1 FROM public.ad
 WITH CHECK (key &lt;&gt; 'baraat_exams_private_v1' OR EXISTS (SELECT 1 FROM public.admins WHERE user_id = auth.uid()));</pre>
         <button type="button" class="btn small" onclick="copyPrivateExamsRlsSql()">📋 کپی دستور SQL قفل امنیتی</button>
       </details>
+
+      <details class="callout-info" style="margin-top:12px; padding:12px 14px; border-style:dashed; border-radius:12px;">
+        <summary style="cursor:pointer; font-size:12.5px; font-weight:800;">✉️ راهنمای فعال‌سازی ارسال کد تأیید ایمیل (OTP) هنگام ثبت‌نام در Supabase</summary>
+        <p class="small" style="margin:8px 0; line-height:1.8;">
+          بخش ورود کد تأیید ایمیل در فرم ثبت‌نام فعال شده است. در پنل Supabase به مسیر <code>Authentication → Email Templates → Confirm signup</code> بروید و کد <code>{{ .Token }}</code> را در قالب ایمیل قرار دهید و در <code>Providers → Email</code> گزینه <code>Confirm email</code> را فعال کنید.
+        </p>
+      </details>
     `;
-    if (window.isAdmin && !adminAttemptsCache.length) {
+    if (window.isAdmin && !adminAttemptsCache.length && !adminStudentTagsCache.length) {
       setTimeout(() => { if (window.refreshAdminExamAttempts) window.refreshAdminExamAttempts(); }, 100);
     }
   };
@@ -6855,6 +7214,15 @@ WITH CHECK (key &lt;&gt; 'baraat_exams_private_v1' OR EXISTS (SELECT 1 FROM publ
       });
     });
 
+    const allTagMap = getExamTagsMap();
+    const attemptTagsSnap = {};
+    snapshot.forEach(item => {
+      const tg = allTagMap[item.id];
+      if (tg && (tg.difficulty || getTagFlagsArr(tg).length)) {
+        attemptTagsSnap[item.id] = tg;
+      }
+    });
+
     await saveExamResultRecord({
       id: 'res_' + Date.now() + '_' + Math.random().toString(36).slice(2, 6),
       examId: examSession.exam.id,
@@ -6870,6 +7238,7 @@ WITH CHECK (key &lt;&gt; 'baraat_exams_private_v1' OR EXISTS (SELECT 1 FROM publ
       rawPct: stats.rawPct,
       netPct: stats.netPct,
       answers: Object.assign({}, examSession.answers),
+      questionTags: attemptTagsSnap,
       questionsSnapshot: snapshot,
       createdAt: new Date().toISOString()
     });
@@ -7022,6 +7391,7 @@ WITH CHECK (key &lt;&gt; 'baraat_exams_private_v1' OR EXISTS (SELECT 1 FROM publ
                       }).join('')}
                     </div>
                     ${item.q.exp ? `<div class="exam-exp-box"><b>💡 توضیح و مستند قانونی:</b> ${esc(item.q.exp)}</div>` : ''}
+                    ${renderQuestionTagBarHtml(item.q.id, s.exam.title || '', item.subjName || '', item.q.q || '', 'rev')}
                     ${renderQuestionNoteBoxHtml(item.q.id, 'rev')}
                   </div>
                 `;
@@ -7087,6 +7457,7 @@ WITH CHECK (key &lt;&gt; 'baraat_exams_private_v1' OR EXISTS (SELECT 1 FROM publ
                 </div>
               ` : ''}
             </div>
+            ${renderQuestionTagBarHtml(qObj.id, s.exam.title || '', subjName || '', qObj.q || '', 'study')}
             ${renderQuestionNoteBoxHtml(qObj.id, 'study')}
           </div>
         `;
@@ -7147,7 +7518,10 @@ WITH CHECK (key &lt;&gt; 'baraat_exams_private_v1' OR EXISTS (SELECT 1 FROM publ
                         ${sQs.map((q, qi) => {
                           const isRev = !!s.revealed[q.id];
                           const isPicked = s.answers[q.id] !== undefined;
-                          return `<button type="button" class="exam-q-dot ${isRev ? 'res-ok' : (isPicked ? 'answered' : '')}" onclick="examJumpToQ('${q.id}')">${toFa(qi + 1)}</button>`;
+                          const qTg = window.getExamQuestionTag(q.id);
+                          const hasTg = !!(qTg && (qTg.difficulty || getTagFlagsArr(qTg).length));
+                          const tgCls = hasTg ? ('has-tag' + (qTg.difficulty ? ' tag-' + qTg.difficulty : '')) : '';
+                          return `<button type="button" data-qid="${q.id}" class="exam-q-dot ${isRev ? 'res-ok' : (isPicked ? 'answered' : '')} ${tgCls}" onclick="examJumpToQ('${q.id}')">${toFa(qi + 1)}</button>`;
                         }).join('')}
                       </div>
                     </div>
@@ -7192,6 +7566,7 @@ WITH CHECK (key &lt;&gt; 'baraat_exams_private_v1' OR EXISTS (SELECT 1 FROM publ
               </button>
             ` : '').join('')}
           </div>
+          ${renderQuestionTagBarHtml(qObj.id, s.exam.title || '', subjName || '', qObj.q || '', 'ex')}
           ${renderQuestionNoteBoxHtml(qObj.id, 'ex')}
           ${s.viewMode === 'single' ? `
             <div class="row between" style="margin-top:20px; padding-top:14px; border-top:1px solid var(--line);">
@@ -7277,7 +7652,10 @@ WITH CHECK (key &lt;&gt; 'baraat_exams_private_v1' OR EXISTS (SELECT 1 FROM publ
                         const isAns = s.answers[q.id] !== undefined;
                         const isFlag = !!s.flags[q.id];
                         const isCur = s.viewMode === 'single' && sIdx === s.activeSubjIdx && qi === s.activeQIdx;
-                        return `<button type="button" class="exam-q-dot ${isAns ? 'answered' : ''} ${isFlag ? 'flagged' : ''} ${isCur ? 'current' : ''}" onclick="${s.viewMode === 'list' ? `examJumpToQ('${q.id}')` : `examSelectSubjQ(${sIdx}, ${qi})`}">${toFa(qi + 1)}</button>`;
+                        const qTg = window.getExamQuestionTag(q.id);
+                        const hasTg = !!(qTg && (qTg.difficulty || getTagFlagsArr(qTg).length));
+                        const tgCls = hasTg ? ('has-tag' + (qTg.difficulty ? ' tag-' + qTg.difficulty : '')) : '';
+                        return `<button type="button" data-qid="${q.id}" class="exam-q-dot ${isAns ? 'answered' : ''} ${isFlag ? 'flagged' : ''} ${isCur ? 'current' : ''} ${tgCls}" onclick="${s.viewMode === 'list' ? `examJumpToQ('${q.id}')` : `examSelectSubjQ(${sIdx}, ${qi})`}">${toFa(qi + 1)}</button>`;
                       }).join('')}
                     </div>
                   </div>
@@ -7616,10 +7994,280 @@ WITH CHECK (key &lt;&gt; 'baraat_exams_private_v1' OR EXISTS (SELECT 1 FROM publ
     window.scrollTo({ top: 0, behavior: 'smooth' });
   };
 
+  // -------------------------------------------------------------------
+  // رنگ‌بندی مجزا و خودکار باکس هر درس در بخش مطالعه روزانه + فرم ثبت‌نام با کد تأیید ایمیل (OTP)
+  // -------------------------------------------------------------------
+  function hashSubjectColorIdx(seed) {
+    const str = String(seed || '').trim();
+    let h = 0;
+    for (let i = 0; i < str.length; i++) h = (h * 31 + str.charCodeAt(i)) >>> 0;
+    return h % 8;
+  }
+
+  function applyPlannerSubjectColors() {
+    injectExamUpgradeStyles();
+    const plannerRoot = document.getElementById('tab-planner') || document.getElementById('hub-students');
+    if (!plannerRoot) return;
+    const blockById = new Map();
+    const subjNameById = new Map();
+    try {
+      const api = window.BARAAT_PLANNER_API;
+      if (api && typeof api.getState === 'function') {
+        const st = api.getState() || {};
+        (st.subjects || []).forEach((s, idx) => {
+          if (s && s.id) subjNameById.set(s.id, { name: s.name || s.id, idx });
+        });
+        (st.days || []).forEach(d => {
+          (d.blocks || []).forEach(b => { if (b && b.id) blockById.set(b.id, b); });
+        });
+        (st.subjectSections || []).forEach(b => { if (b && b.id) blockById.set(b.id, b); });
+      }
+    } catch (e) {}
+
+    const cards = plannerRoot.querySelectorAll('[id^="blk-"], .block-card, .study-block, .day-block');
+    cards.forEach((el, fallbackIdx) => {
+      if (!el || !el.classList) return;
+      for (let i = 0; i < 8; i++) el.classList.remove('baraat-subj-theme-' + i);
+      const rawId = (el.id || '').replace(/^blk-/, '');
+      const blk = blockById.get(rawId);
+      let idx;
+      if (blk && blk.subjectId && subjNameById.has(blk.subjectId)) {
+        idx = subjNameById.get(blk.subjectId).idx % 8;
+      } else if (blk) {
+        idx = hashSubjectColorIdx(blk.law || blk.title || blk.subjectId || rawId);
+      } else {
+        const heading = el.querySelector('h4, h5, b, strong, .blk-law, .blk-title');
+        const txt = heading ? heading.textContent : '';
+        idx = txt ? hashSubjectColorIdx(txt) : (fallbackIdx % 8);
+      }
+      el.classList.add('baraat-subj-theme-' + idx);
+    });
+  }
+
+  let plannerColorObserver = null;
+  function startPlannerSubjectColorObserver() {
+    applyPlannerSubjectColors();
+    const plannerRoot = document.getElementById('tab-planner') || document.getElementById('hub-students');
+    if (!plannerRoot || plannerColorObserver || typeof MutationObserver === 'undefined') return;
+    let raf = 0;
+    plannerColorObserver = new MutationObserver(() => {
+      if (raf) return;
+      raf = requestAnimationFrame(() => {
+        raf = 0;
+        applyPlannerSubjectColors();
+      });
+    });
+    plannerColorObserver.observe(plannerRoot, { childList: true, subtree: true });
+  }
+
+  // فرم ورود و ثبت‌نام همراه با مرحله تأیید کد ایمیل (OTP)
+  let otpCooldownTimer = null;
+  let otpAuthState = { mode: 'signin', step: 'form', email: '', cooldown: 0 };
+
+  function renderBaraatAuthOtpModal() {
+    const m = document.getElementById('modal');
+    const back = document.getElementById('modalBack');
+    if (!m || !back) return;
+    const isVerify = otpAuthState.step === 'verify';
+    const isSignup = otpAuthState.mode === 'signup';
+    m.innerHTML = `
+      <h2 style="margin:0 0 6px;">${isVerify ? '✉️ تأیید ایمیل با کد ارسال‌شده' : (isSignup ? '📝 ثبت‌نام کاربر جدید' : '🔐 ورود به حساب کاربری')}</h2>
+      ${!isVerify ? `
+        <div class="row" style="gap:6px; margin:10px 0 14px;">
+          <button type="button" class="btn small ${!isSignup ? 'primary' : ''}" style="flex:1;" onclick="setBaraatAuthMode('signin')">ورود</button>
+          <button type="button" class="btn small ${isSignup ? 'primary' : ''}" style="flex:1;" onclick="setBaraatAuthMode('signup')">ثبت‌نام با کد ایمیل</button>
+        </div>
+        <div id="baraatAuthErr" class="callout-warn hidden" style="margin-bottom:10px; padding:8px 10px; border-radius:10px; font-size:12px;"></div>
+        <div class="form-grid">
+          <div class="field" style="grid-column:1/-1;">
+            <label>ایمیل *</label>
+            <input id="baraatAuthEmail" type="email" dir="ltr" value="${esc(otpAuthState.email)}" placeholder="name@example.com" autocomplete="email">
+          </div>
+          <div class="field" style="grid-column:1/-1;">
+            <label>رمز عبور *</label>
+            <input id="baraatAuthPass" type="password" dir="ltr" placeholder="حداقل ۶ کاراکتر" autocomplete="${isSignup ? 'new-password' : 'current-password'}" onkeydown="if(event.key==='Enter')submitBaraatAuthForm()">
+          </div>
+        </div>
+        ${isSignup ? '<div class="muted small" style="margin-top:8px;">پس از ثبت‌نام، کد تأیید به ایمیل شما ارسال می‌شود و برای فعال‌سازی حساب باید آن را وارد کنید.</div>' : ''}
+        <div class="modal-actions">
+          <button type="button" class="btn" onclick="closeModal()">انصراف</button>
+          <button type="button" id="baraatAuthSubmitBtn" class="btn primary" onclick="submitBaraatAuthForm()">${isSignup ? 'ثبت‌نام و ارسال کد تأیید' : 'ورود به حساب'}</button>
+        </div>
+      ` : `
+        <div class="callout-info" style="margin:10px 0 12px; padding:10px 12px; border-radius:10px; font-size:12.5px; line-height:1.8;">
+          کد تأیید به نشانی <b dir="ltr">${esc(otpAuthState.email)}</b> ارسال شد. لطفاً صندوق ورودی یا پوشه Spam را بررسی کرده و کد را وارد نمایید.
+        </div>
+        <div id="baraatAuthErr" class="callout-warn hidden" style="margin-bottom:10px; padding:8px 10px; border-radius:10px; font-size:12px;"></div>
+        <div class="field">
+          <label>کد تأیید ایمیل *</label>
+          <input id="baraatOtpCode" type="text" inputmode="numeric" dir="ltr" maxlength="8" placeholder="مثلاً 123456" style="text-align:center; font-size:18px; letter-spacing:6px; font-weight:800;" onkeydown="if(event.key==='Enter')submitBaraatOtpVerify()">
+        </div>
+        <div class="row between" style="margin-top:10px; gap:8px; flex-wrap:wrap;">
+          <button type="button" class="btn small" onclick="backToBaraatAuthForm()">← تغییر ایمیل</button>
+          <button type="button" id="baraatOtpResendBtn" class="btn small" ${otpAuthState.cooldown > 0 ? 'disabled' : ''} onclick="resendBaraatOtpCode()">
+            ${otpAuthState.cooldown > 0 ? 'ارسال مجدد (' + toFa(otpAuthState.cooldown) + ' ثانیه)' : '🔄 ارسال مجدد کد'}
+          </button>
+        </div>
+        <div class="modal-actions">
+          <button type="button" class="btn" onclick="closeModal()">بستن</button>
+          <button type="button" id="baraatOtpVerifyBtn" class="btn primary" onclick="submitBaraatOtpVerify()">✓ تأیید کد و ورود</button>
+        </div>
+      `}
+    `;
+    back.classList.add('show');
+  }
+
+  function startOtpCooldown(sec) {
+    if (otpCooldownTimer) clearInterval(otpCooldownTimer);
+    otpAuthState.cooldown = sec || 60;
+    otpCooldownTimer = setInterval(() => {
+      otpAuthState.cooldown = Math.max(0, otpAuthState.cooldown - 1);
+      const btn = document.getElementById('baraatOtpResendBtn');
+      if (btn) {
+        btn.disabled = otpAuthState.cooldown > 0;
+        btn.textContent = otpAuthState.cooldown > 0 ? 'ارسال مجدد (' + toFa(otpAuthState.cooldown) + ' ثانیه)' : '🔄 ارسال مجدد کد';
+      }
+      if (otpAuthState.cooldown <= 0) {
+        clearInterval(otpCooldownTimer);
+        otpCooldownTimer = null;
+      }
+    }, 1000);
+  }
+
+  function showBaraatAuthErr(msg) {
+    const el = document.getElementById('baraatAuthErr');
+    if (!el) return;
+    el.textContent = msg || '';
+    el.classList.toggle('hidden', !msg);
+  }
+
+  window.setBaraatAuthMode = function(mode) {
+    otpAuthState.mode = mode === 'signup' ? 'signup' : 'signin';
+    otpAuthState.step = 'form';
+    renderBaraatAuthOtpModal();
+  };
+
+  window.backToBaraatAuthForm = function() {
+    otpAuthState.step = 'form';
+    renderBaraatAuthOtpModal();
+  };
+
+  window.submitBaraatAuthForm = async function() {
+    if (!window.sb || !window.sb.auth) {
+      showBaraatAuthErr('سرویس احراز هویت در دسترس نیست.');
+      return;
+    }
+    const email = (document.getElementById('baraatAuthEmail')?.value || '').trim();
+    const password = document.getElementById('baraatAuthPass')?.value || '';
+    if (!email || !password) return showBaraatAuthErr('ایمیل و رمز عبور را وارد کنید.');
+    if (otpAuthState.mode === 'signup' && password.length < 6) {
+      return showBaraatAuthErr('رمز عبور باید حداقل ۶ کاراکتر باشد.');
+    }
+    otpAuthState.email = email;
+    const btn = document.getElementById('baraatAuthSubmitBtn');
+    if (btn) btn.disabled = true;
+    showBaraatAuthErr('');
+    try {
+      if (otpAuthState.mode === 'signin') {
+        const res = await window.sb.auth.signInWithPassword({ email, password });
+        if (res.error) {
+          const msg = String(res.error.message || '');
+          if (msg.toLowerCase().includes('email not confirmed')) {
+            otpAuthState.step = 'verify';
+            renderBaraatAuthOtpModal();
+            showBaraatAuthErr('ایمیل شما هنوز تأیید نشده است. کد ارسال‌شده به ایمیل را وارد کنید یا روی ارسال مجدد بزنید.');
+            return;
+          }
+          showBaraatAuthErr('ورود ناموفق: ' + msg);
+          return;
+        }
+        if (typeof closeModal === 'function') closeModal();
+        if (typeof toast === 'function') toast('خوش آمدید! ورود با موفقیت انجام شد.');
+      } else {
+        const res = await window.sb.auth.signUp({ email, password });
+        if (res.error) {
+          showBaraatAuthErr('خطا در ثبت‌نام: ' + res.error.message);
+          return;
+        }
+        if (res.data && res.data.session) {
+          if (typeof closeModal === 'function') closeModal();
+          if (typeof toast === 'function') toast('حساب کاربری شما با موفقیت ساخته شد.');
+          return;
+        }
+        otpAuthState.step = 'verify';
+        startOtpCooldown(60);
+        renderBaraatAuthOtpModal();
+        if (typeof toast === 'function') toast('کد تأیید به ایمیل شما ارسال شد.');
+      }
+    } catch (e) {
+      showBaraatAuthErr('خطای ارتباط با سرور. دوباره تلاش کنید.');
+    } finally {
+      if (btn) btn.disabled = false;
+    }
+  };
+
+  window.submitBaraatOtpVerify = async function() {
+    if (!window.sb || !window.sb.auth) return;
+    const rawCode = document.getElementById('baraatOtpCode')?.value || '';
+    const token = toEn(rawCode).replace(/\s+/g, '').trim();
+    if (token.length < 4) return showBaraatAuthErr('کد تأیید ارسال‌شده به ایمیل را به‌صورت کامل وارد کنید.');
+    const btn = document.getElementById('baraatOtpVerifyBtn');
+    if (btn) btn.disabled = true;
+    showBaraatAuthErr('');
+    try {
+      let res = await window.sb.auth.verifyOtp({ email: otpAuthState.email, token, type: 'signup' });
+      if (res.error) {
+        const fb = await window.sb.auth.verifyOtp({ email: otpAuthState.email, token, type: 'email' });
+        if (!fb.error) res = fb;
+      }
+      if (res.error) {
+        showBaraatAuthErr('کد تأیید نامعتبر یا منقضی شده است.');
+        return;
+      }
+      if (typeof closeModal === 'function') closeModal();
+      if (typeof toast === 'function') toast('ایمیل شما با موفقیت تأیید شد! خوش آمدید.');
+    } catch (e) {
+      showBaraatAuthErr('خطا در بررسی کد تأیید.');
+    } finally {
+      if (btn) btn.disabled = false;
+    }
+  };
+
+  window.resendBaraatOtpCode = async function() {
+    if (!window.sb || !window.sb.auth || !otpAuthState.email || otpAuthState.cooldown > 0) return;
+    try {
+      const res = await window.sb.auth.resend({ type: 'signup', email: otpAuthState.email });
+      if (res.error) {
+        showBaraatAuthErr('ارسال مجدد ناموفق: ' + res.error.message);
+        return;
+      }
+      startOtpCooldown(60);
+      showBaraatAuthErr('');
+      if (typeof toast === 'function') toast('کد تأیید جدید به ایمیل شما ارسال شد.');
+    } catch (e) {
+      showBaraatAuthErr('خطا در ارسال مجدد کد.');
+    }
+  };
+
+  window.openBaraatAuthOtpModal = function(mode) {
+    otpAuthState = { mode: mode === 'signup' ? 'signup' : 'signin', step: 'form', email: '', cooldown: 0 };
+    renderBaraatAuthOtpModal();
+  };
+
+  function upgradeLegacyAuthModal() {
+    if (window.sb && window.sb.auth) {
+      window.openAuthModal = window.openBaraatAuthOtpModal;
+    }
+  }
+
   function initBaraatEngine() {
     let savedTheme = 'light';
     try { savedTheme = localStorage.getItem(THEME_KEY) || 'light'; } catch (e) {}
     window.applyTheme(savedTheme);
+    injectExamUpgradeStyles();
+    startPlannerSubjectColorObserver();
+    upgradeLegacyAuthModal();
+    setTimeout(upgradeLegacyAuthModal, 400);
     const curTab = (location.hash || '#search').replace('#', '') || 'search';
     window.go(curTab);
     checkStandalone();
