@@ -4443,6 +4443,15 @@
       .ex-vis-badge { display:inline-flex; align-items:center; gap:4px; padding:3px 9px; border-radius:99px; font-size:11.5px; font-weight:700; }
       .ex-vis-badge.pub { background:rgba(22,163,74,.12); color:#15803d; }
       .ex-vis-badge.hid { background:rgba(220,38,38,.12); color:#dc2626; }
+      .ex-subj-banner { display:flex; align-items:center; justify-content:space-between; gap:8px; padding:10px 14px; border-radius:12px; background:var(--panel); border:1px solid var(--line); border-right:4px solid var(--main); margin:4px 0 12px; font-weight:800; font-size:14.5px; color:var(--text); }
+      .ex-subj-sec { display:grid; gap:14px; }
+      #examRunnerOverlay .exam-workspace-grid { align-items:start; }
+      @media (min-width: 900px) {
+        #examRunnerOverlay .exam-palette-card { position:sticky; top:12px; max-height:calc(100vh - 150px); overflow-y:auto; overscroll-behavior:contain; }
+      }
+      @media (max-width: 899px) {
+        #examRunnerOverlay .exam-palette-card { max-height:240px; overflow-y:auto; overscroll-behavior:contain; }
+      }
     `;
     document.head.appendChild(st);
   }
@@ -4469,7 +4478,7 @@
       return normalizeExamSourceTag(typ);
     }
     if (yrFa) {
-      return normalizeExamSourceTag('آزمون سال ' + yrFa);
+      return normalizeExamSourceTag(yrFa);
     }
     return '';
   }
@@ -4477,11 +4486,62 @@
   function formatExamSourceBadgeHtml(sourceLabel) {
     const clean = normalizeExamSourceTag(sourceLabel);
     if (!clean) return '';
-    const msg = /تالیف/.test(clean)
-      ? 'این سوال تالیفی است'
-      : 'این سوال مربوط به ' + clean + ' است';
-    return `<span class="pill" style="background:rgba(245,158,11,.14); color:#b45309; font-weight:800;">📌 ${esc(msg)}</span>`;
+    return `<span class="pill" style="background:rgba(245,158,11,.14); color:#b45309; font-weight:800;">${esc(clean)}</span>`;
   }
+
+  const examQuestionCopyRegistry = {};
+  function registerCopyableQuestion(qObj, subjName, qNum) {
+    if (!qObj || !qObj.id) return;
+    examQuestionCopyRegistry[qObj.id] = { qObj, subjName: subjName || '', qNum: qNum || 0 };
+  }
+
+  window.copyExamQuestionById = async function(qId, btnEl) {
+    const rec = examQuestionCopyRegistry[qId];
+    if (!rec || !rec.qObj) return;
+    const q = rec.qObj;
+    const header = [
+      rec.qNum ? 'سوال ' + toFa(rec.qNum) : 'سوال',
+      rec.subjName || '',
+      q.chapter ? 'سرفصل: ' + q.chapter : '',
+      q.sourceLabel ? normalizeExamSourceTag(q.sourceLabel) : ''
+    ].filter(Boolean).join(' · ');
+
+    const opts = Array.isArray(q.options) ? q.options : [];
+    const rightIdx = Number(q.answer || 0);
+    const rightText = opts[rightIdx] || '';
+    const lines = [
+      header,
+      q.q || '',
+      '',
+      ...opts.map((opt, idx) => opt ? `${EXAM_LETTERS[idx]}) ${opt}` : '').filter(Boolean),
+      '',
+      `پاسخ صحیح: گزینه ${EXAM_LETTERS[rightIdx]}${rightText ? ' — ' + rightText : ''}`
+    ];
+    if (q.exp) {
+      lines.push(`نکته و پاسخ تشریحی: ${q.exp}`);
+    }
+    const personalNote = (typeof window.getExamQuestionNote === 'function' ? window.getExamQuestionNote(q.id) : '').trim();
+    if (personalNote) {
+      lines.push(`نکته شخصی من: ${personalNote}`);
+    }
+    const payload = lines.join('\n');
+    try {
+      await navigator.clipboard.writeText(payload);
+    } catch (e) {
+      const ta = document.createElement('textarea');
+      ta.value = payload;
+      document.body.appendChild(ta);
+      ta.select();
+      document.execCommand('copy');
+      document.body.removeChild(ta);
+    }
+    if (btnEl) {
+      const prev = btnEl.textContent;
+      btnEl.textContent = '✓ کپی شد';
+      setTimeout(() => { btnEl.textContent = prev; }, 1600);
+    }
+    if (typeof toast === 'function') toast('سوال، گزینه‌ها، جواب و نکته کپی شد.');
+  };
 
   function normalizeExamRecord(ex) {
     if (!ex || typeof ex !== 'object') return ex;
@@ -4964,6 +5024,7 @@
       `;
     } else {
       bodyHtml = `<div style="display:grid; gap:14px; max-height:65vh; overflow:auto; padding-left:4px;">` + snap.map((item, idx) => {
+        registerCopyableQuestion(item, item.subjName || 'درس', idx + 1);
         const picked = answers[item.id];
         const isBlank = picked === undefined || picked === null;
         const isCorrect = !isBlank && Number(picked) === Number(item.answer);
@@ -4975,9 +5036,12 @@
                 ${item.chapter ? `<span class="pill">سرفصل: ${esc(item.chapter)}</span>` : ''}
                 ${formatExamSourceBadgeHtml(item.sourceLabel)}
               </div>
-              <span class="pill ${isCorrect ? 'done' : (!isBlank ? 'bad' : '')}">
-                ${isBlank ? '⚪ نزده' : (isCorrect ? '✅ پاسخ صحیح شما' : '❌ پاسخ غلط شما')}
-              </span>
+              <div class="row" style="gap:6px; flex-wrap:wrap;">
+                <button type="button" class="btn small" onclick="copyExamQuestionById('${item.id}', this)">📋 کپی سوال و جواب</button>
+                <span class="pill ${isCorrect ? 'done' : (!isBlank ? 'bad' : '')}">
+                  ${isBlank ? '⚪ نزده' : (isCorrect ? '✅ پاسخ صحیح شما' : '❌ پاسخ غلط شما')}
+                </span>
+              </div>
             </div>
             <div class="exam-q-stem">${esc(item.q)}</div>
             <div class="exam-options-list">
@@ -5081,101 +5145,11 @@
     renderExamRunner();
   };
 
-  function getExamSourceTagsSummary() {
-    const exams = getVisibleExams();
-    const map = new Map();
-    exams.forEach(ex => {
-      (ex.subjects || []).forEach(sb => {
-        (sb.questions || []).forEach(q => {
-          const tag = normalizeExamSourceTag(q.sourceLabel || buildExamSourceLabel('', ex.examType, ex.year));
-          if (!tag) return;
-          if (!map.has(tag)) map.set(tag, { tag, qCount: 0, examIds: new Set() });
-          const entry = map.get(tag);
-          entry.qCount++;
-          entry.examIds.add(ex.id);
-        });
-      });
-    });
-    return [...map.values()]
-      .map(x => ({ tag: x.tag, qCount: x.qCount, examCount: x.examIds.size }))
-      .sort((a, b) => b.qCount - a.qCount);
-  }
-
-  window.openSourceYearRunner = function(encTag, mode) {
-    const sourceTag = normalizeExamSourceTag(decodeURIComponent(encTag || ''));
-    if (!sourceTag) return;
-    const exams = getVisibleExams();
-    const buckets = new Map();
-
-    exams.forEach(ex => {
-      (ex.subjects || []).forEach(sb => {
-        (sb.questions || []).forEach(q => {
-          const qTag = normalizeExamSourceTag(q.sourceLabel || buildExamSourceLabel('', ex.examType, ex.year));
-          if (qTag !== sourceTag) return;
-          const bName = (sb.name && sb.name !== 'سوالات آزمون' && sb.name !== 'عمومی')
-            ? `${ex.title} — ${sb.name}`
-            : ex.title;
-          if (!buckets.has(bName)) buckets.set(bName, { id: 'vsrc_' + buckets.size, name: bName, questions: [] });
-          buckets.get(bName).questions.push(Object.assign({}, q, {
-            sourceLabel: q.sourceLabel || qTag,
-            _fromExam: ex.title
-          }));
-        });
-      });
-    });
-
-    const rawSubjs = [...buckets.values()].filter(s => s.questions.length > 0);
-    if (!rawSubjs.length) {
-      if (typeof toast === 'function') toast('سوالی با این عنوان پیدا نشد.');
-      return;
-    }
-
-    stopExamTimer();
-    const totalQ = rawSubjs.reduce((a, s) => a + s.questions.length, 0);
-    const runMode = mode === 'exam' ? 'exam' : 'study';
-    const defaultSeconds = Math.max(300, totalQ * 75);
-
-    examSession = {
-      exam: {
-        id: 'src_' + Date.now(),
-        title: `سوالات ${sourceTag} (از تمام آزمون‌ها)`,
-        category: sourceTag,
-        examType: sourceTag,
-        negativeMarking: true
-      },
-      retryParams: { type: 'sourceYear', encTag },
-      mode: runMode,
-      subjects: rawSubjs,
-      scopeLabel: `آرشیو یکپارچه ${sourceTag}`,
-      activeSubjIdx: 0,
-      activeQIdx: 0,
-      viewMode: runMode === 'study' ? 'list' : 'single',
-      answers: {},
-      revealed: {},
-      flags: {},
-      secondsLeft: defaultSeconds,
-      totalSeconds: defaultSeconds,
-      paused: false,
-      submitted: false,
-      reviewFilter: 'all'
-    };
-
-    const overlay = document.getElementById('examRunnerOverlay');
-    if (overlay) overlay.classList.remove('hidden');
-    document.body.style.overflow = 'hidden';
-    if (runMode === 'exam') startExamCountdown();
-    renderExamRunner();
-  };
-
   window.examRestartSession = function(newMode) {
     if (!examSession) return;
     if (examSession.retryParams && examSession.retryParams.type === 'topic') {
       const p = examSession.retryParams;
       window.openTopicChapterRunner(p.encCat, p.encKind, p.encVal, newMode);
-      return;
-    }
-    if (examSession.retryParams && examSession.retryParams.type === 'sourceYear') {
-      window.openSourceYearRunner(examSession.retryParams.encTag, newMode);
       return;
     }
     const singleId = examSession.subjects.length === 1 && examSession.scopeLabel !== 'همه دروس' ? examSession.subjects[0].id : null;
@@ -5243,14 +5217,13 @@
     const topicCardsList = useChapterTopics
       ? [...topicCounts.entries()].map(([name, cnt]) => ({ kind: 'chapter', name, cnt }))
       : [...subjTopicCounts.entries()].map(([name, cnt]) => ({ kind: 'subject', name, cnt }));
-    const sourceTagsSummary = getExamSourceTagsSummary();
 
     root.innerHTML = `
       <div class="panel">
         <div class="panel-head">
           <div>
             <h2>📚 بانک سوالات و آزمون‌های حقوقی</h2>
-            <div class="muted small">پوشه‌بندی و طبقه‌بندی بر اساس سرفصل، بانک جامع سال‌ها (مثلاً ارشد ۹۸ در تمام آزمون‌ها)، یادداشت شخصی زیر هر سوال و کارنامه</div>
+            <div class="muted small">پوشه‌بندی و طبقه‌بندی بر اساس سرفصل، تالیفی و سال، یادداشت شخصی زیر هر سوال و کارنامه</div>
           </div>
           <div class="row" style="gap:8px; flex-wrap:wrap;">
             ${window.isAdmin ? `<button type="button" class="btn primary" onclick="openExamMetaModal()">＋ ایجاد آزمون جدید</button>` : ''}
@@ -5305,34 +5278,6 @@
             </div>
           ` : ''}
         </div>
-
-        ${sourceTagsSummary.length ? `
-          <div class="surface-box" style="margin-top:14px; padding:12px;">
-            <div class="row between" style="gap:8px; flex-wrap:wrap; margin-bottom:8px;">
-              <div>
-                <b style="font-size:13px; color:var(--text);">🗓 آرشیو سوالات بر اساس دوره و سال (ارشد · مرکز وکلا · کانون · تالیفی در تمام آزمون‌ها)</b>
-                <div class="muted small">با کلیک روی هر گزینه (مثلاً ارشد ۹۸)، تمام سوالات آن دوره از درون همه آزمون‌های سایت یکجا باز می‌شوند</div>
-              </div>
-            </div>
-            <div class="ex-topic-grid">
-              ${sourceTagsSummary.map(st => {
-                const enc = encodeURIComponent(st.tag);
-                return `
-                  <div class="ex-topic-card">
-                    <div class="row between" style="gap:6px;">
-                      <b style="font-size:13px; color:var(--text);">🏷️ ${esc(st.tag)}</b>
-                      <span class="pill done">${toFa(st.qCount)} سوال · ${toFa(st.examCount)} آزمون</span>
-                    </div>
-                    <div class="row" style="gap:6px; flex-wrap:wrap;">
-                      <button type="button" class="btn small primary" style="flex:1;" onclick="openSourceYearRunner('${enc}', 'study')">📖 مشاهده همه سوالات</button>
-                      <button type="button" class="btn small" onclick="openSourceYearRunner('${enc}', 'exam')">⏱ آزمون زمان‌دار</button>
-                    </div>
-                  </div>
-                `;
-              }).join('')}
-            </div>
-          </div>
-        ` : ''}
 
         ${showFolderRoot ? `
           <div style="margin-top:16px;">
@@ -6067,7 +6012,7 @@ WITH CHECK (key &lt;&gt; 'baraat_exams_private_v1' OR EXISTS (SELECT 1 FROM publ
     m.innerHTML = `
       <h2>📥 بارگذاری آزمون و طبقه‌بندی هوشمند از فایل CSV / اکسل</h2>
       <p class="muted small" style="line-height:1.9;">
-        اگر فایل شما دارای ستون <b>سرفصل</b> باشد، سوالات به صورت خودکار بر اساس سرفصل طبقه‌بندی می‌شوند. ستون‌های <b>منبع سوال</b> (مثلاً تالیفی، آزمون وکلا، ارشد، مرکز وکلا) و <b>سال</b> نیز روی تک‌تک سوالات ذخیره می‌شوند تا هنگام امتحان نمایش داده شوند و در بانک سال‌ها قابل جستجو باشند.
+        اگر فایل شما دارای ستون <b>سرفصل</b> باشد، سوالات به صورت خودکار بر اساس سرفصل طبقه‌بندی می‌شوند. ستون‌های <b>منبع سوال</b> (مثلاً تالیفی، آزمون وکلا، ارشد، مرکز وکلا) و <b>سال</b> نیز روی تک‌تک سوالات ذخیره می‌شوند تا هنگام امتحان جلوی هر سوال (مثل «ارشد ۹۸» یا «وکالت ۴۰۳») نمایش داده شوند.
       </p>
       <div class="form-grid" style="margin-top:10px; gap:10px;">
         <div class="field" style="grid-column:1/-1;">
@@ -6075,8 +6020,8 @@ WITH CHECK (key &lt;&gt; 'baraat_exams_private_v1' OR EXISTS (SELECT 1 FROM publ
           <input id="mImpDefTitle" value="" placeholder="مثلاً: آزمون جامع حقوق جزا">
         </div>
         <div class="field">
-          <label>دسته اصلی (اختیاری)</label>
-          <input id="mImpDefCat" list="mImpCatList" value="حقوق جزا">
+          <label>دسته اصلی (اختیاری — در صورت خالی بودن از نام فایل یا دسته داخل فایل استفاده می‌شود)</label>
+          <input id="mImpDefCat" list="mImpCatList" value="" placeholder="مثلاً: آزمون وکالت یا نام فایل">
           <datalist id="mImpCatList">${EXAM_ORGS.map(o => `<option value="${esc(o)}">`).join('')}</datalist>
         </div>
         <div class="field">
@@ -6261,7 +6206,7 @@ WITH CHECK (key &lt;&gt; 'baraat_exams_private_v1' OR EXISTS (SELECT 1 FROM publ
     const isAutoMode = examId === '__AUTO__';
     const defTitle = (document.getElementById('mImpDefTitle')?.value || '').trim();
     const defSubj = (document.getElementById(isAutoMode ? 'mImpDefSubj' : 'impDefSubj')?.value || '').trim();
-    const defCat = (document.getElementById('mImpDefCat')?.value || '').trim() || 'حقوق جزا';
+    const defCat = (document.getElementById('mImpDefCat')?.value || '').trim();
     const defType = (document.getElementById('mImpDefType')?.value || '').trim();
     const defYearRaw = toEn(document.getElementById('mImpDefYear')?.value || '').trim();
     const defYear = defYearRaw ? Number(defYearRaw) : '';
@@ -6397,13 +6342,14 @@ WITH CHECK (key &lt;&gt; 'baraat_exams_private_v1' OR EXISTS (SELECT 1 FROM publ
         let destExam = targetSingleExam;
         if (isAutoMode) {
           const examTitle = item.rowTitle || fileBaseTitle;
+          const examCat = item.rowCat || defCat || (distinctExplicitSubjects.size === 1 ? [...distinctExplicitSubjects][0] : examTitle);
           destExam = list.find(x => x.title === examTitle);
           if (!destExam) {
             destExam = normalizeExamRecord({
               id: 'ex_' + Date.now() + '_' + Math.random().toString(36).slice(2, 6),
               title: examTitle,
-              category: item.rowCat || defCat,
-              org: item.rowCat || defCat,
+              category: examCat,
+              org: examCat,
               examType: defType || item.rowType || 'تالیفی',
               year: defYear || item.rowYear || '',
               durationMinutes: 60,
@@ -6545,6 +6491,15 @@ WITH CHECK (key &lt;&gt; 'baraat_exams_private_v1' OR EXISTS (SELECT 1 FROM publ
     if (!examSession) return;
     examSession.activeSubjIdx = idx;
     examSession.activeQIdx = 0;
+    const isContinuous = examSession.mode === 'study' || examSession.viewMode === 'list';
+    if (isContinuous) {
+      document.querySelectorAll('#examRunnerOverlay .exam-subj-tab').forEach((btn, bIdx) => {
+        btn.classList.toggle('active', bIdx === idx);
+      });
+      const secEl = document.getElementById('exSubjSec-' + idx);
+      if (secEl) secEl.scrollIntoView({ behavior: 'smooth', block: 'start' });
+      return;
+    }
     renderExamRunner();
     const bodyEl = document.querySelector('#examRunnerOverlay .exam-runner-body');
     if (bodyEl) bodyEl.scrollTop = 0;
@@ -6552,6 +6507,13 @@ WITH CHECK (key &lt;&gt; 'baraat_exams_private_v1' OR EXISTS (SELECT 1 FROM publ
 
   window.examSelectQ = function(qIdx) {
     if (!examSession) return;
+    examSession.activeQIdx = qIdx;
+    renderExamRunner();
+  };
+
+  window.examSelectSubjQ = function(sIdx, qIdx) {
+    if (!examSession) return;
+    examSession.activeSubjIdx = sIdx;
     examSession.activeQIdx = qIdx;
     renderExamRunner();
   };
@@ -6586,12 +6548,11 @@ WITH CHECK (key &lt;&gt; 'baraat_exams_private_v1' OR EXISTS (SELECT 1 FROM publ
 
   window.examToggleRevealAll = function() {
     if (!examSession) return;
-    const curSubj = examSession.subjects[examSession.activeSubjIdx] || examSession.subjects[0];
-    const qs = curSubj.questions || [];
-    const allOpen = qs.length > 0 && qs.every(q => !!examSession.revealed[q.id]);
+    const allQs = examSession.subjects.flatMap(sb => sb.questions || []);
+    const allOpen = allQs.length > 0 && allQs.every(q => !!examSession.revealed[q.id]);
     const bodyEl = document.querySelector('#examRunnerOverlay .exam-runner-body');
     const prevScroll = bodyEl ? bodyEl.scrollTop : 0;
-    qs.forEach(q => {
+    allQs.forEach(q => {
       if (allOpen) delete examSession.revealed[q.id];
       else examSession.revealed[q.id] = true;
     });
@@ -6824,7 +6785,9 @@ WITH CHECK (key &lt;&gt; 'baraat_exams_private_v1' OR EXISTS (SELECT 1 FROM publ
                 </div>
               </div>
               <div style="display:grid; gap:14px;">
-                ${allTagged.length ? allTagged.map(item => `
+                ${allTagged.length ? allTagged.map(item => {
+                  registerCopyableQuestion(item.q, item.subjName, item.idx);
+                  return `
                   <div class="exam-q-card">
                     <div class="row between" style="gap:8px; flex-wrap:wrap;">
                       <div class="row" style="gap:6px; flex-wrap:wrap;">
@@ -6832,9 +6795,12 @@ WITH CHECK (key &lt;&gt; 'baraat_exams_private_v1' OR EXISTS (SELECT 1 FROM publ
                         ${item.q.chapter ? `<span class="pill">سرفصل: ${esc(item.q.chapter)}</span>` : ''}
                         ${formatExamSourceBadgeHtml(item.q.sourceLabel)}
                       </div>
-                      <span class="pill ${item.isCorrect ? 'done' : (!item.isBlank ? 'bad' : '')}">
-                        ${item.isBlank ? '⚪ نزده' : (item.isCorrect ? '✅ پاسخ صحیح' : '❌ پاسخ اشتباه')}
-                      </span>
+                      <div class="row" style="gap:6px; flex-wrap:wrap;">
+                        <button type="button" class="btn small" onclick="copyExamQuestionById('${item.q.id}', this)">📋 کپی سوال و جواب</button>
+                        <span class="pill ${item.isCorrect ? 'done' : (!item.isBlank ? 'bad' : '')}">
+                          ${item.isBlank ? '⚪ نزده' : (item.isCorrect ? '✅ پاسخ صحیح' : '❌ پاسخ اشتباه')}
+                        </span>
+                      </div>
                     </div>
                     <div class="exam-q-stem">${esc(item.q.q)}</div>
                     <div class="exam-options-list">
@@ -6854,7 +6820,8 @@ WITH CHECK (key &lt;&gt; 'baraat_exams_private_v1' OR EXISTS (SELECT 1 FROM publ
                     ${item.q.exp ? `<div class="exam-exp-box"><b>💡 توضیح و مستند قانونی:</b> ${esc(item.q.exp)}</div>` : ''}
                     ${renderQuestionNoteBoxHtml(item.q.id, 'rev')}
                   </div>
-                `).join('') : '<div class="muted small">موردی با این فیلتر وجود ندارد.</div>'}
+                `;
+                }).join('') : '<div class="muted small">موردی با این فیلتر وجود ندارد.</div>'}
               </div>
             </div>
           </div>
@@ -6864,8 +6831,10 @@ WITH CHECK (key &lt;&gt; 'baraat_exams_private_v1' OR EXISTS (SELECT 1 FROM publ
     }
 
     if (s.mode === 'study') {
-      const allRevealedInSubj = qs.length > 0 && qs.every(q => !!s.revealed[q.id]);
-      const renderStudyCard = (qObj, qIdx) => {
+      const allQs = s.subjects.flatMap(sb => sb.questions || []);
+      const allRevealedInExam = allQs.length > 0 && allQs.every(q => !!s.revealed[q.id]);
+      const renderStudyCard = (qObj, qIdx, subjName, subjTotal) => {
+        registerCopyableQuestion(qObj, subjName, qIdx + 1);
         const picked = s.answers[qObj.id];
         const isRev = !!s.revealed[qObj.id];
         const rightIdx = Number(qObj.answer || 0);
@@ -6874,11 +6843,14 @@ WITH CHECK (key &lt;&gt; 'baraat_exams_private_v1' OR EXISTS (SELECT 1 FROM publ
           <div class="exam-q-card" id="exq-${qObj.id}">
             <div class="row between" style="gap:8px; flex-wrap:wrap;">
               <div class="row" style="gap:6px; flex-wrap:wrap;">
-                <span class="art-tag">${esc(curSubj.name)} · سوال ${toFa(qIdx + 1)} از ${toFa(qs.length)}</span>
+                <span class="art-tag">${esc(subjName)} · سوال ${toFa(qIdx + 1)} از ${toFa(subjTotal)}</span>
                 ${qObj.chapter ? `<span class="pill">سرفصل: ${esc(qObj.chapter)}</span>` : ''}
                 ${formatExamSourceBadgeHtml(qObj.sourceLabel)}
               </div>
-              ${picked !== undefined ? `<button type="button" class="btn small" onclick="examClearAnswer('${qObj.id}')">پاک کردن انتخاب</button>` : ''}
+              <div class="row" style="gap:6px; flex-wrap:wrap;">
+                <button type="button" class="btn small" onclick="copyExamQuestionById('${qObj.id}', this)">📋 کپی سوال و جواب</button>
+                ${picked !== undefined ? `<button type="button" class="btn small" onclick="examClearAnswer('${qObj.id}')">پاک کردن انتخاب</button>` : ''}
+              </div>
             </div>
             <div class="exam-q-stem">${esc(qObj.q)}</div>
             <div class="exam-options-list">
@@ -6920,11 +6892,11 @@ WITH CHECK (key &lt;&gt; 'baraat_exams_private_v1' OR EXISTS (SELECT 1 FROM publ
         <div class="exam-runner-head">
           <div>
             <b style="font-size:15.5px; color:var(--text);">📖 ${esc(s.exam.title)}</b>
-            <div class="muted small">حالت مطالعه سوالات (بدون تایمر) · ${esc(curSubj.name)} (${toFa(qs.length)} سوال)</div>
+            <div class="muted small">حالت مطالعه پیوسته همه دروس (بدون تایمر) · ${toFa(allQs.length)} سوال</div>
           </div>
           <div class="row" style="gap:8px; flex-wrap:wrap;">
             <button type="button" class="btn small" onclick="examToggleRevealAll()">
-              ${allRevealedInSubj ? '🙈 بستن همه پاسخ‌ها' : '👁 نمایش همه پاسخ‌ها'}
+              ${allRevealedInExam ? '🙈 بستن همه پاسخ‌ها' : '👁 نمایش همه پاسخ‌ها'}
             </button>
             <button type="button" class="btn small" onclick="examSwitchSessionMode('exam')" title="تغییر اختیاری به آزمون زمان‌دار با کارنامه">
               ⏱ آزمون زمان‌دار و نمره (اختیاری)
@@ -6943,18 +6915,39 @@ WITH CHECK (key &lt;&gt; 'baraat_exams_private_v1' OR EXISTS (SELECT 1 FROM publ
 
         <div class="exam-runner-body">
           <div class="exam-workspace-grid">
-            <div style="display:grid; gap:16px;">
-              ${qs.map((q, qi) => renderStudyCard(q, qi)).join('')}
+            <div style="display:grid; gap:22px;">
+              ${s.subjects.map((sb, sIdx) => {
+                const sQs = sb.questions || [];
+                return `
+                  <section id="exSubjSec-${sIdx}" class="ex-subj-sec">
+                    <div class="ex-subj-banner">
+                      <span>📚 ${esc(sb.name)}</span>
+                      <span class="pill done">${toFa(sQs.length)} سوال</span>
+                    </div>
+                    ${sQs.map((q, qi) => renderStudyCard(q, qi, sb.name, sQs.length)).join('')}
+                  </section>
+                `;
+              }).join('')}
             </div>
 
             <aside class="exam-palette-card">
-              <b style="font-size:14px; color:var(--text);">سوالات درس «${esc(curSubj.name)}»</b>
-              <div class="muted small" style="margin-top:4px;">برای پرش به هر سوال روی شماره آن کلیک کنید</div>
-              <div class="exam-palette-grid">
-                ${qs.map((q, qi) => {
-                  const isRev = !!s.revealed[q.id];
-                  const isPicked = s.answers[q.id] !== undefined;
-                  return `<button type="button" class="exam-q-dot ${isRev ? 'res-ok' : (isPicked ? 'answered' : '')}" onclick="examJumpToQ('${q.id}')">${toFa(qi + 1)}</button>`;
+              <b style="font-size:14px; color:var(--text);">ناوبری سریع سوالات (${toFa(allQs.length)})</b>
+              <div class="muted small" style="margin-top:4px;">این بخش اسکرول جداگانه دارد · روی هر شماره کلیک کنید</div>
+              <div style="display:grid; gap:12px; margin-top:12px;">
+                ${s.subjects.map(sb => {
+                  const sQs = sb.questions || [];
+                  return `
+                    <div>
+                      <div style="font-size:11.5px; font-weight:800; color:var(--main); margin-bottom:6px;">${esc(sb.name)} (${toFa(sQs.length)})</div>
+                      <div class="exam-palette-grid" style="margin-top:0;">
+                        ${sQs.map((q, qi) => {
+                          const isRev = !!s.revealed[q.id];
+                          const isPicked = s.answers[q.id] !== undefined;
+                          return `<button type="button" class="exam-q-dot ${isRev ? 'res-ok' : (isPicked ? 'answered' : '')}" onclick="examJumpToQ('${q.id}')">${toFa(qi + 1)}</button>`;
+                        }).join('')}
+                      </div>
+                    </div>
+                  `;
                 }).join('')}
               </div>
               <div style="margin-top:16px; padding-top:12px; border-top:1px solid var(--line); display:grid; gap:6px; font-size:12px; color:var(--muted);">
@@ -6968,18 +6961,20 @@ WITH CHECK (key &lt;&gt; 'baraat_exams_private_v1' OR EXISTS (SELECT 1 FROM publ
       return;
     }
 
-    const renderQuestionBlock = (qObj, qIdx) => {
+    const renderQuestionBlock = (qObj, qIdx, subjName, subjTotal, sIdx) => {
+      registerCopyableQuestion(qObj, subjName, qIdx + 1);
       const picked = s.answers[qObj.id];
       const flagged = !!s.flags[qObj.id];
       return `
-        <div class="exam-q-card">
+        <div class="exam-q-card" id="exq-${qObj.id}">
           <div class="row between" style="gap:8px; flex-wrap:wrap;">
             <div class="row" style="gap:6px; flex-wrap:wrap;">
-              <span class="art-tag">${esc(curSubj.name)} · سوال ${toFa(qIdx + 1)} از ${toFa(qs.length)}</span>
+              <span class="art-tag">${esc(subjName)} · سوال ${toFa(qIdx + 1)} از ${toFa(subjTotal)}</span>
               ${qObj.chapter ? `<span class="pill">سرفصل: ${esc(qObj.chapter)}</span>` : ''}
               ${formatExamSourceBadgeHtml(qObj.sourceLabel)}
             </div>
-            <div class="row" style="gap:6px;">
+            <div class="row" style="gap:6px; flex-wrap:wrap;">
+              <button type="button" class="btn small" onclick="copyExamQuestionById('${qObj.id}', this)">📋 کپی سوال و جواب</button>
               ${picked !== undefined ? `<button type="button" class="btn small" onclick="examClearAnswer('${qObj.id}')">پاک کردن گزینه</button>` : ''}
               <button type="button" class="btn small ${flagged ? 'primary' : ''}" onclick="examToggleFlag('${qObj.id}')">${flagged ? '🔖 نشان‌دار' : '🏷 نشان‌گذاری'}</button>
             </div>
@@ -6996,9 +6991,9 @@ WITH CHECK (key &lt;&gt; 'baraat_exams_private_v1' OR EXISTS (SELECT 1 FROM publ
           ${renderQuestionNoteBoxHtml(qObj.id, 'ex')}
           ${s.viewMode === 'single' ? `
             <div class="row between" style="margin-top:20px; padding-top:14px; border-top:1px solid var(--line);">
-              <button type="button" class="btn" ${qIdx > 0 ? `onclick="examSelectQ(${qIdx - 1})"` : (s.activeSubjIdx > 0 ? `onclick="examSwitchSubj(${s.activeSubjIdx - 1})"` : 'disabled')}>→ سوال / درس قبلی</button>
-              <button type="button" class="btn primary" ${qIdx < qs.length - 1 ? `onclick="examSelectQ(${qIdx + 1})"` : (s.activeSubjIdx < s.subjects.length - 1 ? `onclick="examSwitchSubj(${s.activeSubjIdx + 1})"` : `onclick="finishExamRunner(false)"`)}>
-                ${qIdx < qs.length - 1 ? 'سوال بعدی ←' : (s.activeSubjIdx < s.subjects.length - 1 ? 'درس بعدی ←' : 'پایان و مشاهده کارنامه ✓')}
+              <button type="button" class="btn" ${qIdx > 0 ? `onclick="examSelectQ(${qIdx - 1})"` : (sIdx > 0 ? `onclick="examSelectSubjQ(${sIdx - 1}, ${(s.subjects[sIdx - 1].questions || []).length - 1})"` : 'disabled')}>→ سوال / درس قبلی</button>
+              <button type="button" class="btn primary" ${qIdx < subjTotal - 1 ? `onclick="examSelectQ(${qIdx + 1})"` : (sIdx < s.subjects.length - 1 ? `onclick="examSelectSubjQ(${sIdx + 1}, 0)"` : `onclick="finishExamRunner(false)"`)}>
+                ${qIdx < subjTotal - 1 ? 'سوال بعدی ←' : (sIdx < s.subjects.length - 1 ? 'درس بعدی ←' : 'پایان و مشاهده کارنامه ✓')}
               </button>
             </div>
           ` : ''}
@@ -7040,7 +7035,7 @@ WITH CHECK (key &lt;&gt; 'baraat_exams_private_v1' OR EXISTS (SELECT 1 FROM publ
 
       <div class="exam-runner-body">
         <div class="exam-workspace-grid">
-          <div style="display:grid; gap:16px;">
+          <div style="display:grid; gap:20px;">
             ${s.paused ? `
               <div class="empty-glass-card" style="margin:20px auto;">
                 <div class="empty-icon">⏸</div>
@@ -7048,18 +7043,41 @@ WITH CHECK (key &lt;&gt; 'baraat_exams_private_v1' OR EXISTS (SELECT 1 FROM publ
                 <p>برای جلوگیری از دیده شدن سوالات هنگام استراحت متن سوال پنهان شده است.</p>
                 <div style="margin-top:16px;"><button type="button" class="btn primary" onclick="examTogglePause()">▶ ادامه آزمون</button></div>
               </div>
-            ` : (s.viewMode === 'single' ? renderQuestionBlock(curQ, s.activeQIdx) : qs.map((q, qi) => renderQuestionBlock(q, qi)).join(''))}
+            ` : (s.viewMode === 'single'
+                ? renderQuestionBlock(curQ, s.activeQIdx, curSubj.name, qs.length, s.activeSubjIdx)
+                : s.subjects.map((sb, sIdx) => {
+                    const sQs = sb.questions || [];
+                    return `
+                      <section id="exSubjSec-${sIdx}" class="ex-subj-sec">
+                        <div class="ex-subj-banner">
+                          <span>📚 ${esc(sb.name)}</span>
+                          <span class="pill done">${toFa(sQs.length)} سوال</span>
+                        </div>
+                        ${sQs.map((q, qi) => renderQuestionBlock(q, qi, sb.name, sQs.length, sIdx)).join('')}
+                      </section>
+                    `;
+                  }).join(''))}
           </div>
 
           <aside class="exam-palette-card">
-            <b style="font-size:14px; color:var(--text);">پاسخ‌برگ درس «${esc(curSubj.name)}»</b>
-            <div class="muted small" style="margin-top:4px;">روی شماره هر سوال بزنید تا مستقیماً به آن بروید</div>
-            <div class="exam-palette-grid">
-              ${qs.map((q, qi) => {
-                const isAns = s.answers[q.id] !== undefined;
-                const isFlag = !!s.flags[q.id];
-                const isCur = s.viewMode === 'single' && qi === s.activeQIdx;
-                return `<button type="button" class="exam-q-dot ${isAns ? 'answered' : ''} ${isFlag ? 'flagged' : ''} ${isCur ? 'current' : ''}" onclick="if(examSession){examSession.viewMode='single';examSelectQ(${qi});}">${toFa(qi + 1)}</button>`;
+            <b style="font-size:14px; color:var(--text);">پاسخ‌برگ کل سوالات (${toFa(totalQAll)})</b>
+            <div class="muted small" style="margin-top:4px;">این بخش اسکرول جداگانه دارد · روی هر شماره کلیک کنید</div>
+            <div style="display:grid; gap:12px; margin-top:12px;">
+              ${s.subjects.map((sb, sIdx) => {
+                const sQs = sb.questions || [];
+                return `
+                  <div>
+                    <div style="font-size:11.5px; font-weight:800; color:var(--main); margin-bottom:6px;">${esc(sb.name)} (${toFa(sQs.length)})</div>
+                    <div class="exam-palette-grid" style="margin-top:0;">
+                      ${sQs.map((q, qi) => {
+                        const isAns = s.answers[q.id] !== undefined;
+                        const isFlag = !!s.flags[q.id];
+                        const isCur = s.viewMode === 'single' && sIdx === s.activeSubjIdx && qi === s.activeQIdx;
+                        return `<button type="button" class="exam-q-dot ${isAns ? 'answered' : ''} ${isFlag ? 'flagged' : ''} ${isCur ? 'current' : ''}" onclick="${s.viewMode === 'list' ? `examJumpToQ('${q.id}')` : `examSelectSubjQ(${sIdx}, ${qi})`}">${toFa(qi + 1)}</button>`;
+                      }).join('')}
+                    </div>
+                  </div>
+                `;
               }).join('')}
             </div>
             <div style="margin-top:16px; padding-top:12px; border-top:1px solid var(--line); display:grid; gap:6px; font-size:12px; color:var(--muted);">
