@@ -18,6 +18,7 @@
   let _syncPromise = null;
   let _lastSyncAt = 0;
   let _hasSyncedOnce = false;
+  let _syncedAsAdmin = false;
 
   async function syncToSupabase(key, data) {
     try {
@@ -72,7 +73,8 @@
 
   window.syncAllFromSupabase = async function(force) {
     if (!window.sb || !navigator.onLine) return;
-    if (!force && _hasSyncedOnce && (Date.now() - _lastSyncAt < 45000)) return;
+    const adminBypassThrottle = !!(window.isAdmin && !_syncedAsAdmin);
+    if (!force && !adminBypassThrottle && _hasSyncedOnce && (Date.now() - _lastSyncAt < 45000)) return;
     if (_syncPromise) return _syncPromise;
     _syncPromise = (async () => {
       try {
@@ -87,7 +89,9 @@
           EXAM_DELETED_ATTEMPTS_KEY
         ];
         if (window.isAdmin) {
-          keysToFetch.push(CASES_KEY, ASSIGNED_PLANS_KEY, EXAM_ATTEMPTS_KEY);
+          keysToFetch.push(EXAMS_PRIVATE_KEY, CASES_KEY, ASSIGNED_PLANS_KEY, EXAM_ATTEMPTS_KEY);
+        } else {
+          try { localStorage.removeItem(EXAMS_PRIVATE_KEY); } catch (e) {}
         }
         const res = await window.sb.from('meta').select('key, value').in('key', keysToFetch);
         if (res && res.error) {
@@ -144,8 +148,27 @@
         if (window.isAdmin && Array.isArray(map[EXAM_ATTEMPTS_KEY])) {
           localStorage.setItem(EXAM_ATTEMPTS_KEY, JSON.stringify(map[EXAM_ATTEMPTS_KEY]));
         }
-        if (Array.isArray(map[EXAMS_KEY])) {
-          localStorage.setItem(EXAMS_KEY, JSON.stringify(map[EXAMS_KEY]));
+        if (Array.isArray(map[EXAMS_KEY]) || (window.isAdmin && Array.isArray(map[EXAMS_PRIVATE_KEY]))) {
+          const pubListRaw = Array.isArray(map[EXAMS_KEY]) ? map[EXAMS_KEY] : [];
+          if (window.isAdmin) {
+            const privListRaw = Array.isArray(map[EXAMS_PRIVATE_KEY]) ? map[EXAMS_PRIVATE_KEY] : [];
+            const legacyHiddenInPub = pubListRaw.filter(x => x && x.isPublished === false);
+            const cleanPub = pubListRaw.filter(x => !x || x.isPublished !== false);
+            const mergedPrivMap = new Map();
+            privListRaw.forEach(x => { if (x && x.id) mergedPrivMap.set(x.id, Object.assign({}, x, { isPublished: false })); });
+            legacyHiddenInPub.forEach(x => { if (x && x.id && !mergedPrivMap.has(x.id)) mergedPrivMap.set(x.id, Object.assign({}, x, { isPublished: false })); });
+            const cleanPriv = [...mergedPrivMap.values()];
+            localStorage.setItem(EXAMS_KEY, JSON.stringify(cleanPub));
+            localStorage.setItem(EXAMS_PRIVATE_KEY, JSON.stringify(cleanPriv));
+            // پاکسازی خودکار آزمون‌های مخفی قدیمی از کلید عمومی
+            if (legacyHiddenInPub.length > 0) {
+              await syncToSupabase(EXAMS_PRIVATE_KEY, cleanPriv.map(normalizeExamRecord));
+              await syncToSupabase(EXAMS_KEY, cleanPub.map(normalizeExamRecord));
+            }
+          } else {
+            localStorage.setItem(EXAMS_KEY, JSON.stringify(pubListRaw.filter(x => !x || x.isPublished !== false)));
+            try { localStorage.removeItem(EXAMS_PRIVATE_KEY); } catch (e) {}
+          }
           if (window.renderExamsHub) window.renderExamsHub();
         }
         if (window.isAdmin && Array.isArray(map[CASES_KEY])) {
@@ -162,6 +185,7 @@
 
         _lastSyncAt = Date.now();
         _hasSyncedOnce = true;
+        _syncedAsAdmin = !!window.isAdmin;
       } catch (err) {
         console.warn('Supabase batch sync failed:', err);
       } finally {
@@ -206,6 +230,8 @@
     const repliesData = window.getQuestionRepliesMap ? window.getQuestionRepliesMap() : null;
     const casesData = window.getCases ? window.getCases() : null;
     const examsData = window.getExams ? window.getExams() : null;
+    const examsPublic = Array.isArray(examsData) ? examsData.filter(x => x && x.isPublished !== false) : null;
+    const examsPrivate = Array.isArray(examsData) ? examsData.filter(x => x && x.isPublished === false) : null;
 
     const r1 = await syncToSupabase(ARTICLES_KEY, arts);
     const r2 = await syncToSupabase(DEADLINES_KEY, dls);
@@ -214,11 +240,12 @@
     const r5 = contactData ? await syncToSupabase(CONTACT_KEY, contactData) : { ok: true };
     const r6 = repliesData ? await syncToSupabase(QUESTION_REPLIES_KEY, repliesData) : { ok: true };
     const r7 = (window.isAdmin && casesData) ? await syncToSupabase(CASES_KEY, casesData) : { ok: true };
-    const r8 = examsData ? await syncToSupabase(EXAMS_KEY, examsData) : { ok: true };
+    const r8 = examsPublic ? await syncToSupabase(EXAMS_KEY, examsPublic) : { ok: true };
+    const r9 = examsPrivate ? await syncToSupabase(EXAMS_PRIVATE_KEY, examsPrivate) : { ok: true };
 
     if (typeof renderAdminPanels === 'function') renderAdminPanels();
 
-    const errors = [r1, r2, r3, r4, r5, r6, r7, r8].filter(r => !r.ok).map(r => r.error);
+    const errors = [r1, r2, r3, r4, r5, r6, r7, r8, r9].filter(r => !r.ok).map(r => r.error);
     if (errors.length === 0) {
       if (typeof toast === 'function') toast('همه مقالات، آزمون‌ها و تنظیمات با موفقیت روی سرور منتشر شدند.');
     } else {
@@ -4366,6 +4393,7 @@
   // ۴-ز. ماژول جامع آزمون‌های حقوقی (نکات شخصی دانشجو، سابقه پاسخ‌ها، پوشه‌بندی و نمایش/عدم نمایش مدیر)
   // -------------------------------------------------------------------
   const EXAMS_KEY = 'baraat_exams_v1';
+  const EXAMS_PRIVATE_KEY = 'baraat_exams_private_v1';
   const EXAM_RESULTS_LOCAL_KEY = 'baraat_exam_results_v1';
   const EXAM_NOTES_LOCAL_PREFIX = 'baraat_exam_notes_v1_';
   const EXAM_ATTEMPTS_KEY = 'baraat_exam_attempts_v1';
@@ -4419,6 +4447,42 @@
     document.head.appendChild(st);
   }
 
+  function normalizeExamSourceTag(raw) {
+    return toFa(String(raw || '').replace(/\s+/g, ' ').trim());
+  }
+
+  function buildExamSourceLabel(rawSource, rawType, rawYear) {
+    const src = String(rawSource || '').trim();
+    const typ = String(rawType || '').trim();
+    const yrEn = toEn(String(rawYear || '').trim()).replace(/[^\d]/g, '');
+    const yrFa = yrEn ? toFa(yrEn) : '';
+    if (src) {
+      if (yrEn && !toEn(src).includes(yrEn) && !/تالیف/.test(src)) {
+        return normalizeExamSourceTag(src + ' ' + yrFa);
+      }
+      return normalizeExamSourceTag(src);
+    }
+    if (typ) {
+      if (yrEn && !toEn(typ).includes(yrEn) && !/تالیف/.test(typ)) {
+        return normalizeExamSourceTag(typ + ' ' + yrFa);
+      }
+      return normalizeExamSourceTag(typ);
+    }
+    if (yrFa) {
+      return normalizeExamSourceTag('آزمون سال ' + yrFa);
+    }
+    return '';
+  }
+
+  function formatExamSourceBadgeHtml(sourceLabel) {
+    const clean = normalizeExamSourceTag(sourceLabel);
+    if (!clean) return '';
+    const msg = /تالیف/.test(clean)
+      ? 'این سوال تالیفی است'
+      : 'این سوال مربوط به ' + clean + ' است';
+    return `<span class="pill" style="background:rgba(245,158,11,.14); color:#b45309; font-weight:800;">📌 ${esc(msg)}</span>`;
+  }
+
   function normalizeExamRecord(ex) {
     if (!ex || typeof ex !== 'object') return ex;
     const cat = String(ex.category || ex.org || 'آزمون حقوقی').trim();
@@ -4426,12 +4490,13 @@
       org: cat,
       category: cat,
       examType: String(ex.examType || ex.source || '').trim() || 'تالیفی',
-      year: Number(ex.year || 1404) || 1404,
+      year: ex.year ? (Number(toEn(String(ex.year))) || ex.year) : '',
       durationMinutes: Number(ex.durationMinutes || ex.durationMin || 60) || 60,
       isPublished: ex.isPublished !== false,
       subjects: Array.isArray(ex.subjects) ? ex.subjects.map(s => Object.assign({}, s, {
         questions: Array.isArray(s.questions) ? s.questions.map(q => Object.assign({}, q, {
-          chapter: String(q.chapter || q.topic || '').trim()
+          chapter: String(q.chapter || q.topic || '').trim(),
+          sourceLabel: normalizeExamSourceTag(q.sourceLabel || q.source || '')
         })) : []
       })) : []
     });
@@ -4467,9 +4532,19 @@
 
   window.getExams = function() {
     try {
-      const raw = localStorage.getItem(EXAMS_KEY);
-      const list = raw ? JSON.parse(raw) : [];
-      return Array.isArray(list) ? list.map(normalizeExamRecord) : [];
+      const pubRaw = localStorage.getItem(EXAMS_KEY);
+      const pubParsed = pubRaw ? JSON.parse(pubRaw) : [];
+      const pubList = Array.isArray(pubParsed) ? pubParsed.map(normalizeExamRecord) : [];
+      if (!window.isAdmin) {
+        return pubList.filter(ex => ex && ex.isPublished !== false);
+      }
+      const privRaw = localStorage.getItem(EXAMS_PRIVATE_KEY);
+      const privParsed = privRaw ? JSON.parse(privRaw) : [];
+      const privList = Array.isArray(privParsed) ? privParsed.map(ex => normalizeExamRecord(Object.assign({}, ex, { isPublished: false }))) : [];
+      const map = new Map();
+      pubList.forEach(ex => { if (ex && ex.id) map.set(ex.id, ex); });
+      privList.forEach(ex => { if (ex && ex.id) map.set(ex.id, ex); });
+      return [...map.values()];
     } catch (e) {
       return [];
     }
@@ -4483,14 +4558,20 @@
 
   async function persistExamsList(list, successMsg) {
     const normalized = (list || []).map(normalizeExamRecord);
-    localStorage.setItem(EXAMS_KEY, JSON.stringify(normalized));
+    const pubList = normalized.filter(ex => ex.isPublished !== false);
+    const privList = normalized.filter(ex => ex.isPublished === false);
+    localStorage.setItem(EXAMS_KEY, JSON.stringify(pubList));
+    if (window.isAdmin) {
+      localStorage.setItem(EXAMS_PRIVATE_KEY, JSON.stringify(privList));
+    }
     if (window.renderExamsHub) window.renderExamsHub();
     if (typeof renderAdminPanels === 'function') renderAdminPanels();
-    const res = await syncToSupabase(EXAMS_KEY, normalized);
-    if (res.ok) {
-      if (typeof toast === 'function') toast(successMsg || 'آزمون در سرور ذخیره شد.');
+    const resPub = await syncToSupabase(EXAMS_KEY, pubList);
+    const resPriv = await syncToSupabase(EXAMS_PRIVATE_KEY, privList);
+    if (resPub.ok && resPriv.ok) {
+      if (typeof toast === 'function') toast(successMsg || 'آزمون در سرور ذخیره شد (آزمون‌های مخفی در کلید اختصاصی مدیر).');
     } else {
-      if (typeof toast === 'function') toast('ذخیره محلی انجام شد اما خطای سرور رخ داد: ' + res.error);
+      if (typeof toast === 'function') toast('ذخیره محلی انجام شد اما خطای سرور رخ داد: ' + (resPub.error || resPriv.error));
     }
   }
 
@@ -4891,7 +4972,8 @@
             <div class="row between" style="gap:8px; flex-wrap:wrap;">
               <div class="row" style="gap:6px; flex-wrap:wrap;">
                 <span class="art-tag">${esc(item.subjName || 'درس')} · سوال ${toFa(idx + 1)}</span>
-                ${item.chapter ? `<span class="pill">${esc(item.chapter)}</span>` : ''}
+                ${item.chapter ? `<span class="pill">سرفصل: ${esc(item.chapter)}</span>` : ''}
+                ${formatExamSourceBadgeHtml(item.sourceLabel)}
               </div>
               <span class="pill ${isCorrect ? 'done' : (!isBlank ? 'bad' : '')}">
                 ${isBlank ? '⚪ نزده' : (isCorrect ? '✅ پاسخ صحیح شما' : '❌ پاسخ غلط شما')}
@@ -4950,14 +5032,15 @@
           if (!match) return;
           const bName = sb.name || val || 'عمومی';
           if (!subjBuckets.has(bName)) subjBuckets.set(bName, { id: 'vs_' + subjBuckets.size, name: bName, questions: [] });
-          subjBuckets.get(bName).questions.push(Object.assign({}, q, { _fromExam: ex.title }));
+          const effSource = q.sourceLabel || buildExamSourceLabel('', ex.examType, ex.year);
+          subjBuckets.get(bName).questions.push(Object.assign({}, q, { sourceLabel: effSource, _fromExam: ex.title }));
         });
       });
     });
 
     const rawSubjs = [...subjBuckets.values()].filter(s => s.questions.length > 0);
     if (!rawSubjs.length) {
-      if (typeof toast === 'function') toast('سوالی در این مبحث یافت نشد.');
+      if (typeof toast === 'function') toast('سوالی در این سرفصل یافت نشد.');
       return;
     }
 
@@ -4971,13 +5054,99 @@
         id: 'topic_' + Date.now(),
         title: (cat !== 'all' ? cat + ' · ' : '') + val,
         category: cat,
-        examType: 'مبحثی / فصلی',
+        examType: 'مبحثی / سرفصلی',
         negativeMarking: true
       },
       retryParams: { type: 'topic', encCat, encKind, encVal },
       mode: runMode,
       subjects: rawSubjs,
-      scopeLabel: (kind === 'chapter' ? 'مبحث: ' : 'درس: ') + val,
+      scopeLabel: (kind === 'chapter' ? 'سرفصل: ' : 'بخش: ') + val,
+      activeSubjIdx: 0,
+      activeQIdx: 0,
+      viewMode: runMode === 'study' ? 'list' : 'single',
+      answers: {},
+      revealed: {},
+      flags: {},
+      secondsLeft: defaultSeconds,
+      totalSeconds: defaultSeconds,
+      paused: false,
+      submitted: false,
+      reviewFilter: 'all'
+    };
+
+    const overlay = document.getElementById('examRunnerOverlay');
+    if (overlay) overlay.classList.remove('hidden');
+    document.body.style.overflow = 'hidden';
+    if (runMode === 'exam') startExamCountdown();
+    renderExamRunner();
+  };
+
+  function getExamSourceTagsSummary() {
+    const exams = getVisibleExams();
+    const map = new Map();
+    exams.forEach(ex => {
+      (ex.subjects || []).forEach(sb => {
+        (sb.questions || []).forEach(q => {
+          const tag = normalizeExamSourceTag(q.sourceLabel || buildExamSourceLabel('', ex.examType, ex.year));
+          if (!tag) return;
+          if (!map.has(tag)) map.set(tag, { tag, qCount: 0, examIds: new Set() });
+          const entry = map.get(tag);
+          entry.qCount++;
+          entry.examIds.add(ex.id);
+        });
+      });
+    });
+    return [...map.values()]
+      .map(x => ({ tag: x.tag, qCount: x.qCount, examCount: x.examIds.size }))
+      .sort((a, b) => b.qCount - a.qCount);
+  }
+
+  window.openSourceYearRunner = function(encTag, mode) {
+    const sourceTag = normalizeExamSourceTag(decodeURIComponent(encTag || ''));
+    if (!sourceTag) return;
+    const exams = getVisibleExams();
+    const buckets = new Map();
+
+    exams.forEach(ex => {
+      (ex.subjects || []).forEach(sb => {
+        (sb.questions || []).forEach(q => {
+          const qTag = normalizeExamSourceTag(q.sourceLabel || buildExamSourceLabel('', ex.examType, ex.year));
+          if (qTag !== sourceTag) return;
+          const bName = (sb.name && sb.name !== 'سوالات آزمون' && sb.name !== 'عمومی')
+            ? `${ex.title} — ${sb.name}`
+            : ex.title;
+          if (!buckets.has(bName)) buckets.set(bName, { id: 'vsrc_' + buckets.size, name: bName, questions: [] });
+          buckets.get(bName).questions.push(Object.assign({}, q, {
+            sourceLabel: q.sourceLabel || qTag,
+            _fromExam: ex.title
+          }));
+        });
+      });
+    });
+
+    const rawSubjs = [...buckets.values()].filter(s => s.questions.length > 0);
+    if (!rawSubjs.length) {
+      if (typeof toast === 'function') toast('سوالی با این عنوان پیدا نشد.');
+      return;
+    }
+
+    stopExamTimer();
+    const totalQ = rawSubjs.reduce((a, s) => a + s.questions.length, 0);
+    const runMode = mode === 'exam' ? 'exam' : 'study';
+    const defaultSeconds = Math.max(300, totalQ * 75);
+
+    examSession = {
+      exam: {
+        id: 'src_' + Date.now(),
+        title: `سوالات ${sourceTag} (از تمام آزمون‌ها)`,
+        category: sourceTag,
+        examType: sourceTag,
+        negativeMarking: true
+      },
+      retryParams: { type: 'sourceYear', encTag },
+      mode: runMode,
+      subjects: rawSubjs,
+      scopeLabel: `آرشیو یکپارچه ${sourceTag}`,
       activeSubjIdx: 0,
       activeQIdx: 0,
       viewMode: runMode === 'study' ? 'list' : 'single',
@@ -5003,6 +5172,10 @@
     if (examSession.retryParams && examSession.retryParams.type === 'topic') {
       const p = examSession.retryParams;
       window.openTopicChapterRunner(p.encCat, p.encKind, p.encVal, newMode);
+      return;
+    }
+    if (examSession.retryParams && examSession.retryParams.type === 'sourceYear') {
+      window.openSourceYearRunner(examSession.retryParams.encTag, newMode);
       return;
     }
     const singleId = examSession.subjects.length === 1 && examSession.scopeLabel !== 'همه دروس' ? examSession.subjects[0].id : null;
@@ -5070,13 +5243,14 @@
     const topicCardsList = useChapterTopics
       ? [...topicCounts.entries()].map(([name, cnt]) => ({ kind: 'chapter', name, cnt }))
       : [...subjTopicCounts.entries()].map(([name, cnt]) => ({ kind: 'subject', name, cnt }));
+    const sourceTagsSummary = getExamSourceTagsSummary();
 
     root.innerHTML = `
       <div class="panel">
         <div class="panel-head">
           <div>
             <h2>📚 بانک سوالات و آزمون‌های حقوقی</h2>
-            <div class="muted small">پوشه‌بندی هوشمند (بر اساس سال یا مبحث و فصل)، تالیفی/سراسری، یادداشت‌گذاری شخصی زیر هر سوال و کارنامه با سابقه پاسخ‌ها</div>
+            <div class="muted small">پوشه‌بندی و طبقه‌بندی بر اساس سرفصل، بانک جامع سال‌ها (مثلاً ارشد ۹۸ در تمام آزمون‌ها)، یادداشت شخصی زیر هر سوال و کارنامه</div>
           </div>
           <div class="row" style="gap:8px; flex-wrap:wrap;">
             ${window.isAdmin ? `<button type="button" class="btn primary" onclick="openExamMetaModal()">＋ ایجاد آزمون جدید</button>` : ''}
@@ -5089,7 +5263,7 @@
           <button type="button" class="ex-crumb-btn ${examHubCat === 'all' && examHubSubViewMode !== 'list' ? 'active' : ''}" onclick="setExamHubFilters('view','auto');setExamHubFilters('cat','all')">📁 همه دسته‌بندی‌ها (${toFa(exams.length)})</button>
           ${examHubCat !== 'all' ? `<span>›</span><button type="button" class="ex-crumb-btn ${examHubFilterYear === 'all' && examHubFilterChapter === 'all' ? 'active' : ''}" onclick="selectExamCategoryEnc('${encodeURIComponent(examHubCat)}')">📂 ${esc(examHubCat)}</button>` : ''}
           ${examHubFilterYear !== 'all' ? `<span>›</span><span class="ex-crumb-btn active">📅 سال ${toFa(examHubFilterYear)}</span>` : ''}
-          ${examHubFilterChapter !== 'all' ? `<span>›</span><span class="ex-crumb-btn active">📑 مبحث: ${esc(examHubFilterChapter)}</span>` : ''}
+          ${examHubFilterChapter !== 'all' ? `<span>›</span><span class="ex-crumb-btn active">📑 سرفصل: ${esc(examHubFilterChapter)}</span>` : ''}
           <button type="button" class="btn small" style="margin-right:auto;" onclick="setExamHubFilters('view', '${showFolderRoot ? 'list' : 'auto'}')">
             ${showFolderRoot ? '📋 نمایش همه آزمون‌ها یکجا' : '📁 نمایش پوشه‌ای'}
           </button>
@@ -5097,8 +5271,8 @@
 
         <div class="form-grid" style="grid-template-columns:repeat(auto-fit, minmax(175px, 1fr)); gap:10px;">
           <div class="field">
-            <label>جستجو (نام آزمون، درس، فصل، تالیفی)</label>
-            <input id="examHubSearchInp" value="${esc(examHubQuery)}" placeholder="مثلاً: جزا، تالیفی، ۱۴۰۳، قصاص..." oninput="setExamHubFilters('q', this.value)">
+            <label>جستجو (نام آزمون، سرفصل، تالیفی)</label>
+            <input id="examHubSearchInp" value="${esc(examHubQuery)}" placeholder="مثلاً: جزا، تالیفی، ارشد ۹۸، قصاص..." oninput="setExamHubFilters('q', this.value)">
           </div>
           <div class="field">
             <label>دسته‌بندی / رشته / نهاد</label>
@@ -5123,14 +5297,42 @@
           </div>
           ${chapterSet.length ? `
             <div class="field">
-              <label>فصل / مبحث سوال</label>
+              <label>سرفصل / مبحث سوال</label>
               <select onchange="selectExamChapterEnc(this.value)">
-                <option value="all" ${examHubFilterChapter === 'all' ? 'selected' : ''}>همه مباحث (${toFa(chapterSet.length)})</option>
+                <option value="all" ${examHubFilterChapter === 'all' ? 'selected' : ''}>همه سرفصل‌ها (${toFa(chapterSet.length)})</option>
                 ${chapterSet.map(ch => `<option value="${encodeURIComponent(ch)}" ${examHubFilterChapter === ch ? 'selected' : ''}>${esc(ch)}</option>`).join('')}
               </select>
             </div>
           ` : ''}
         </div>
+
+        ${sourceTagsSummary.length ? `
+          <div class="surface-box" style="margin-top:14px; padding:12px;">
+            <div class="row between" style="gap:8px; flex-wrap:wrap; margin-bottom:8px;">
+              <div>
+                <b style="font-size:13px; color:var(--text);">🗓 آرشیو سوالات بر اساس دوره و سال (ارشد · مرکز وکلا · کانون · تالیفی در تمام آزمون‌ها)</b>
+                <div class="muted small">با کلیک روی هر گزینه (مثلاً ارشد ۹۸)، تمام سوالات آن دوره از درون همه آزمون‌های سایت یکجا باز می‌شوند</div>
+              </div>
+            </div>
+            <div class="ex-topic-grid">
+              ${sourceTagsSummary.map(st => {
+                const enc = encodeURIComponent(st.tag);
+                return `
+                  <div class="ex-topic-card">
+                    <div class="row between" style="gap:6px;">
+                      <b style="font-size:13px; color:var(--text);">🏷️ ${esc(st.tag)}</b>
+                      <span class="pill done">${toFa(st.qCount)} سوال · ${toFa(st.examCount)} آزمون</span>
+                    </div>
+                    <div class="row" style="gap:6px; flex-wrap:wrap;">
+                      <button type="button" class="btn small primary" style="flex:1;" onclick="openSourceYearRunner('${enc}', 'study')">📖 مشاهده همه سوالات</button>
+                      <button type="button" class="btn small" onclick="openSourceYearRunner('${enc}', 'exam')">⏱ آزمون زمان‌دار</button>
+                    </div>
+                  </div>
+                `;
+              }).join('')}
+            </div>
+          </div>
+        ` : ''}
 
         ${showFolderRoot ? `
           <div style="margin-top:16px;">
@@ -5142,8 +5344,8 @@
                 const yearsInCat = [...new Set(listInCat.map(e => Number(e.year)).filter(Boolean))].sort((a, b) => b - a);
                 const chInCat = [...new Set(listInCat.flatMap(e => getExamChapters(e)))];
                 const subModeTxt = isYearFirstCategory(cat)
-                  ? (yearsInCat.length ? `بر اساس سال (${yearsInCat.slice(0, 3).map(toFa).join('، ')})` : 'مرتب‌سازی بر اساس سال')
-                  : (chInCat.length ? `شامل ${toFa(chInCat.length)} مبحث و فصل` : 'بر اساس مبحث، تالیفی و سال');
+                  ? (yearsInCat.length ? `بر اساس سال (${yearsInCat.slice(0, 3).map(toFa).join(' - ')})` : 'مرتب‌سازی بر اساس سال')
+                  : (chInCat.length ? `شامل ${toFa(chInCat.length)} سرفصل و مبحث` : 'بر اساس سرفصل، تالیفی و سال');
                 return `
                   <button type="button" class="ex-folder-card" onclick="selectExamCategoryEnc('${encodeURIComponent(cat)}')">
                     <div class="row between" style="width:100%;">
@@ -5176,8 +5378,8 @@
           ${topicCardsList.length > 0 ? `
             <div class="surface-box" style="margin-top:12px; padding:12px;">
               <div class="row between" style="gap:8px; flex-wrap:wrap; margin-bottom:8px;">
-                <span style="font-size:12.5px; font-weight:800; color:var(--text);">📑 مرور و آزمون بر اساس ${useChapterTopics ? 'مبحث / فصل' : 'زیربخش / درس'} در «${esc(examHubCat)}»:</span>
-                <span class="muted small">می‌توانید مستقیم وارد سوالات هر بخش شوید</span>
+                <span style="font-size:12.5px; font-weight:800; color:var(--text);">📑 مرور و آزمون بر اساس ${useChapterTopics ? 'سرفصل / مبحث' : 'زیربخش / سرفصل'} در «${esc(examHubCat)}»:</span>
+                <span class="muted small">می‌توانید مستقیم وارد سوالات هر سرفصل شوید</span>
               </div>
               <div class="ex-topic-grid">
                 ${topicCardsList.map(item => {
@@ -5191,7 +5393,7 @@
                       </div>
                       <div class="row" style="gap:6px; flex-wrap:wrap;">
                         ${item.kind === 'chapter' ? `<button type="button" class="btn small" style="flex:1;" onclick="setExamHubFilters('chapter', decodeURIComponent('${encVal}'))">🔍 فیلتر آزمون‌ها</button>` : ''}
-                        <button type="button" class="btn small primary" style="flex:1;" onclick="openTopicChapterRunner('${encCat}', '${item.kind}', '${encVal}', 'study')">📖 مطالعه مبحث</button>
+                        <button type="button" class="btn small primary" style="flex:1;" onclick="openTopicChapterRunner('${encCat}', '${item.kind}', '${encVal}', 'study')">📖 مطالعه سرفصل</button>
                         <button type="button" class="btn small" onclick="openTopicChapterRunner('${encCat}', '${item.kind}', '${encVal}', 'exam')">⏱ آزمون</button>
                       </div>
                     </div>
@@ -5235,15 +5437,15 @@
                   </div>
                   ${chapters.length ? `
                     <div>
-                      <div style="font-size:11.5px; font-weight:700; color:var(--muted); margin-bottom:5px;">فصل‌ها / مباحث موجود:</div>
+                      <div style="font-size:11.5px; font-weight:700; color:var(--muted); margin-bottom:5px;">سرفصل‌ها / مباحث موجود:</div>
                       <div class="row" style="gap:5px; flex-wrap:wrap;">
                         ${chapters.slice(0, 6).map(ch => `<span class="pill">${esc(ch)}</span>`).join('')}
-                        ${chapters.length > 6 ? `<span class="muted small">+${toFa(chapters.length - 6)} مبحث دیگر</span>` : ''}
+                        ${chapters.length > 6 ? `<span class="muted small">+${toFa(chapters.length - 6)} سرفصل دیگر</span>` : ''}
                       </div>
                     </div>
                   ` : ''}
                   <div>
-                    <div style="font-size:12px; font-weight:700; color:var(--text); margin-bottom:7px;">مطالعه درس به درس سوالات:</div>
+                    <div style="font-size:12px; font-weight:700; color:var(--text); margin-bottom:7px;">مطالعه بر اساس سرفصل / درس:</div>
                     <div class="exam-subj-pills">
                       ${subjs.length ? subjs.map(s => `
                         <button type="button" class="exam-subj-btn" onclick="openExamRunner('${ex.id}', '${s.id}', 'study')">
@@ -5340,9 +5542,12 @@
         }).join('')}</div>`;
 
     box.innerHTML = `
-      <div class="row" style="gap:8px; flex-wrap:wrap; margin-bottom:12px;">
-        <button type="button" class="btn small primary" onclick="openExamMetaModal()">＋ ایجاد آزمون جدید</button>
-        <button type="button" class="btn small" onclick="openMultiExamFileImportModal()">📥 ساخت / دسته‌بندی خودکار آزمون از فایل اکسل یا CSV</button>
+      <div class="row between" style="gap:8px; flex-wrap:wrap; margin-bottom:12px;">
+        <div class="row" style="gap:8px; flex-wrap:wrap;">
+          <button type="button" class="btn small primary" onclick="openExamMetaModal()">＋ ایجاد آزمون جدید</button>
+          <button type="button" class="btn small" onclick="openMultiExamFileImportModal()">📥 ساخت / دسته‌بندی خودکار آزمون از فایل اکسل یا CSV</button>
+        </div>
+        ${exams.length ? `<button type="button" class="btn small danger" onclick="deleteAllExams()">🗑 حذف همه آزمون‌ها (${toFa(exams.length)})</button>` : ''}
       </div>
       ${examsHtml}
       <div style="margin-top:18px; padding-top:14px; border-top:1px solid var(--line);">
@@ -5355,10 +5560,41 @@
         </div>
         <div id="admExamAttemptsBox">${renderAdminAttemptsInnerHtml()}</div>
       </div>
+
+      <details class="callout-warn" style="margin-top:16px; padding:12px 14px; border-style:dashed; border-radius:12px;">
+        <summary style="cursor:pointer; font-size:12.5px; font-weight:800;">🔒 قفل امنیتی آزمون‌های مخفی در سرور Supabase (ضد دسترسی از F12 و API)</summary>
+        <p class="small" style="margin:8px 0; line-height:1.8;">
+          آزمون‌های مخفی در کلید جداگانه <code>baraat_exams_private_v1</code> ذخیره می‌شوند و به مرورگر کاربران عادی ارسال نمی‌شوند. برای اینکه حتی از طریق API مستقیم Supabase هم قابل خواندن نباشند، این کد SQL را یک بار در بخش SQL Editor پنل Supabase اجرا کنید:
+        </p>
+        <pre dir="ltr" class="surface-box" style="padding:10px; border-radius:8px; font-size:11px; overflow:auto;">ALTER TABLE public.meta ENABLE ROW LEVEL SECURITY;
+DROP POLICY IF EXISTS "lock_private_exams_meta" ON public.meta;
+CREATE POLICY "lock_private_exams_meta" ON public.meta
+AS RESTRICTIVE
+FOR ALL
+TO public
+USING (key &lt;&gt; 'baraat_exams_private_v1' OR EXISTS (SELECT 1 FROM public.admins WHERE user_id = auth.uid()))
+WITH CHECK (key &lt;&gt; 'baraat_exams_private_v1' OR EXISTS (SELECT 1 FROM public.admins WHERE user_id = auth.uid()));</pre>
+        <button type="button" class="btn small" onclick="copyPrivateExamsRlsSql()">📋 کپی دستور SQL قفل امنیتی</button>
+      </details>
     `;
     if (window.isAdmin && !adminAttemptsCache.length) {
       setTimeout(() => { if (window.refreshAdminExamAttempts) window.refreshAdminExamAttempts(); }, 100);
     }
+  };
+
+  window.copyPrivateExamsRlsSql = function() {
+    const sqlText = [
+      'ALTER TABLE public.meta ENABLE ROW LEVEL SECURITY;',
+      'DROP POLICY IF EXISTS "lock_private_exams_meta" ON public.meta;',
+      'CREATE POLICY "lock_private_exams_meta" ON public.meta',
+      'AS RESTRICTIVE',
+      'FOR ALL',
+      'TO public',
+      "USING (key <> 'baraat_exams_private_v1' OR EXISTS (SELECT 1 FROM public.admins WHERE user_id = auth.uid()))",
+      "WITH CHECK (key <> 'baraat_exams_private_v1' OR EXISTS (SELECT 1 FROM public.admins WHERE user_id = auth.uid()));"
+    ].join('\n');
+    navigator.clipboard?.writeText(sqlText);
+    if (typeof toast === 'function') toast('کد SQL قفل امنیتی کپی شد.');
   };
 
   window.openExamMetaModal = function(examId) {
@@ -5479,7 +5715,16 @@
     await persistExamsList(list, 'آزمون حذف شد.');
   };
 
+  window.deleteAllExams = async function() {
+    if (!window.isAdmin) return;
+    const list = window.getExams();
+    if (!list.length) return;
+    if (!confirm('آیا از حذف کامل تمام ' + toFa(list.length) + ' آزمون ثبت‌شده مطمئن هستید؟ نکات شخصی دانشجویان حفظ می‌شوند.')) return;
+    await persistExamsList([], 'تمام آزمون‌ها با موفقیت حذف شدند.');
+  };
+
   window.exportExamJson = function(examId) {
+    if (!window.isAdmin) return;
     const ex = window.getExams().find(x => x.id === examId);
     if (!ex) return;
     const blob = new Blob([JSON.stringify(ex, null, 2)], { type: 'application/json' });
@@ -5537,9 +5782,13 @@
       <div class="callout-info" style="padding:14px; border-radius:14px; margin-bottom:16px;">
         <h4 style="margin:0 0 10px; color:var(--main);">${curQ ? '✎ ویرایش سوال انتخاب‌شده' : '＋ افزودن سوال تکی به «' + esc(curSubj.name) + '»'}</h4>
         <div class="form-grid" style="gap:8px;">
-          <div class="field" style="grid-column:1/-1;">
-            <label>فصل / مبحث سوال (مثلاً: قصاص، اسناد تجاری، شرکت‌ها)</label>
-            <input id="eqChapter" value="${esc(curQ ? (curQ.chapter || '') : '')}" placeholder="اختیاری — برای دسته‌بندی مبحثی داخل درس">
+          <div class="field">
+            <label>سرفصل / مبحث سوال (مثلاً: قصاص، اسناد تجاری)</label>
+            <input id="eqChapter" value="${esc(curQ ? (curQ.chapter || '') : '')}" placeholder="اختیاری — برای دسته‌بندی بر اساس سرفصل">
+          </div>
+          <div class="field">
+            <label>منبع / سال سوال (نمایش هنگام آزمون)</label>
+            <input id="eqSourceLabel" value="${esc(curQ ? (curQ.sourceLabel || '') : '')}" placeholder="مثلاً: تالیفی یا ارشد ۹۸ یا آزمون وکلا ۱۴۰۰">
           </div>
           <div class="field" style="grid-column:1/-1;">
             <label>صورت سوال *</label>
@@ -5658,6 +5907,7 @@
     const answer = Number(document.getElementById('eqAns')?.value || 0);
     const exp = (document.getElementById('eqExp')?.value || '').trim();
     const chapter = (document.getElementById('eqChapter')?.value || '').trim();
+    const sourceLabel = normalizeExamSourceTag(document.getElementById('eqSourceLabel')?.value || '');
 
     const list = window.getExams();
     const ex = list.find(x => x.id === examId);
@@ -5666,9 +5916,9 @@
     subj.questions = subj.questions || [];
     if (qId) {
       const tq = subj.questions.find(q => q.id === qId);
-      if (tq) Object.assign(tq, { q: stem, options, answer, exp, chapter });
+      if (tq) Object.assign(tq, { q: stem, options, answer, exp, chapter, sourceLabel });
     } else {
-      subj.questions.push({ id: 'eq_' + Date.now() + '_' + Math.random().toString(36).slice(2, 6), q: stem, options, answer, exp, chapter });
+      subj.questions.push({ id: 'eq_' + Date.now() + '_' + Math.random().toString(36).slice(2, 6), q: stem, options, answer, exp, chapter, sourceLabel });
     }
     editingQuestionId = null;
     await persistExamsList(list, qId ? 'سوال بروزرسانی شد.' : 'سوال به درس اضافه شد.');
@@ -5794,7 +6044,7 @@
           <button type="button" class="btn small" onclick="downloadExamSampleCsv()">⬇️ دانلود فایل نمونه CSV</button>
         </div>
         <input type="file" id="impExamFile" accept=".xlsx,.xls,.csv,.json" onchange="handleExamFileImport('${ex.id}', this)">
-        <div class="muted small" style="margin-top:6px;">ستون‌های پشتیبانی‌شده: درس | فصل (مبحث) | صورت سوال | الف | ب | ج | د | پاسخ | تشریح | نوع (تالیفی/سراسری) | سال | دسته | اسم آزمون</div>
+        <div class="muted small" style="margin-top:6px;">ستون‌های پشتیبانی‌شده: سرفصل (فصل/مبحث) | منبع سوال (تالیفی، ارشد، وکلا) | سال | صورت سوال | گزینه ۱ تا ۴ | پاسخ | تشریح | درس | دسته | اسم آزمون</div>
       </div>
 
       <div class="field" style="margin-top:14px;">
@@ -5815,28 +6065,32 @@
     const m = document.getElementById('modal');
     if (!m) return;
     m.innerHTML = `
-      <h2>📥 بارگذاری خودکار و دسته‌بندی آزمون‌ها از فایل</h2>
+      <h2>📥 بارگذاری آزمون و طبقه‌بندی هوشمند از فایل CSV / اکسل</h2>
       <p class="muted small" style="line-height:1.9;">
-        اگر فایل اکسل (.xlsx/.xls)، CSV یا JSON دارید که ستون‌های <b>دسته (مثل حقوق جزا یا آزمون وکالت کانون)</b>، <b>نوع (تالیفی/سراسری)</b>، <b>سال</b>، <b>اسم آزمون</b>، <b>درس</b> و <b>فصل/مبحث</b> دارد، سیستم به صورت خودکار آزمون‌ها را می‌سازد و سوالات را در فصل و آزمون مربوطه قرار می‌دهد.
+        اگر فایل شما دارای ستون <b>سرفصل</b> باشد، سوالات به صورت خودکار بر اساس سرفصل طبقه‌بندی می‌شوند. ستون‌های <b>منبع سوال</b> (مثلاً تالیفی، آزمون وکلا، ارشد، مرکز وکلا) و <b>سال</b> نیز روی تک‌تک سوالات ذخیره می‌شوند تا هنگام امتحان نمایش داده شوند و در بانک سال‌ها قابل جستجو باشند.
       </p>
       <div class="form-grid" style="margin-top:10px; gap:10px;">
+        <div class="field" style="grid-column:1/-1;">
+          <label>نام آزمون (اختیاری — در صورت خالی بودن از نام فایل یا ستون «اسم آزمون» استفاده می‌شود)</label>
+          <input id="mImpDefTitle" value="" placeholder="مثلاً: آزمون جامع حقوق جزا">
+        </div>
         <div class="field">
-          <label>دسته پیش‌فرض (در صورت خالی بودن ستون دسته)</label>
+          <label>دسته اصلی (اختیاری)</label>
           <input id="mImpDefCat" list="mImpCatList" value="حقوق جزا">
           <datalist id="mImpCatList">${EXAM_ORGS.map(o => `<option value="${esc(o)}">`).join('')}</datalist>
         </div>
         <div class="field">
-          <label>نوع پیش‌فرض (در صورت نبود ستون نوع/تالیفی)</label>
-          <input id="mImpDefType" list="mImpTypeList" value="تالیفی">
+          <label>نوع / منبع پیش‌فرض (اختیاری)</label>
+          <input id="mImpDefType" list="mImpTypeList" value="" placeholder="مثلاً: تالیفی یا سراسری">
           <datalist id="mImpTypeList">${EXAM_TYPES.map(t => `<option value="${esc(t)}">`).join('')}</datalist>
         </div>
         <div class="field">
-          <label>سال پیش‌فرض</label>
-          <input id="mImpDefYear" type="number" value="1404">
+          <label>سال پیش‌فرض (اختیاری)</label>
+          <input id="mImpDefYear" type="number" value="" placeholder="مثلاً: 1403">
         </div>
         <div class="field">
-          <label>درس پیش‌فرض</label>
-          <input id="mImpDefSubj" value="حقوق جزا">
+          <label>درس پیش‌فرض (فقط در نبود سرفصل)</label>
+          <input id="mImpDefSubj" value="" placeholder="اختیاری">
         </div>
       </div>
       <div class="surface-box" style="margin-top:12px;">
@@ -5855,10 +6109,13 @@
 
   window.downloadExamSampleCsv = function() {
     const bom = '\uFEFF';
-    const sample = [
-      ['دسته', 'نوع', 'سال', 'اسم آزمون', 'درس', 'فصل', 'صورت سوال', 'الف', 'ب', 'ج', 'د', 'پاسخ', 'تشریح'].join(','),
-      ['حقوق جزا', 'تالیفی', '1404', 'آزمون جزا تالیفی ۱', 'حقوق جزای عمومی', 'مسئولیت کیفری', 'شرط تحقق مسئولیت کیفری در قبال جرایم عمدی کدام است؟', 'بلوغ، عقل و اختیار', 'صرف علم به حکم', 'سوگند متهم', 'عدم سابقه کیفری', 'الف', 'مطابق مواد ۱۴۰ تا ۱۴۶ قانون مجازات اسلامی بلوغ، عقل و اختیار ارکان مسئولیت کیفری است.'].map(v => `"${v.replace(/"/g, '""')}"`).join(',')
-    ].join('\r\n');
+    const rows = [
+      ['سرفصل', 'منبع سوال', 'سال', 'صورت سوال', 'گزینه ۱', 'گزینه ۲', 'گزینه ۳', 'گزینه ۴', 'پاسخ', 'پاسخ تشریحی'],
+      ['مسئولیت کیفری', 'آزمون وکلا', '1400', 'شرط تحقق مسئولیت کیفری در قبال جرایم عمدی کدام است؟', 'بلوغ و عقل و اختیار', 'صرف علم به حکم', 'سوگند متهم', 'عدم سابقه کیفری', '1', 'مطابق مواد ۱۴۰ تا ۱۴۶ قانون مجازات اسلامی'],
+      ['قصاص و دیات', 'ارشد', '98', 'در چه صورتی قصاص نفس با گذشت ساقط می‌شود؟', 'با گذشت اولیای دم', 'با اقرار متهم', 'با تغییر قاضی', 'با مرور زمان', '1', 'مطابق قانون مجازات اسلامی'],
+      ['تعزیرات', 'تالیفی', '', 'حداقل سن مسئولیت کیفری در پسران کدام است؟', '۱۵ سال تمام قمری', '۱۸ سال شمسی', '۱۲ سال شمسی', '۹ سال قمری', '1', 'ماده ۱۴۷ قانون مجازات اسلامی']
+    ];
+    const sample = rows.map(r => r.map(v => `"${String(v).replace(/"/g, '""')}"`).join(',')).join('\r\n');
     const blob = new Blob([bom + sample], { type: 'text/csv;charset=utf-8;' });
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
@@ -6002,10 +6259,12 @@
     const f = inputEl && inputEl.files && inputEl.files[0];
     if (!f) return;
     const isAutoMode = examId === '__AUTO__';
-    const defSubj = (document.getElementById(isAutoMode ? 'mImpDefSubj' : 'impDefSubj')?.value || '').trim() || 'حقوق جزا';
+    const defTitle = (document.getElementById('mImpDefTitle')?.value || '').trim();
+    const defSubj = (document.getElementById(isAutoMode ? 'mImpDefSubj' : 'impDefSubj')?.value || '').trim();
     const defCat = (document.getElementById('mImpDefCat')?.value || '').trim() || 'حقوق جزا';
-    const defType = (document.getElementById('mImpDefType')?.value || '').trim() || 'تالیفی';
-    const defYear = Number(toEn(document.getElementById('mImpDefYear')?.value || '1404')) || 1404;
+    const defType = (document.getElementById('mImpDefType')?.value || '').trim();
+    const defYearRaw = toEn(document.getElementById('mImpDefYear')?.value || '').trim();
+    const defYear = defYearRaw ? Number(defYearRaw) : '';
 
     const list = window.getExams();
     const targetSingleExam = isAutoMode ? null : list.find(x => x.id === examId);
@@ -6064,21 +6323,21 @@
       };
 
       const ciCat = findCol(['دسته', 'دسته بندی', 'نهاد', 'رشته', 'category', 'org'], ['دسته', 'نهاد', 'category']);
-      const ciType = findCol(['نوع', 'نوع آزمون', 'تالیفی', 'منبع', 'type', 'source', 'examtype'], ['تالیفی', 'نوع آزمون', 'source', 'examtype']);
-      const ciYear = findCol(['سال', 'year'], ['سال', 'year']);
-      const ciTitle = findCol(['اسم آزمون', 'نام آزمون', 'عنوان آزمون', 'عنوان', 'آزمون', 'exam', 'title'], ['اسم آزمون', 'نام آزمون', 'عنوان آزمون', 'title']);
+      const ciSource = findCol(['منبع سوال', 'منبع', 'مرجع', 'آزمون مبدا', 'source', 'origin'], ['منبع', 'مرجع', 'مبدا', 'source', 'origin']);
+      const ciType = findCol(['نوع', 'نوع سوال', 'نوع آزمون', 'ماهیت', 'تالیفی', 'type', 'examtype'], ['تالیفی', 'نوع آزمون', 'نوع سوال', 'examtype']);
+      const ciYear = findCol(['سال', 'سال آزمون', 'year'], ['سال', 'year']);
+      const ciTitle = findCol(['اسم آزمون', 'نام آزمون', 'عنوان آزمون', 'عنوان', 'exam', 'examtitle', 'title'], ['اسم آزمون', 'نام آزمون', 'عنوان آزمون', 'title']);
       const ciSubj = findCol(['درس', 'subject'], ['درس', 'subject']);
-      const ciChap = findCol(['فصل', 'مبحث', 'موضوع', 'بخش', 'chapter', 'topic'], ['فصل', 'مبحث', 'chapter', 'topic']);
+      const ciChap = findCol(['سرفصل', 'فصل', 'مبحث', 'موضوع', 'بخش', 'chapter', 'topic'], ['سرفصل', 'فصل', 'مبحث', 'chapter', 'topic']);
       const ciQ = findCol(['سوال', 'سؤال', 'صورت سوال', 'متن سوال', 'question'], ['سوال', 'سؤال', 'صورت', 'question']);
       const ciA = findCol(['الف', 'ا', 'a', '1', '۱', 'گزینه الف', 'گزینه 1', 'گزینه ۱', 'گزینه اول', 'opt1', 'option1', 'option a'], ['گزینه الف', 'گزینه 1', 'گزینه ۱', 'opt1', 'option 1', 'option a']);
       const ciB = findCol(['ب', 'b', '2', '۲', 'گزینه ب', 'گزینه 2', 'گزینه ۲', 'گزینه دوم', 'opt2', 'option2', 'option b'], ['گزینه ب', 'گزینه 2', 'گزینه ۲', 'opt2', 'option 2', 'option b']);
       const ciC = findCol(['ج', 'c', '3', '۳', 'گزینه ج', 'گزینه 3', 'گزینه ۳', 'گزینه سوم', 'opt3', 'option3', 'option c'], ['گزینه ج', 'گزینه 3', 'گزینه ۳', 'opt3', 'option 3', 'option c']);
       const ciD = findCol(['د', 'd', '4', '۴', 'گزینه د', 'گزینه 4', 'گزینه ۴', 'گزینه چهارم', 'opt4', 'option4', 'option d'], ['گزینه د', 'گزینه 4', 'گزینه ۴', 'opt4', 'option 4', 'option d']);
       const ciAns = findCol(['پاسخ', 'کلید', 'جواب', 'صحیح', 'answer', 'ans', 'key'], ['پاسخ', 'کلید', 'جواب', 'صحیح', 'answer', 'ans']);
-      const ciExp = findCol(['تشریح', 'توضیح', 'نکته', 'مستند', 'explanation', 'exp'], ['تشریح', 'توضیح', 'نکته', 'مستند', 'explanation']);
+      const ciExp = findCol(['تشریح', 'پاسخ تشریحی', 'توضیح', 'نکته', 'مستند', 'explanation', 'exp'], ['تشریح', 'توضیح', 'نکته', 'مستند', 'explanation']);
 
       const qCol = ciQ >= 0 ? ciQ : (ciSubj === 0 ? 1 : 0);
-      let added = 0;
       const ansToIdx = (v) => {
         const s = toEn(String(v || '')).trim().toLowerCase().replace(/[\s.)گزینه:-]+/g, '');
         if (s === '2' || s === 'ب' || s === 'b') return 1;
@@ -6087,13 +6346,12 @@
         return 0;
       };
 
-      const fileBaseTitle = f.name.replace(/\.[^.]+$/, '') || 'آزمون بارگذاری‌شده';
+      const fileBaseTitle = defTitle || f.name.replace(/\.[^.]+$/, '').replace(/_/g, ' ').trim() || 'آزمون بارگذاری‌شده';
+      const parsedRows = [];
 
       rows.slice(1).forEach(r => {
         const qText = String(r[qCol] || '').trim();
         if (!qText) return;
-        const sName = (ciSubj >= 0 && String(r[ciSubj] || '').trim()) || defSubj;
-        const chName = ciChap >= 0 ? String(r[ciChap] || '').trim() : '';
         const opts = [
           String(r[ciA >= 0 ? ciA : qCol + 1] || '').trim(),
           String(r[ciB >= 0 ? ciB : qCol + 2] || '').trim(),
@@ -6102,26 +6360,52 @@
         ];
         if (!opts.some(Boolean)) return;
 
+        const rowSub = ciSubj >= 0 ? String(r[ciSubj] || '').trim() : '';
+        const chName = ciChap >= 0 ? String(r[ciChap] || '').trim() : '';
+        const rowSource = ciSource >= 0 ? String(r[ciSource] || '').trim() : '';
+        const rowType = (ciType >= 0 && String(r[ciType] || '').trim()) || defType;
+        const rowYearRaw = (ciYear >= 0 && toEn(String(r[ciYear] || '').trim())) || (defYear ? String(defYear) : '');
+        const sourceLabel = buildExamSourceLabel(rowSource, rowType, rowYearRaw);
+
+        parsedRows.push({
+          rowTitle: (ciTitle >= 0 && String(r[ciTitle] || '').trim()) || '',
+          rowCat: (ciCat >= 0 && String(r[ciCat] || '').trim()) || defCat,
+          rowType: rowType || 'تالیفی',
+          rowYear: rowYearRaw ? (Number(rowYearRaw) || '') : '',
+          rowSub,
+          chName,
+          sourceLabel,
+          qText,
+          opts,
+          answer: ansToIdx(ciAns >= 0 ? r[ciAns] : 1),
+          exp: ciExp >= 0 ? String(r[ciExp] || '').trim() : ''
+        });
+      });
+
+      if (!parsedRows.length) return alert('سوال معتبری در فایل اکسل/CSV یافت نشد.');
+
+      const distinctExplicitSubjects = new Set(parsedRows.map(x => x.rowSub).filter(Boolean));
+      const hasChapters = parsedRows.some(x => Boolean(x.chName));
+      const useChapterAsBucket = hasChapters && distinctExplicitSubjects.size <= 1;
+
+      let added = 0;
+      parsedRows.forEach(item => {
+        const bucketName = useChapterAsBucket
+          ? (item.chName || item.rowSub || defSubj || 'سوالات آزمون')
+          : (item.rowSub || item.chName || defSubj || 'سوالات آزمون');
+
         let destExam = targetSingleExam;
         if (isAutoMode) {
-          const rowCat = (ciCat >= 0 && String(r[ciCat] || '').trim()) || defCat;
-          const rowType = (ciType >= 0 && String(r[ciType] || '').trim()) || defType;
-          const rowYear = (ciYear >= 0 && Number(toEn(String(r[ciYear] || '')))) || defYear;
-          const rowTitle = (ciTitle >= 0 && String(r[ciTitle] || '').trim()) || `${rowCat} - ${rowType} (${toFa(rowYear)})` || fileBaseTitle;
-          destExam = list.find(x =>
-            getExamCategory(x) === rowCat &&
-            getExamTypeLabel(x) === rowType &&
-            Number(x.year) === Number(rowYear) &&
-            x.title === rowTitle
-          );
+          const examTitle = item.rowTitle || fileBaseTitle;
+          destExam = list.find(x => x.title === examTitle);
           if (!destExam) {
             destExam = normalizeExamRecord({
               id: 'ex_' + Date.now() + '_' + Math.random().toString(36).slice(2, 6),
-              title: rowTitle,
-              category: rowCat,
-              org: rowCat,
-              examType: rowType,
-              year: rowYear,
+              title: examTitle,
+              category: item.rowCat || defCat,
+              org: item.rowCat || defCat,
+              examType: defType || item.rowType || 'تالیفی',
+              year: defYear || item.rowYear || '',
               durationMinutes: 60,
               negativeMarking: true,
               isPublished: true,
@@ -6129,34 +6413,27 @@
             });
             list.unshift(destExam);
           }
-        } else {
-          if (ciType >= 0 && String(r[ciType] || '').trim()) destExam.examType = String(r[ciType] || '').trim();
-          if (ciCat >= 0 && String(r[ciCat] || '').trim()) {
-            destExam.category = String(r[ciCat] || '').trim();
-            destExam.org = destExam.category;
-          }
-          if (ciYear >= 0 && Number(toEn(String(r[ciYear] || '')))) destExam.year = Number(toEn(String(r[ciYear] || '')));
         }
 
         destExam.subjects = destExam.subjects || [];
-        let targetSubj = destExam.subjects.find(x => x.name === sName);
+        let targetSubj = destExam.subjects.find(x => x.name === bucketName);
         if (!targetSubj) {
-          targetSubj = { id: 'es_' + Date.now() + '_' + Math.random().toString(36).slice(2, 5), name: sName, questions: [] };
+          targetSubj = { id: 'es_' + Date.now() + '_' + Math.random().toString(36).slice(2, 5), name: bucketName, questions: [] };
           destExam.subjects.push(targetSubj);
         }
         targetSubj.questions.push({
           id: 'eq_' + Date.now() + '_' + Math.random().toString(36).slice(2, 6),
-          q: qText,
-          chapter: chName,
-          options: opts,
-          answer: ansToIdx(ciAns >= 0 ? r[ciAns] : 1),
-          exp: ciExp >= 0 ? String(r[ciExp] || '').trim() : ''
+          q: item.qText,
+          chapter: item.chName,
+          sourceLabel: item.sourceLabel,
+          options: item.opts,
+          answer: item.answer,
+          exp: item.exp
         });
         added++;
       });
 
-      if (!added) return alert('سوال معتبری در فایل اکسل/CSV یافت نشد.');
-      await persistExamsList(list, toFa(added) + ' سوال با دسته‌بندی کامل از فایل وارد شد.');
+      await persistExamsList(list, toFa(added) + ' سوال با دسته‌بندی سرفصل و منبع از فایل وارد شد.');
       if (isAutoMode) closeModal();
       else window.openExamQuestionsEditor(examId);
     } catch (e) {
@@ -6404,6 +6681,7 @@
           id: q.id,
           subjName: sb.name,
           chapter: q.chapter || '',
+          sourceLabel: q.sourceLabel || '',
           q: q.q,
           options: q.options || [],
           answer: Number(q.answer || 0),
@@ -6551,7 +6829,8 @@
                     <div class="row between" style="gap:8px; flex-wrap:wrap;">
                       <div class="row" style="gap:6px; flex-wrap:wrap;">
                         <span class="art-tag">${esc(item.subjName)} · سوال ${toFa(item.idx)}</span>
-                        ${item.q.chapter ? `<span class="pill">${esc(item.q.chapter)}</span>` : ''}
+                        ${item.q.chapter ? `<span class="pill">سرفصل: ${esc(item.q.chapter)}</span>` : ''}
+                        ${formatExamSourceBadgeHtml(item.q.sourceLabel)}
                       </div>
                       <span class="pill ${item.isCorrect ? 'done' : (!item.isBlank ? 'bad' : '')}">
                         ${item.isBlank ? '⚪ نزده' : (item.isCorrect ? '✅ پاسخ صحیح' : '❌ پاسخ اشتباه')}
@@ -6596,7 +6875,8 @@
             <div class="row between" style="gap:8px; flex-wrap:wrap;">
               <div class="row" style="gap:6px; flex-wrap:wrap;">
                 <span class="art-tag">${esc(curSubj.name)} · سوال ${toFa(qIdx + 1)} از ${toFa(qs.length)}</span>
-                ${qObj.chapter ? `<span class="pill">${esc(qObj.chapter)}</span>` : ''}
+                ${qObj.chapter ? `<span class="pill">سرفصل: ${esc(qObj.chapter)}</span>` : ''}
+                ${formatExamSourceBadgeHtml(qObj.sourceLabel)}
               </div>
               ${picked !== undefined ? `<button type="button" class="btn small" onclick="examClearAnswer('${qObj.id}')">پاک کردن انتخاب</button>` : ''}
             </div>
@@ -6696,7 +6976,8 @@
           <div class="row between" style="gap:8px; flex-wrap:wrap;">
             <div class="row" style="gap:6px; flex-wrap:wrap;">
               <span class="art-tag">${esc(curSubj.name)} · سوال ${toFa(qIdx + 1)} از ${toFa(qs.length)}</span>
-              ${qObj.chapter ? `<span class="pill">${esc(qObj.chapter)}</span>` : ''}
+              ${qObj.chapter ? `<span class="pill">سرفصل: ${esc(qObj.chapter)}</span>` : ''}
+              ${formatExamSourceBadgeHtml(qObj.sourceLabel)}
             </div>
             <div class="row" style="gap:6px;">
               ${picked !== undefined ? `<button type="button" class="btn small" onclick="examClearAnswer('${qObj.id}')">پاک کردن گزینه</button>` : ''}
