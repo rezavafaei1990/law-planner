@@ -5296,8 +5296,13 @@
     return [...chSet];
   }
 
-  let examHubSection = 'exams'; // 'exams' | 'lessons'
+  let examHubSection = 'exams'; // 'exams' | 'lessons' | 'notebook'
   let examLessonSearch = '';
+  let examNbGroupBy = 'subject'; // 'subject' | 'exam'
+  let examNbFilter = 'all';      // 'all' | 'noted' | 'review' | 'noteworthy' | 'careless' | 'hard' | 'medium' | 'easy' | 'wrong'
+  let examNbGroup = 'all';
+  let examNbSearch = '';
+  const examNbExpanded = {};
   let examHubCat = 'all';      // نام دسته انتخاب‌شده یا 'all' برای نمای پوشه‌های اصلی
   let examHubFilterType = 'all';
   let examHubFilterYear = 'all';
@@ -5306,13 +5311,46 @@
   let examHubSubViewMode = 'auto'; // 'auto' | 'folders' | 'list'
 
   window.setExamHubSection = function(sec) {
-    examHubSection = sec === 'lessons' ? 'lessons' : 'exams';
+    examHubSection = (sec === 'lessons' || sec === 'notebook') ? sec : 'exams';
     window.renderExamsHub();
   };
 
   window.setExamLessonSearch = function(val) {
     examLessonSearch = String(val || '');
     window.renderExamsHub();
+  };
+
+  window.setExamNbFilter = function(val) {
+    examNbFilter = val || 'all';
+    examNbGroup = 'all';
+    window.renderExamsHub();
+  };
+
+  window.setExamNbGroupBy = function(val) {
+    examNbGroupBy = val === 'exam' ? 'exam' : 'subject';
+    examNbGroup = 'all';
+    window.renderExamsHub();
+  };
+
+  window.setExamNbGroupEnc = function(encVal) {
+    examNbGroup = decodeURIComponent(encVal || 'all');
+    window.renderExamsHub();
+  };
+
+  window.setExamNbSearch = function(val) {
+    examNbSearch = String(val || '');
+    window.renderExamsHub();
+  };
+
+  window.toggleExamNbExpand = function(qId) {
+    examNbExpanded[qId] = !examNbExpanded[qId];
+    window.renderExamsHub();
+  };
+
+  window.openStudentExamNotebook = function() {
+    examHubSection = 'notebook';
+    if (window.setStudentsSub) window.setStudentsSub('exams');
+    else window.renderExamsHub();
   };
 
   window.setExamHubFilters = function(kind, val) {
@@ -5590,8 +5628,243 @@
     renderExamRunner();
   };
 
+  function buildStudentNotebookEntries() {
+    const exams = getVisibleExams();
+    const results = getExamResults();
+    const notesMap = getExamNotesMap();
+    const tagsMap = getExamTagsMap();
+    const qMap = new Map();
+
+    exams.forEach(ex => {
+      (ex.subjects || []).forEach(sb => {
+        (sb.questions || []).forEach((q, idx) => {
+          if (!q || !q.id || qMap.has(q.id)) return;
+          qMap.set(q.id, {
+            id: q.id,
+            q: q.q || '',
+            options: Array.isArray(q.options) ? q.options : [],
+            answer: Number(q.answer || 0),
+            exp: q.exp || '',
+            chapter: q.chapter || '',
+            sourceLabel: q.sourceLabel || buildExamSourceLabel('', ex.examType, ex.year) || '',
+            examId: ex.id,
+            examTitle: ex.title || 'آزمون',
+            subjectName: String(sb.name || '').trim() || 'سایر دروس',
+            qNumber: idx + 1
+          });
+        });
+      });
+    });
+
+    const wrongMap = new Map();
+    results.forEach(att => {
+      const snaps = Array.isArray(att.questionsSnapshot) ? att.questionsSnapshot : [];
+      const ans = (att.answers && typeof att.answers === 'object') ? att.answers : {};
+      snaps.forEach((sn, idx) => {
+        if (!sn || !sn.id) return;
+        if (!qMap.has(sn.id)) {
+          qMap.set(sn.id, {
+            id: sn.id,
+            q: sn.q || '',
+            options: Array.isArray(sn.options) ? sn.options : [],
+            answer: Number(sn.answer || 0),
+            exp: sn.exp || '',
+            chapter: sn.chapter || '',
+            sourceLabel: sn.sourceLabel || '',
+            examId: att.examId || '',
+            examTitle: att.examTitle || 'آزمون',
+            subjectName: String(sn.subjName || sn.subjectName || '').trim() || 'سایر دروس',
+            qNumber: idx + 1
+          });
+        }
+        const picked = ans[sn.id];
+        if (picked !== undefined && picked !== null && Number(picked) !== Number(sn.answer)) {
+          const prev = wrongMap.get(sn.id);
+          wrongMap.set(sn.id, {
+            count: (prev ? prev.count : 0) + 1,
+            lastExamTitle: (prev && prev.lastExamTitle) || att.examTitle || 'آزمون',
+            lastPicked: prev ? prev.lastPicked : Number(picked)
+          });
+        }
+      });
+    });
+
+    const idSet = new Set();
+    Object.entries(notesMap).forEach(([qId, val]) => {
+      if (String(val || '').trim()) idSet.add(qId);
+    });
+    Object.entries(tagsMap).forEach(([qId, tg]) => {
+      if (tg && (tg.difficulty || getTagFlagsArr(tg).length)) idSet.add(qId);
+    });
+    wrongMap.forEach((_v, qId) => idSet.add(qId));
+
+    const list = [...idSet].map(qId => {
+      const info = qMap.get(qId);
+      const tg = tagsMap[qId] || null;
+      const note = String(notesMap[qId] || '').trim();
+      const wrong = wrongMap.get(qId);
+      const opts = info ? info.options : [];
+      return {
+        id: qId,
+        q: (info && info.q) || (tg && (tg.qPreview || tg.questionPreview)) || 'سوال ثبت‌شده در سابقه شما',
+        options: opts,
+        answer: info ? info.answer : 0,
+        hasFullQuestion: opts.filter(Boolean).length > 0,
+        exp: (info && info.exp) || '',
+        chapter: (info && info.chapter) || '',
+        sourceLabel: (info && info.sourceLabel) || '',
+        examTitle: (info && info.examTitle) || (tg && tg.examTitle) || (wrong && wrong.lastExamTitle) || 'آزمون‌های من',
+        subjectName: (info && info.subjectName) || (tg && tg.subjectName) || 'سایر دروس',
+        qNumber: info ? info.qNumber : 0,
+        note,
+        tag: tg,
+        isWrong: !!wrong,
+        wrongCount: wrong ? wrong.count : 0,
+        lastWrongPicked: wrong ? wrong.lastPicked : undefined,
+        updatedAt: (tg && tg.updatedAt) || ''
+      };
+    });
+
+    list.sort((a, b) => {
+      if (!!b.note !== !!a.note) return b.note ? 1 : -1;
+      return String(b.updatedAt || '').localeCompare(String(a.updatedAt || ''));
+    });
+    return list;
+  }
+
+  function getFilteredNotebookEntries(allEntries) {
+    const qNorm = examNbSearch.trim().toLowerCase();
+    const base = allEntries.filter(item => {
+      if (examNbFilter === 'noted' && !item.note) return false;
+      if (examNbFilter === 'wrong' && !item.isWrong) return false;
+      if (['easy', 'medium', 'hard'].includes(examNbFilter)) {
+        if (!item.tag || item.tag.difficulty !== examNbFilter) return false;
+      }
+      if (['review', 'noteworthy', 'careless'].includes(examNbFilter)) {
+        if (!item.tag || !getTagFlagsArr(item.tag).includes(examNbFilter)) return false;
+      }
+      if (qNorm) {
+        const hay = `${item.q} ${item.note} ${item.subjectName} ${item.examTitle} ${item.chapter} ${item.sourceLabel}`.toLowerCase();
+        if (!hay.includes(qNorm)) return false;
+      }
+      return true;
+    });
+    const groupCounts = new Map();
+    base.forEach(item => {
+      const k = examNbGroupBy === 'exam' ? item.examTitle : item.subjectName;
+      groupCounts.set(k, (groupCounts.get(k) || 0) + 1);
+    });
+    const groups = [...groupCounts.entries()].map(([name, count]) => ({ name, count })).sort((a, b) => b.count - a.count);
+    const visible = examNbGroup === 'all'
+      ? base
+      : base.filter(item => (examNbGroupBy === 'exam' ? item.examTitle : item.subjectName) === examNbGroup);
+    return { base, groups, visible };
+  }
+
+  window.openNotebookPracticeRunner = function(mode) {
+    const all = buildStudentNotebookEntries();
+    const { visible } = getFilteredNotebookEntries(all);
+    const playable = visible.filter(x => x.hasFullQuestion);
+    if (!playable.length) {
+      if (typeof toast === 'function') toast('برای سوالات این فیلتر متن کامل گزینه‌ها موجود نیست.');
+      return;
+    }
+    const grouped = new Map();
+    playable.forEach(item => {
+      const k = examNbGroupBy === 'exam' ? item.examTitle : item.subjectName;
+      if (!grouped.has(k)) grouped.set(k, []);
+      grouped.get(k).push({
+        id: item.id,
+        q: item.q,
+        options: item.options,
+        answer: item.answer,
+        exp: item.exp,
+        chapter: item.chapter,
+        sourceLabel: item.sourceLabel || item.examTitle
+      });
+    });
+    const rawSubjs = [...grouped.entries()].map(([name, questions], idx) => ({
+      id: 'nb_s_' + idx + '_' + Date.now(),
+      name,
+      questions
+    }));
+    stopExamTimer();
+    const runMode = mode === 'exam' ? 'exam' : 'study';
+    const defaultSeconds = Math.max(300, playable.length * 75);
+    examSession = {
+      exam: {
+        id: 'notebook_' + Date.now(),
+        title: 'مرور هوشمند دفترچه نکات آزمونی' + (examNbGroup !== 'all' ? ' · ' + examNbGroup : ''),
+        category: 'دفترچه نکات آزمونی',
+        examType: 'مرور شخصی‌سازی‌شده',
+        negativeMarking: true
+      },
+      retryParams: { type: 'notebook' },
+      mode: runMode,
+      subjects: rawSubjs,
+      scopeLabel: 'دفترچه نکات (' + toFa(playable.length) + ' سوال)',
+      activeSubjIdx: 0,
+      activeQIdx: 0,
+      viewMode: 'list',
+      answers: {},
+      revealed: {},
+      flags: {},
+      secondsLeft: defaultSeconds,
+      totalSeconds: defaultSeconds,
+      paused: false,
+      submitted: false,
+      reviewFilter: 'all'
+    };
+    const overlay = document.getElementById('examRunnerOverlay');
+    if (overlay) overlay.classList.remove('hidden');
+    document.body.style.overflow = 'hidden';
+    if (runMode === 'exam') startExamCountdown();
+    renderExamRunner();
+  };
+
+  window.copyAllNotebookNotes = async function() {
+    const all = buildStudentNotebookEntries();
+    const { visible } = getFilteredNotebookEntries(all);
+    if (!visible.length) return;
+    const diffFa = { easy: 'آسان', medium: 'متوسط', hard: 'سخت' };
+    const flagFa = { review: 'مرور', noteworthy: 'نکته‌دار', careless: 'بی‌دقتی' };
+    const blocks = visible.map((item, idx) => {
+      const badges = [
+        item.tag && item.tag.difficulty ? diffFa[item.tag.difficulty] : '',
+        ...(item.tag ? getTagFlagsArr(item.tag).map(t => flagFa[t] || t) : []),
+        item.isWrong ? 'غلط در آزمون' : ''
+      ].filter(Boolean);
+      const lines = [
+        `${toFa(idx + 1)}. [${item.subjectName} · ${item.examTitle}${item.qNumber ? ' · سوال ' + toFa(item.qNumber) : ''}]${badges.length ? ' (' + badges.join(' · ') + ')' : ''}`,
+        'سوال: ' + item.q
+      ];
+      if (item.hasFullQuestion && item.options[item.answer]) {
+        lines.push(`پاسخ صحیح: گزینه ${EXAM_LETTERS[item.answer] || toFa(item.answer + 1)}) ${item.options[item.answer]}`);
+      }
+      if (item.note) lines.push('★ نکته شخصی من: ' + item.note);
+      if (item.exp) lines.push('تشریح: ' + item.exp);
+      return lines.join('\n');
+    });
+    const payload = `دفترچه نکات آزمونی من (${toFa(visible.length)} مورد)\n────────────────────────\n\n` + blocks.join('\n\n────────────────\n\n');
+    try {
+      await navigator.clipboard.writeText(payload);
+    } catch (e) {
+      const ta = document.createElement('textarea');
+      ta.value = payload;
+      document.body.appendChild(ta);
+      ta.select();
+      document.execCommand('copy');
+      document.body.removeChild(ta);
+    }
+    if (typeof toast === 'function') toast(`جزوه نکات (${toFa(visible.length)} سوال) در حافظه کپی شد.`);
+  };
+
   window.examRestartSession = function(newMode) {
     if (!examSession) return;
+    if (examSession.retryParams && examSession.retryParams.type === 'notebook') {
+      window.openNotebookPracticeRunner(newMode);
+      return;
+    }
     if (examSession.retryParams && examSession.retryParams.type === 'topic') {
       const p = examSession.retryParams;
       window.openTopicChapterRunner(p.encCat, p.encKind, p.encVal, newMode);
@@ -5610,7 +5883,7 @@
     injectExamUpgradeStyles();
     const root = document.getElementById('studentExamsRoot');
     if (!root) return;
-    const prevFocusId = document.activeElement && (document.activeElement.id === 'examHubSearchInp' || document.activeElement.id === 'examLessonSearchInp')
+    const prevFocusId = document.activeElement && (document.activeElement.id === 'examHubSearchInp' || document.activeElement.id === 'examLessonSearchInp' || document.activeElement.id === 'examNbSearchInp')
       ? document.activeElement.id
       : '';
     const prevSelEnd = prevFocusId && typeof document.activeElement.selectionEnd === 'number'
@@ -5683,12 +5956,27 @@
         || ls.exams.some(exRef => (exRef.examTitle || '').toLowerCase().includes(lessonQNorm));
     });
 
+    const nbAll = buildStudentNotebookEntries();
+    const nbCounts = {
+      all: nbAll.length,
+      noted: nbAll.filter(x => !!x.note).length,
+      review: nbAll.filter(x => x.tag && getTagFlagsArr(x.tag).includes('review')).length,
+      noteworthy: nbAll.filter(x => x.tag && getTagFlagsArr(x.tag).includes('noteworthy')).length,
+      careless: nbAll.filter(x => x.tag && getTagFlagsArr(x.tag).includes('careless')).length,
+      hard: nbAll.filter(x => x.tag && x.tag.difficulty === 'hard').length,
+      medium: nbAll.filter(x => x.tag && x.tag.difficulty === 'medium').length,
+      easy: nbAll.filter(x => x.tag && x.tag.difficulty === 'easy').length,
+      wrong: nbAll.filter(x => x.isWrong).length
+    };
+    const nbFilteredObj = examHubSection === 'notebook' ? getFilteredNotebookEntries(nbAll) : { base: [], groups: [], visible: [] };
+    const nbPlayableCount = nbFilteredObj.visible.filter(x => x.hasFullQuestion).length;
+
     root.innerHTML = `
       <div class="panel">
         <div class="panel-head">
           <div>
             <h2>📚 بانک سوالات و آزمون‌های حقوقی</h2>
-            <div class="muted small">آزمون‌های جامع با پیمایش متوالی دروس · یا بخش جداگانه مطالعه درس به درس کل آزمون‌ها</div>
+            <div class="muted small">آزمون‌های جامع با پیمایش متوالی دروس · مطالعه درس به درس · دفترچه نکات و مرور آزمونی من</div>
           </div>
           <div class="row" style="gap:8px; flex-wrap:wrap;">
             ${window.isAdmin ? `<button type="button" class="btn primary" onclick="openExamMetaModal()">＋ ایجاد آزمون جدید</button>` : ''}
@@ -5704,12 +5992,119 @@
           <button type="button" class="btn ${examHubSection === 'lessons' ? 'primary' : ''}" onclick="setExamHubSection('lessons')">
             📚 مطالعه درس به درس سوالات (${toFa(lessonGroups.length)} درس)
           </button>
-          <span class="muted small" style="margin-right:auto;">
-            ${examHubSection === 'lessons' ? 'کل سوالات تمام آزمون‌ها به تفکیک هر درس یکجا دسته‌بندی شده‌اند' : 'در هر آزمون، تمام درس‌ها پشت سر هم با اسکرول نمایش داده می‌شوند'}
-          </span>
+          <button type="button" class="btn ${examHubSection === 'notebook' ? 'primary' : ''}" onclick="setExamHubSection('notebook')">
+            📓 دفترچه نکات و مرور آزمونی (${toFa(nbCounts.all)})
+          </button>
         </div>
 
-        ${examHubSection === 'lessons' ? `
+        ${examHubSection === 'notebook' ? `
+          <div class="surface-box" style="padding:14px; border-radius:14px; margin-bottom:14px;">
+            <div class="row between" style="gap:10px; flex-wrap:wrap; margin-bottom:12px;">
+              <div>
+                <h3 style="margin:0; font-size:15.5px; font-weight:800;">📓 دفترچه نکات و مرور آزمونی من</h3>
+                <div class="muted small" style="margin-top:4px;">همه نکات شخصی زیر سوالات همراه با متن همان سوال، تیک‌های سخت/مرور/نکته‌دار/بی‌دقتی و غلط‌های قبلی شما.</div>
+              </div>
+              <div class="row" style="gap:6px; flex-wrap:wrap;">
+                <button type="button" class="btn small primary" ${nbPlayableCount ? '' : 'disabled'} onclick="openNotebookPracticeRunner('study')">▶ شروع مرور از فیلتر (${toFa(nbPlayableCount)})</button>
+                <button type="button" class="btn small" ${nbPlayableCount ? '' : 'disabled'} onclick="openNotebookPracticeRunner('exam')">⏱ آزمون زمان‌دار</button>
+                <button type="button" class="btn small" ${nbFilteredObj.visible.length ? '' : 'disabled'} onclick="copyAllNotebookNotes()">📋 کپی یکجای جزوه</button>
+              </div>
+            </div>
+
+            <div class="cases-kpi-grid" style="margin:0 0 12px;">
+              <div class="cases-kpi-card" style="cursor:pointer;" onclick="setExamNbFilter('noted')"><div class="k-label">نکات نوشته‌شده من</div><div class="k-val" style="color:var(--main);">${toFa(nbCounts.noted)}</div></div>
+              <div class="cases-kpi-card" style="cursor:pointer;" onclick="setExamNbFilter('review')"><div class="k-label">نیاز به مرور</div><div class="k-val" style="color:#0284c7;">${toFa(nbCounts.review)}</div></div>
+              <div class="cases-kpi-card" style="cursor:pointer;" onclick="setExamNbFilter('hard')"><div class="k-label">سوالات سخت</div><div class="k-val" style="color:#e11d48;">${toFa(nbCounts.hard)}</div></div>
+              <div class="cases-kpi-card" style="cursor:pointer;" onclick="setExamNbFilter('wrong')"><div class="k-label">غلط‌های قبلی</div><div class="k-val" style="color:#d97706;">${toFa(nbCounts.wrong)}</div></div>
+            </div>
+
+            <div class="row" style="gap:6px; flex-wrap:wrap; margin-bottom:10px;">
+              ${[
+                ['all', 'همه (' + toFa(nbCounts.all) + ')'],
+                ['noted', 'دارای نکته من (' + toFa(nbCounts.noted) + ')'],
+                ['review', 'مرور (' + toFa(nbCounts.review) + ')'],
+                ['noteworthy', 'نکته‌دار (' + toFa(nbCounts.noteworthy) + ')'],
+                ['careless', 'بی‌دقتی (' + toFa(nbCounts.careless) + ')'],
+                ['hard', 'سخت (' + toFa(nbCounts.hard) + ')'],
+                ['medium', 'متوسط (' + toFa(nbCounts.medium) + ')'],
+                ['easy', 'آسان (' + toFa(nbCounts.easy) + ')'],
+                ['wrong', 'غلط‌های قبلی (' + toFa(nbCounts.wrong) + ')']
+              ].map(([id, lbl]) => `<button type="button" class="btn small ${examNbFilter === id ? 'primary' : ''}" onclick="setExamNbFilter('${id}')">${lbl}</button>`).join('')}
+            </div>
+
+            <div class="row between" style="gap:10px; flex-wrap:wrap;">
+              <div class="row" style="gap:6px; flex-wrap:wrap;">
+                <button type="button" class="btn small ${examNbGroupBy === 'subject' ? 'primary' : ''}" onclick="setExamNbGroupBy('subject')">📘 تفکیک بر اساس درس</button>
+                <button type="button" class="btn small ${examNbGroupBy === 'exam' ? 'primary' : ''}" onclick="setExamNbGroupBy('exam')">📂 تفکیک بر اساس آزمون</button>
+              </div>
+              <input id="examNbSearchInp" value="${esc(examNbSearch)}" placeholder="جستجو در متن سوال یا نکات شخصی..." style="min-width:220px; flex:1; max-width:320px;" oninput="setExamNbSearch(this.value)">
+            </div>
+
+            ${nbFilteredObj.groups.length ? `
+              <div class="row" style="gap:6px; flex-wrap:wrap; margin-top:10px;">
+                <button type="button" class="ex-crumb-btn ${examNbGroup === 'all' ? 'active' : ''}" onclick="setExamNbGroupEnc('all')">${examNbGroupBy === 'subject' ? 'همه دروس' : 'همه آزمون‌ها'} (${toFa(nbFilteredObj.base.length)})</button>
+                ${nbFilteredObj.groups.map(g => `<button type="button" class="ex-crumb-btn ${examNbGroup === g.name ? 'active' : ''}" onclick="setExamNbGroupEnc('${encodeURIComponent(g.name)}')">${esc(g.name)} (${toFa(g.count)})</button>`).join('')}
+              </div>
+            ` : ''}
+          </div>
+
+          ${!nbFilteredObj.visible.length ? `
+            <div class="empty-glass-card" style="margin:24px auto;">
+              <div class="empty-icon">📓</div>
+              <h3>${nbAll.length ? 'موردی با این فیلتر پیدا نشد' : 'دفترچه نکات آزمونی شما هنوز خالی است'}</h3>
+              <p>${nbAll.length ? 'فیلتر یا عبارت جستجو را تغییر دهید.' : 'در آزمون‌ها زیر هر سوال نکته بنویسید یا تیک سخت / مرور / نکته‌دار / بی‌دقتی بزنید تا به‌صورت خودکار اینجا دسته‌بندی شوند.'}</p>
+            </div>
+          ` : `
+            <div style="display:grid; gap:14px;">
+              ${nbFilteredObj.visible.map((item, idx) => {
+                if (item.hasFullQuestion) registerCopyableQuestion(item, item.subjectName, item.qNumber || idx + 1);
+                const isExp = !!examNbExpanded[item.id];
+                const themeIdx = hashSubjectColorIdx(item.subjectName);
+                return `
+                  <article class="exam-q-card baraat-subj-theme-${themeIdx}">
+                    <div class="row between" style="gap:8px; flex-wrap:wrap; margin-bottom:8px;">
+                      <div class="row" style="gap:6px; flex-wrap:wrap;">
+                        <span class="art-tag">${esc(item.subjectName)}</span>
+                        <span class="pill">${esc(item.examTitle)}${item.qNumber ? ' · سوال ' + toFa(item.qNumber) : ''}</span>
+                        ${item.chapter ? `<span class="pill">سرفصل: ${esc(item.chapter)}</span>` : ''}
+                        ${formatExamSourceBadgeHtml(item.sourceLabel)}
+                        ${item.isWrong ? `<span class="pill bad">غلط در آزمون${item.wrongCount > 1 ? ' (' + toFa(item.wrongCount) + ' بار)' : ''}</span>` : ''}
+                      </div>
+                      ${item.hasFullQuestion ? `<button type="button" class="btn small" onclick="copyExamQuestionById('${item.id}', this)">📋 کپی سوال و نکته</button>` : ''}
+                    </div>
+                    <div class="muted small" style="font-weight:700; margin-bottom:4px;">متن سوال مرتبط:</div>
+                    <div class="exam-q-stem" style="margin-top:0;">${esc(item.q)}</div>
+                    ${renderQuestionNoteBoxHtml(item.id, 'nb')}
+                    ${renderQuestionTagBarHtml(item.id, item.examTitle, item.subjectName, item.q, 'nb')}
+                    ${item.hasFullQuestion ? `
+                      <div style="margin-top:10px;">
+                        <button type="button" class="btn small" onclick="toggleExamNbExpand('${item.id}')">
+                          ${isExp ? '▲ بستن گزینه‌ها و پاسخ تشریحی' : '▼ مشاهده گزینه‌ها و پاسخ تشریحی'}
+                        </button>
+                        ${isExp ? `
+                          <div class="exam-options-list" style="margin-top:10px;">
+                            ${(item.options || []).map((opt, oi) => {
+                              if (!opt) return '';
+                              const isRight = oi === Number(item.answer);
+                              const isWrongPick = item.isWrong && item.lastWrongPicked === oi && !isRight;
+                              return `
+                                <div class="exam-opt-btn ${isRight ? 'correct' : ''} ${isWrongPick ? 'wrong' : ''}" style="cursor:default;">
+                                  <span class="exam-opt-letter">${EXAM_LETTERS[oi] || toFa(oi + 1)}</span>
+                                  <span>${esc(opt)}${isRight ? ' <small style="font-weight:800;">✓ صحیح</small>' : ''}${isWrongPick ? ' <small style="font-weight:800;">✕ انتخاب قبلی</small>' : ''}</span>
+                                </div>
+                              `;
+                            }).join('')}
+                          </div>
+                          ${item.exp ? `<div class="exam-exp-box" style="margin-top:8px;"><b>💡 پاسخ تشریحی:</b> ${esc(item.exp)}</div>` : ''}
+                        ` : ''}
+                      </div>
+                    ` : ''}
+                  </article>
+                `;
+              }).join('')}
+            </div>
+          `}
+        ` : examHubSection === 'lessons' ? `
           <div class="field" style="margin-bottom:14px;">
             <label>جستجو در بانک درس به درس</label>
             <input id="examLessonSearchInp" value="${esc(examLessonSearch)}" placeholder="مثلاً: حقوق مدنی، تجارت، جزا، دادرسی..." oninput="setExamLessonSearch(this.value)">
@@ -8260,12 +8655,26 @@ WITH CHECK (key &lt;&gt; 'baraat_exams_private_v1' OR EXISTS (SELECT 1 FROM publ
     }
   }
 
+  function ensureStudentsNotebookSubTab() {
+    const examsBtn = document.querySelector('[data-studentssub="exams"]');
+    if (!examsBtn || !examsBtn.parentElement) return;
+    if (document.getElementById('studentsSubNotebookBtn')) return;
+    const btn = document.createElement('button');
+    btn.type = 'button';
+    btn.id = 'studentsSubNotebookBtn';
+    btn.className = examsBtn.className.replace(/\bactive\b/g, '').trim();
+    btn.textContent = '📓 دفترچه نکات آزمونی';
+    btn.onclick = () => window.openStudentExamNotebook();
+    examsBtn.parentElement.appendChild(btn);
+  }
+
   function initBaraatEngine() {
     let savedTheme = 'light';
     try { savedTheme = localStorage.getItem(THEME_KEY) || 'light'; } catch (e) {}
     window.applyTheme(savedTheme);
     injectExamUpgradeStyles();
     startPlannerSubjectColorObserver();
+    ensureStudentsNotebookSubTab();
     upgradeLegacyAuthModal();
     setTimeout(upgradeLegacyAuthModal, 400);
     const curTab = (location.hash || '#search').replace('#', '') || 'search';
