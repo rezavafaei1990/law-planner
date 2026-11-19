@@ -2340,6 +2340,68 @@
     if (window.renderAdminExamsList) window.renderAdminExamsList();
     if (window.renderExamsHub) window.renderExamsHub();
     if (window.isAdmin && window.renderAdminMonitor) window.renderAdminMonitor();
+    if (window.setupLegacyAdminSectionTabs) window.setupLegacyAdminSectionTabs();
+  };
+
+  let legacyAdminActiveSection = 'exams';
+  window.setLegacyAdminSection = function(sec) {
+    legacyAdminActiveSection = sec || 'exams';
+    window.setupLegacyAdminSectionTabs();
+  };
+
+  window.setupLegacyAdminSectionTabs = function() {
+    const adminTab = document.getElementById('tab-admin');
+    if (!adminTab) return;
+    const directChildren = Array.from(adminTab.children).filter(el => el.id !== 'admSectionNavBar' && el.tagName !== 'SCRIPT' && el.tagName !== 'STYLE');
+    if (directChildren.length < 3) return;
+
+    const classifyPanel = (el) => {
+      const id = (el.id || '').toLowerCase();
+      const html = el.innerHTML || '';
+      if (el.querySelector('#admExamsList') || id.includes('exam') || html.includes('admExamsList')) return 'exams';
+      if (el.querySelector('#admArticlesList') || html.includes('admArticlesList') || html.includes('openArticleEditor')) return 'articles';
+      if (el.querySelector('#admDeadlinesList') || el.querySelector('#admCalculatorsList') || html.includes('admDeadlinesList') || html.includes('admCalculatorsList')) return 'tools';
+      if (el.querySelector('#admAboutMembersList') || el.querySelector('#admContactSocialsList') || html.includes('admAboutMembersList') || html.includes('admContactSocialsList')) return 'settings';
+      if (el.querySelector('#admAssignedPlansList') || el.querySelector('#adminMonitorRoot') || id.includes('monitor') || id.includes('qa') || html.includes('admAssignedPlansList') || html.includes('پرسش')) return 'students';
+      return 'laws';
+    };
+
+    const sectionOrder = [
+      { id: 'exams', label: 'آزمون‌های آنلاین' },
+      { id: 'laws', label: 'قوانین و آرا' },
+      { id: 'articles', label: 'مقالات نشریه' },
+      { id: 'tools', label: 'مواعد و ابزارها' },
+      { id: 'students', label: 'دانشجویان و پرسش‌ها' },
+      { id: 'settings', label: 'معرفی و تماس' }
+    ];
+
+    const presentSecs = new Set();
+    directChildren.forEach(el => {
+      const sec = el.dataset.admSec || classifyPanel(el);
+      el.dataset.admSec = sec;
+      presentSecs.add(sec);
+    });
+
+    if (!presentSecs.has(legacyAdminActiveSection)) {
+      legacyAdminActiveSection = sectionOrder.find(s => presentSecs.has(s.id))?.id || 'exams';
+    }
+
+    let nav = document.getElementById('admSectionNavBar');
+    if (!nav) {
+      nav = document.createElement('div');
+      nav.id = 'admSectionNavBar';
+      nav.className = 'adm-section-nav';
+      adminTab.insertBefore(nav, adminTab.firstChild);
+    }
+
+    nav.innerHTML = sectionOrder
+      .filter(s => presentSecs.has(s.id))
+      .map(s => `<button type="button" class="adm-subtab-btn ${legacyAdminActiveSection === s.id ? 'active' : ''}" onclick="setLegacyAdminSection('${s.id}')">${s.label}</button>`)
+      .join('');
+
+    directChildren.forEach(el => {
+      el.style.display = el.dataset.admSec === legacyAdminActiveSection ? '' : 'none';
+    });
   };
 
   // -------------------------------------------------------------------
@@ -4475,6 +4537,13 @@
       .ex-vis-badge { display:inline-flex; align-items:center; gap:4px; padding:3px 9px; border-radius:99px; font-size:11.5px; font-weight:700; }
       .ex-vis-badge.pub { background:rgba(22,163,74,.12); color:#15803d; }
       .ex-vis-badge.hid { background:rgba(220,38,38,.12); color:#dc2626; }
+      .ex-admin-csv-badge { display:inline-flex; align-items:center; gap:4px; padding:2px 8px; border-radius:6px; font-size:11px; font-weight:800; background:rgba(79,70,229,.12); border:1px solid rgba(79,70,229,.32); color:#3730a3; }
+      [data-theme="dark"] .ex-admin-csv-badge { background:rgba(129,140,248,.16); border-color:rgba(129,140,248,.35); color:#c7d2fe; }
+      .adm-section-nav { display:flex; flex-wrap:wrap; gap:6px; padding:10px 12px; margin-bottom:14px; border-radius:12px; background:var(--panel); border:1px solid var(--line); }
+      .adm-subtab-bar { display:flex; flex-wrap:wrap; gap:6px; padding-bottom:10px; margin-bottom:12px; border-bottom:1px solid var(--line); }
+      .adm-subtab-btn { padding:6px 12px; border-radius:8px; border:1px solid var(--line); background:var(--soft); color:var(--muted); font-family:inherit; font-size:12px; font-weight:800; cursor:pointer; transition:all .15s ease; }
+      .adm-subtab-btn:hover { color:var(--text); border-color:var(--main); }
+      .adm-subtab-btn.active { background:var(--main); color:#fff; border-color:var(--main); }
       .ex-subj-banner { display:flex; align-items:center; justify-content:space-between; gap:8px; padding:10px 14px; border-radius:12px; background:var(--panel); border:1px solid var(--line); border-right:4px solid var(--main); margin:4px 0 12px; font-weight:800; font-size:14.5px; color:var(--text); }
       .ex-subj-sec { display:grid; gap:14px; }
       #examRunnerOverlay .exam-workspace-grid { align-items:start; }
@@ -4643,10 +4712,32 @@
       subjects: Array.isArray(ex.subjects) ? ex.subjects.map(s => Object.assign({}, s, {
         questions: Array.isArray(s.questions) ? s.questions.map(q => Object.assign({}, q, {
           chapter: String(q.chapter || q.topic || '').trim(),
-          sourceLabel: normalizeExamSourceTag(q.sourceLabel || q.source || '')
+          sourceLabel: normalizeExamSourceTag(q.sourceLabel || q.source || ''),
+          csvQuestionNum: q.csvQuestionNum ? String(q.csvQuestionNum).trim() : '',
+          csvRowIndex: q.csvRowIndex ? Number(q.csvRowIndex) : undefined,
+          csvFileName: q.csvFileName ? String(q.csvFileName).trim() : ''
         })) : []
       })) : []
     });
+  }
+
+  function formatAdminCsvRefText(qObj, fallbackGlobalIdx) {
+    if (!qObj || typeof qObj !== 'object') return fallbackGlobalIdx ? ('سوال ' + toFa(fallbackGlobalIdx) + ' آزمون') : '';
+    const num = qObj.csvQuestionNum ? String(qObj.csvQuestionNum).trim() : '';
+    const row = qObj.csvRowIndex && Number(qObj.csvRowIndex) > 0 ? Number(qObj.csvRowIndex) : 0;
+    if (num && row && num !== String(row)) return 'فایل CSV: سوال ' + toFa(num) + ' (ردیف ' + toFa(row) + ')';
+    if (row) return 'فایل CSV: ردیف ' + toFa(row);
+    if (num) return 'فایل CSV: سوال ' + toFa(num);
+    if (fallbackGlobalIdx && fallbackGlobalIdx > 0) return 'سوال ' + toFa(fallbackGlobalIdx) + ' آزمون';
+    return '';
+  }
+
+  function formatAdminCsvBadgeHtml(qObj, fallbackGlobalIdx) {
+    if (!window.isAdmin) return '';
+    const txt = formatAdminCsvRefText(qObj, fallbackGlobalIdx);
+    if (!txt) return '';
+    const titleAttr = (qObj && qObj.csvFileName) ? ('فایل منبع: ' + qObj.csvFileName) : 'شماره سوال در فایل منبع (فقط قابل مشاهده برای مدیر)';
+    return `<span class="ex-admin-csv-badge" title="${esc(titleAttr)}">مدیر · ${esc(txt)}</span>`;
   }
 
   function getExamCategory(ex) {
@@ -5168,14 +5259,25 @@
     ];
     const diffLbl = { easy: 'آسان', medium: 'متوسط', hard: 'سخت' };
     const flagLbl = { review: 'مرور', noteworthy: 'نکته‌دار', careless: 'بی‌دقتی' };
+    const qLookup = new Map();
+    (window.getExams ? window.getExams() : []).forEach(ex => {
+      let gIdx = 0;
+      (ex.subjects || []).forEach(sb => {
+        (sb.questions || []).forEach(q => {
+          gIdx++;
+          qLookup.set(q.id, { q, gIdx });
+        });
+      });
+    });
     return `
       <div class="row" style="gap:6px; flex-wrap:wrap; margin-bottom:10px;">
         ${btns.map(([id, lbl]) => `<button type="button" class="btn small ${adminTagFilterType === id ? 'primary' : ''}" onclick="setAdminTagFilter('${id}')">${lbl}</button>`).join('')}
       </div>
-      <div style="display:grid; gap:8px; max-height:300px; overflow:auto;">
+      <div style="display:grid; gap:8px; max-height:360px; overflow:auto;">
         ${filtered.length ? filtered.slice(0, 100).map(item => {
           const fl = getTagFlagsArr(item.tag);
           const prev = item.tag.qPreview || item.tag.questionPreview || '';
+          const hit = qLookup.get(item.qId);
           return `
           <div class="admin-list-row" style="display:grid; gap:6px;">
             <div class="row between" style="gap:8px; flex-wrap:wrap;">
@@ -5183,6 +5285,7 @@
                 <b dir="ltr" style="font-size:12.5px;">${esc(item.email)}</b>
                 ${item.tag.examTitle ? `<span class="pill">${esc(item.tag.examTitle)}</span>` : ''}
                 ${item.tag.subjectName ? `<span class="art-tag">${esc(item.tag.subjectName)}</span>` : ''}
+                ${hit ? formatAdminCsvBadgeHtml(hit.q, hit.gIdx) : ''}
               </div>
               <div class="row" style="gap:4px; flex-wrap:wrap;">
                 ${item.tag.difficulty ? `<span class="ex-tag-pill diff-${item.tag.difficulty}">${diffLbl[item.tag.difficulty] || item.tag.difficulty}</span>` : ''}
@@ -5425,6 +5528,7 @@
                 <span class="art-tag">${esc(item.subjName || 'درس')} · سوال ${toFa(idx + 1)}</span>
                 ${item.chapter ? `<span class="pill">سرفصل: ${esc(item.chapter)}</span>` : ''}
                 ${formatExamSourceBadgeHtml(item.sourceLabel)}
+                ${formatAdminCsvBadgeHtml(item, idx + 1)}
               </div>
               <div class="row" style="gap:6px; flex-wrap:wrap;">
                 <button type="button" class="btn small" onclick="copyExamQuestionById('${item.id}', this)">📋 کپی سوال و جواب</button>
@@ -6383,6 +6487,12 @@
   };
 
   // --- محیط اختصاصی مدیر برای مدیریت آزمون‌ها، نمایش/عدم نمایش، ورود فایل و حذف نتایج ---
+  let adminExamsSubTab = 'list';
+  window.setAdminExamsSubTab = function(tabName) {
+    adminExamsSubTab = tabName || 'list';
+    window.renderAdminExamsList();
+  };
+
   window.renderAdminExamsList = function() {
     injectExamUpgradeStyles();
     const box = document.getElementById('admExamsList');
@@ -6399,63 +6509,71 @@
               <div>
                 <div class="row" style="gap:6px; flex-wrap:wrap; align-items:center;">
                   <b style="font-size:14px;">${esc(ex.title)}</b>
-                  <span class="ex-vis-badge ${isPub ? 'pub' : 'hid'}">${isPub ? '👁 قابل مشاهده برای همه' : '🙈 مخفی از بقیه'}</span>
+                  <span class="ex-vis-badge ${isPub ? 'pub' : 'hid'}">${isPub ? 'منتشرشده' : 'مخفی (فقط مدیر)'}</span>
                 </div>
                 <div class="muted small" style="margin-top:4px;">
                   دسته: <b>${esc(getExamCategory(ex))}</b> · نوع: <b>${esc(getExamTypeLabel(ex))}</b> · سال ${toFa(ex.year || '۱۴۰۴')} · ${toFa(sCount)} درس · ${toFa(qCount)} سوال
                 </div>
               </div>
               <div class="row" style="gap:6px; flex-wrap:wrap;">
+                <button type="button" class="btn small primary" onclick="openExamQuestionsEditor('${ex.id}')">📝 سوالات و ردیف CSV</button>
                 <button type="button" class="btn small ${isPub ? '' : 'primary'}" onclick="toggleExamPublished('${ex.id}')">
-                  ${isPub ? '🙈 مخفی از کاربران' : '👁 نمایش به همه'}
+                  ${isPub ? '🙈 مخفی' : '👁 انتشار'}
                 </button>
-                <button type="button" class="btn small primary" onclick="openExamQuestionsEditor('${ex.id}')">📝 سوالات</button>
                 <button type="button" class="btn small" onclick="openExamBulkImportModal('${ex.id}')">📥 ورود گروهی</button>
                 <button type="button" class="btn small" onclick="openExamMetaModal('${ex.id}')">✎ مشخصات</button>
                 <button type="button" class="btn small" onclick="exportExamJson('${ex.id}')">📤 JSON</button>
-                <button type="button" class="btn small danger" onclick="deleteExam('${ex.id}')">✕ حذف آزمون</button>
+                <button type="button" class="btn small danger" onclick="deleteExam('${ex.id}')">✕ حذف</button>
               </div>
             </div>
           `;
         }).join('')}</div>`;
 
-    box.innerHTML = `
-      <div class="row between" style="gap:8px; flex-wrap:wrap; margin-bottom:12px;">
-        <div class="row" style="gap:8px; flex-wrap:wrap;">
-          <button type="button" class="btn small primary" onclick="openExamMetaModal()">＋ ایجاد آزمون جدید</button>
-          <button type="button" class="btn small" onclick="openMultiExamFileImportModal()">📥 ساخت / دسته‌بندی خودکار آزمون از فایل اکسل یا CSV</button>
-        </div>
-        ${exams.length ? `<button type="button" class="btn small danger" onclick="deleteAllExams()">🗑 حذف همه آزمون‌ها (${toFa(exams.length)})</button>` : ''}
+    const subTabsHtml = `
+      <div class="adm-subtab-bar">
+        <button type="button" class="adm-subtab-btn ${adminExamsSubTab === 'list' ? 'active' : ''}" onclick="setAdminExamsSubTab('list')">فهرست آزمون‌ها (${toFa(exams.length)})</button>
+        <button type="button" class="adm-subtab-btn ${adminExamsSubTab === 'attempts' ? 'active' : ''}" onclick="setAdminExamsSubTab('attempts')">کارنامه‌ها (${toFa(adminAttemptsCache.length)})</button>
+        <button type="button" class="adm-subtab-btn ${adminExamsSubTab === 'tags' ? 'active' : ''}" onclick="setAdminExamsSubTab('tags')">تیک‌های دانشجویان (${toFa(adminStudentTagsCache.length)})</button>
+        <button type="button" class="adm-subtab-btn ${adminExamsSubTab === 'security' ? 'active' : ''}" onclick="setAdminExamsSubTab('security')">امنیت و ایمیل</button>
       </div>
-      ${examsHtml}
-      <div style="margin-top:18px; padding-top:14px; border-top:1px solid var(--line);">
-        <div class="row between" style="gap:8px; flex-wrap:wrap; margin-bottom:8px;">
-          <div>
-            <b style="font-size:13.5px; color:var(--text);">🗑 مدیریت نتایج و کارنامه‌های ثبت‌شده دانشجویان (فقط مدیر)</b>
-            <div class="muted small">با حذف نتیجه، فقط کارنامه پاک می‌شود و نکات شخصی دانشجو زیر سوالات به هیچ عنوان حذف نمی‌شود.</div>
+    `;
+
+    let bodySection = '';
+    if (adminExamsSubTab === 'list') {
+      bodySection = `
+        <div class="row between" style="gap:8px; flex-wrap:wrap; margin-bottom:12px;">
+          <div class="row" style="gap:8px; flex-wrap:wrap;">
+            <button type="button" class="btn small primary" onclick="openExamMetaModal()">＋ ایجاد آزمون جدید</button>
+            <button type="button" class="btn small" onclick="openMultiExamFileImportModal()">📥 ورود فایل اکسل / CSV</button>
           </div>
-          <button type="button" class="btn small" onclick="refreshAdminExamAttempts()">🔄 بروزرسانی نتایج</button>
+          ${exams.length ? `<button type="button" class="btn small danger" onclick="deleteAllExams()">🗑 حذف همه (${toFa(exams.length)})</button>` : ''}
+        </div>
+        ${examsHtml}
+      `;
+    } else if (adminExamsSubTab === 'attempts') {
+      bodySection = `
+        <div class="row between" style="gap:8px; flex-wrap:wrap; margin-bottom:10px;">
+          <div class="muted small">با حذف نتیجه، فقط کارنامه پاک می‌شود و نکات شخصی دانشجو حفظ خواهد شد.</div>
+          <button type="button" class="btn small" onclick="refreshAdminExamAttempts()">🔄 بروزرسانی</button>
         </div>
         <div id="admExamAttemptsBox">${renderAdminAttemptsInnerHtml()}</div>
-      </div>
-
-      <div style="margin-top:18px; padding-top:14px; border-top:1px solid var(--line);">
-        <div class="row between" style="gap:8px; flex-wrap:wrap; margin-bottom:8px;">
-          <div>
-            <b style="font-size:13.5px; color:var(--text);">🏷 تیک‌ها و برچسب‌های سوالات دانشجویان (آسان · متوسط · سخت · مرور · نکته‌دار · بی‌دقتی)</b>
-            <div class="muted small">مشاهده همه سوالاتی که داوطلبان روی آن‌ها تیک سطح سختی یا برچسب مطالعه زده‌اند.</div>
-          </div>
-          <button type="button" class="btn small" onclick="refreshAdminExamAttempts()">🔄 بروزرسانی تیک‌ها</button>
+      `;
+    } else if (adminExamsSubTab === 'tags') {
+      bodySection = `
+        <div class="row between" style="gap:8px; flex-wrap:wrap; margin-bottom:10px;">
+          <div class="muted small">سوالات تیک‌خورده توسط دانشجویان به همراه شماره ردیف CSV هر سوال (فقط مدیر).</div>
+          <button type="button" class="btn small" onclick="refreshAdminExamAttempts()">🔄 بروزرسانی</button>
         </div>
         <div id="admExamTagsBox">${renderAdminStudentTagsInnerHtml()}</div>
-      </div>
-
-      <details class="callout-warn" style="margin-top:16px; padding:12px 14px; border-style:dashed; border-radius:12px;">
-        <summary style="cursor:pointer; font-size:12.5px; font-weight:800;">🔒 قفل امنیتی آزمون‌های مخفی در سرور Supabase (ضد دسترسی از F12 و API)</summary>
-        <p class="small" style="margin:8px 0; line-height:1.8;">
-          آزمون‌های مخفی در کلید جداگانه <code>baraat_exams_private_v1</code> ذخیره می‌شوند و به مرورگر کاربران عادی ارسال نمی‌شوند. برای اینکه حتی از طریق API مستقیم Supabase هم قابل خواندن نباشند، این کد SQL را یک بار در بخش SQL Editor پنل Supabase اجرا کنید:
-        </p>
-        <pre dir="ltr" class="surface-box" style="padding:10px; border-radius:8px; font-size:11px; overflow:auto;">ALTER TABLE public.meta ENABLE ROW LEVEL SECURITY;
+      `;
+    } else {
+      bodySection = `
+        <div class="callout-warn" style="padding:12px 14px; border-style:dashed; border-radius:12px;">
+          <b style="font-size:12.5px;">🔒 قفل امنیتی آزمون‌های مخفی در سرور Supabase (RLS)</b>
+          <p class="small" style="margin:8px 0; line-height:1.8;">
+            آزمون‌های مخفی در کلید جداگانه <code>baraat_exams_private_v1</code> ذخیره می‌شوند. برای بستن دسترسی مستقیم API، این کد SQL را یک بار در SQL Editor پنل Supabase اجرا کنید:
+          </p>
+          <pre dir="ltr" class="surface-box" style="padding:10px; border-radius:8px; font-size:11px; overflow:auto;">ALTER TABLE public.meta ENABLE ROW LEVEL SECURITY;
 DROP POLICY IF EXISTS "lock_private_exams_meta" ON public.meta;
 CREATE POLICY "lock_private_exams_meta" ON public.meta
 AS RESTRICTIVE
@@ -6463,16 +6581,18 @@ FOR ALL
 TO public
 USING (key &lt;&gt; 'baraat_exams_private_v1' OR EXISTS (SELECT 1 FROM public.admins WHERE user_id = auth.uid()))
 WITH CHECK (key &lt;&gt; 'baraat_exams_private_v1' OR EXISTS (SELECT 1 FROM public.admins WHERE user_id = auth.uid()));</pre>
-        <button type="button" class="btn small" onclick="copyPrivateExamsRlsSql()">📋 کپی دستور SQL قفل امنیتی</button>
-      </details>
+          <button type="button" class="btn small" onclick="copyPrivateExamsRlsSql()">📋 کپی دستور SQL</button>
+        </div>
+        <div class="callout-info" style="margin-top:12px; padding:12px 14px; border-style:dashed; border-radius:12px;">
+          <b style="font-size:12.5px;">✉️ تنظیمات ارسال کد تأیید ایمیل (OTP) هنگام ثبت‌نام</b>
+          <p class="small" style="margin:8px 0 0; line-height:1.8;">
+            در پنل Supabase در مسیر <code>Authentication → Email Templates → Confirm signup</code> متغیر <code>{{ .Token }}</code> را قرار دهید و در <code>Providers → Email</code> گزینه <code>Confirm email</code> را فعال کنید.
+          </p>
+        </div>
+      `;
+    }
 
-      <details class="callout-info" style="margin-top:12px; padding:12px 14px; border-style:dashed; border-radius:12px;">
-        <summary style="cursor:pointer; font-size:12.5px; font-weight:800;">✉️ راهنمای فعال‌سازی ارسال کد تأیید ایمیل (OTP) هنگام ثبت‌نام در Supabase</summary>
-        <p class="small" style="margin:8px 0; line-height:1.8;">
-          بخش ورود کد تأیید ایمیل در فرم ثبت‌نام فعال شده است. در پنل Supabase به مسیر <code>Authentication → Email Templates → Confirm signup</code> بروید و کد <code>{{ .Token }}</code> را در قالب ایمیل قرار دهید و در <code>Providers → Email</code> گزینه <code>Confirm email</code> را فعال کنید.
-        </p>
-      </details>
-    `;
+    box.innerHTML = subTabsHtml + bodySection;
     if (window.isAdmin && !adminAttemptsCache.length && !adminStudentTagsCache.length) {
       setTimeout(() => { if (window.refreshAdminExamAttempts) window.refreshAdminExamAttempts(); }, 100);
     }
@@ -6713,23 +6833,45 @@ WITH CHECK (key &lt;&gt; 'baraat_exams_private_v1' OR EXISTS (SELECT 1 FROM publ
         </div>
       </div>
 
-      <div style="max-height:260px; overflow:auto; display:grid; gap:8px;">
+      <div style="margin-bottom:10px;">
+        <input id="eqAdminSearch" type="text" placeholder="🔍 جستجو در متن سوال، سرفصل یا شماره سوال / ردیف CSV..." oninput="filterAdminExamQuestionsList(this.value)" style="width:100%; box-sizing:border-box; padding:8px 10px; border-radius:10px; border:1px solid var(--line); background:var(--panel); color:var(--text); font-family:inherit; font-size:12.5px;">
+      </div>
+
+      <div id="eqAdminListBox" style="max-height:280px; overflow:auto; display:grid; gap:8px;">
         ${!(curSubj.questions || []).length
           ? '<div class="muted small">هنوز سوالی در این درس ثبت نشده است.</div>'
-          : (curSubj.questions || []).map((q, qi) => `
-            <div style="padding:10px 12px; border:1px solid var(--line); border-radius:10px; background:var(--panel); font-size:12.5px;">
-              <div class="row between" style="gap:8px; align-items:flex-start;">
-                <div>
-                  <b>${toFa(qi + 1)}.</b> ${q.chapter ? `<span class="pill" style="margin-left:6px;">${esc(q.chapter)}</span>` : ''}${esc(q.q)}
-                  <div class="muted small" style="margin-top:4px;">پاسخ: <b>گزینه ${EXAM_LETTERS[Number(q.answer) || 0]}</b>${q.exp ? ' · ' + esc(q.exp.slice(0, 80)) : ''}</div>
-                </div>
-                <div class="row" style="gap:4px; flex-shrink:0;">
-                  <button type="button" class="btn small" onclick="editExamQuestion('${ex.id}', '${curSubj.id}', '${q.id}')">✎</button>
-                  <button type="button" class="btn small danger" onclick="deleteExamQuestion('${ex.id}', '${curSubj.id}', '${q.id}')">✕</button>
-                </div>
-              </div>
-            </div>
-          `).join('')}
+          : (() => {
+              let subjOffset = 0;
+              for (const sb of ex.subjects) {
+                if (sb.id === curSubj.id) break;
+                subjOffset += (sb.questions || []).length;
+              }
+              return (curSubj.questions || []).map((q, qi) => {
+                const gIdx = subjOffset + qi + 1;
+                const searchKey = toEn([q.q, q.chapter || '', q.sourceLabel || '', q.csvQuestionNum || '', q.csvRowIndex || '', q.csvFileName || '', String(qi + 1), String(gIdx)].join(' ').toLowerCase());
+                return `
+                  <div class="eq-admin-row-item" data-search="${esc(searchKey)}" style="padding:10px 12px; border:1px solid var(--line); border-radius:10px; background:var(--panel); font-size:12.5px;">
+                    <div class="row between" style="gap:8px; align-items:flex-start;">
+                      <div>
+                        <div class="row" style="gap:6px; flex-wrap:wrap; margin-bottom:4px;">
+                          <b>سوال ${toFa(qi + 1)}</b>
+                          ${formatAdminCsvBadgeHtml(q, gIdx)}
+                          ${q.csvFileName ? `<span class="muted small" dir="ltr">${esc(q.csvFileName)}</span>` : ''}
+                          ${q.chapter ? `<span class="pill">${esc(q.chapter)}</span>` : ''}
+                          ${formatExamSourceBadgeHtml(q.sourceLabel)}
+                        </div>
+                        <div>${esc(q.q)}</div>
+                        <div class="muted small" style="margin-top:4px;">پاسخ: <b>گزینه ${EXAM_LETTERS[Number(q.answer) || 0]}</b>${q.exp ? ' · ' + esc(q.exp.slice(0, 80)) : ''}</div>
+                      </div>
+                      <div class="row" style="gap:4px; flex-shrink:0;">
+                        <button type="button" class="btn small" onclick="editExamQuestion('${ex.id}', '${curSubj.id}', '${q.id}')">✎</button>
+                        <button type="button" class="btn small danger" onclick="deleteExamQuestion('${ex.id}', '${curSubj.id}', '${q.id}')">✕</button>
+                      </div>
+                    </div>
+                  </div>
+                `;
+              }).join('');
+            })()}
       </div>
 
       <div class="modal-actions">
@@ -6737,6 +6879,16 @@ WITH CHECK (key &lt;&gt; 'baraat_exams_private_v1' OR EXISTS (SELECT 1 FROM publ
       </div>
     `;
     document.getElementById('modalBack').classList.add('show');
+  };
+
+  window.filterAdminExamQuestionsList = function(val) {
+    const q = toEn(String(val || '').trim().toLowerCase());
+    const box = document.getElementById('eqAdminListBox');
+    if (!box) return;
+    box.querySelectorAll('.eq-admin-row-item').forEach(el => {
+      const hay = (el.getAttribute('data-search') || '').toLowerCase();
+      el.style.display = (!q || hay.includes(q)) ? '' : 'none';
+    });
   };
 
   window.addExamSubjectPrompt = async function(examId) {
@@ -7197,27 +7349,31 @@ WITH CHECK (key &lt;&gt; 'baraat_exams_private_v1' OR EXISTS (SELECT 1 FROM publ
     }
 
     try {
-      let rows = [];
+      let rawGrid = [];
       if (fnameLower.endsWith('.csv') || fnameLower.endsWith('.tsv')) {
         const buf = await f.arrayBuffer();
-        rows = parseCsvTextToGrid(decodeSpreadsheetBytesSmart(buf));
+        rawGrid = parseCsvTextToGrid(decodeSpreadsheetBytesSmart(buf));
       } else {
         if (window.loadXLSX) await window.loadXLSX();
         if (!window.XLSX) return alert('ابزار خواندن اکسل بارگذاری نشد.');
         const wb = window.XLSX.read(await f.arrayBuffer(), { type: 'array' });
         const sheet = wb.Sheets[wb.SheetNames[0]];
-        rows = window.XLSX.utils.sheet_to_json(sheet, { header: 1, defval: '' }).filter(r => r.some(c => String(c).trim() !== ''));
+        rawGrid = window.XLSX.utils.sheet_to_json(sheet, { header: 1, defval: '' });
       }
-      if (rows.length < 2) return alert('فایل اکسل/CSV خالی یا بدون سطر داده است.');
+      const indexedRows = rawGrid
+        .map((row, origIdx) => ({ row, origRowNum: origIdx + 1 }))
+        .filter(item => Array.isArray(item.row) && item.row.some(c => String(c).trim() !== ''));
+      if (indexedRows.length < 2) return alert('فایل اکسل/CSV خالی یا بدون سطر داده است.');
 
       const normH = (c) => String(c || '').trim().toLowerCase().replace(/[\u200c\s_()-]+/g, ' ').replace(/ي/g, 'ی').replace(/ك/g, 'ک');
-      const hdr = rows[0].map(normH);
+      const hdr = indexedRows[0].row.map(normH);
       const findCol = (exacts, includes) => {
         let idx = hdr.findIndex(h => exacts.includes(h));
         if (idx >= 0) return idx;
         return hdr.findIndex(h => includes.some(p => h.includes(p)));
       };
 
+      const ciNum = findCol(['شماره', 'شماره سوال', 'شماره تست', 'ردیف', 'کد', 'کد سوال', 'no', 'num', 'number', 'row', 'id', '#'], ['شماره سوال', 'شماره تست', 'ردیف']);
       const ciCat = findCol(['دسته', 'دسته بندی', 'نهاد', 'رشته', 'category', 'org'], ['دسته', 'نهاد', 'category']);
       const ciSource = findCol(['منبع سوال', 'منبع', 'مرجع', 'آزمون مبدا', 'source', 'origin'], ['منبع', 'مرجع', 'مبدا', 'source', 'origin']);
       const ciType = findCol(['نوع', 'نوع سوال', 'نوع آزمون', 'ماهیت', 'تالیفی', 'type', 'examtype'], ['تالیفی', 'نوع آزمون', 'نوع سوال', 'examtype']);
@@ -7230,22 +7386,96 @@ WITH CHECK (key &lt;&gt; 'baraat_exams_private_v1' OR EXISTS (SELECT 1 FROM publ
       const ciB = findCol(['ب', 'b', '2', '۲', 'گزینه ب', 'گزینه 2', 'گزینه ۲', 'گزینه دوم', 'opt2', 'option2', 'option b'], ['گزینه ب', 'گزینه 2', 'گزینه ۲', 'opt2', 'option 2', 'option b']);
       const ciC = findCol(['ج', 'c', '3', '۳', 'گزینه ج', 'گزینه 3', 'گزینه ۳', 'گزینه سوم', 'opt3', 'option3', 'option c'], ['گزینه ج', 'گزینه 3', 'گزینه ۳', 'opt3', 'option 3', 'option c']);
       const ciD = findCol(['د', 'd', '4', '۴', 'گزینه د', 'گزینه 4', 'گزینه ۴', 'گزینه چهارم', 'opt4', 'option4', 'option d'], ['گزینه د', 'گزینه 4', 'گزینه ۴', 'opt4', 'option 4', 'option d']);
-      const ciAns = findCol(['پاسخ', 'کلید', 'جواب', 'صحیح', 'answer', 'ans', 'key'], ['پاسخ', 'کلید', 'جواب', 'صحیح', 'answer', 'ans']);
+      const ciAns = (() => {
+        const isExpHeader = (h) => /تشریح|توضیح|نکته|شرح|مستند|explanation|exp/.test(h);
+        const exacts = ['پاسخ', 'پاسخ صحیح', 'گزینه صحیح', 'جواب', 'جواب صحیح', 'کلید', 'کلید پاسخ', 'صحیح', 'answer', 'ans', 'key', 'correct', 'correct answer'];
+        let idx = hdr.findIndex(h => !isExpHeader(h) && exacts.includes(h));
+        if (idx >= 0) return idx;
+        return hdr.findIndex(h => !isExpHeader(h) && ['پاسخ', 'کلید', 'جواب', 'صحیح', 'answer', 'ans', 'correct'].some(p => h.includes(p)));
+      })();
       const ciExp = findCol(['تشریح', 'پاسخ تشریحی', 'توضیح', 'نکته', 'مستند', 'explanation', 'exp'], ['تشریح', 'توضیح', 'نکته', 'مستند', 'explanation']);
 
       const qCol = ciQ >= 0 ? ciQ : (ciSubj === 0 ? 1 : 0);
+      const dataRowsForAns = indexedRows.slice(1);
+      const hasZeroAns = ciAns >= 0 && dataRowsForAns.some(({ row: r }) => /^0(?:\.0+)?$/.test(toEn(String(r[ciAns] || '')).trim()));
+      const hasFourAns = ciAns >= 0 && dataRowsForAns.some(({ row: r }) => /^4(?:\.0+)?$/.test(toEn(String(r[ciAns] || '')).trim()));
+      const isZeroBasedAns = hasZeroAns && !hasFourAns;
+
       const ansToIdx = (v) => {
-        const s = toEn(String(v || '')).trim().toLowerCase().replace(/[\s.)گزینه:-]+/g, '');
-        if (s === '2' || s === 'ب' || s === 'b') return 1;
-        if (s === '3' || s === 'ج' || s === 'c') return 2;
-        if (s === '4' || s === 'د' || s === 'd') return 3;
+        const norm = toEn(String(v || ''))
+          .replace(/[يى]/g, 'ی')
+          .replace(/ك/g, 'ک')
+          .replace(/[\u064B-\u065F\u0670\u0640]/g, '')
+          .replace(/[\u200c\u200f\u200e]/g, ' ')
+          .replace(/\s+/g, ' ')
+          .trim()
+          .toLowerCase();
+        if (!norm) return 0;
+
+        const pureNum = norm.match(/^([0-4])(?:\.0+)?$/);
+        if (pureNum) {
+          const n = Number(pureNum[1]);
+          if (isZeroBasedAns) return Math.max(0, Math.min(3, n));
+          if (n >= 1 && n <= 4) return n - 1;
+          return 0;
+        }
+
+        const expMatch = norm.match(/(?:گزینه|پاسخ|جواب|کلید|شماره)\s*(?:ی\s+|صحیح\s+|درست\s+)?[:：\-–—.]?\s*(?:([0-4])(?:\.0+)?(?![0-9])|(الف|ا|ب|ج|د|a|b|c|d)(?![\u0600-\u06FFa-z])|(اول|یکم|دوم|سوم|چهارم))/);
+        if (expMatch) {
+          if (expMatch[1] !== undefined) {
+            const n = Number(expMatch[1]);
+            if (isZeroBasedAns) return Math.max(0, Math.min(3, n));
+            if (n >= 1 && n <= 4) return n - 1;
+            return 0;
+          }
+          if (expMatch[2]) {
+            const lt = expMatch[2];
+            if (lt === 'الف' || lt === 'ا' || lt === 'a') return 0;
+            if (lt === 'ب' || lt === 'b') return 1;
+            if (lt === 'ج' || lt === 'c') return 2;
+            if (lt === 'د' || lt === 'd') return 3;
+          }
+          if (expMatch[3]) {
+            const ord = expMatch[3];
+            if (ord === 'اول' || ord === 'یکم') return 0;
+            if (ord === 'دوم') return 1;
+            if (ord === 'سوم') return 2;
+            if (ord === 'چهارم') return 3;
+          }
+        }
+
+        const stripped = norm
+          .replace(/(?:گزینه|پاسخ|جواب|کلید|صحیح|درست|است|می\s*باشد|شماره)/g, ' ')
+          .replace(/[:：.\-–—()[\]«»؛،,]+/g, ' ')
+          .replace(/\s+/g, ' ')
+          .trim();
+
+        if (stripped === 'الف' || stripped === 'ا' || stripped === 'a' || stripped === 'اول' || stripped === 'یکم' || stripped === 'یک') return 0;
+        if (stripped === 'ب' || stripped === 'b' || stripped === 'دوم' || stripped === 'دو') return 1;
+        if (stripped === 'ج' || stripped === 'c' || stripped === 'سوم' || stripped === 'سه') return 2;
+        if (stripped === 'د' || stripped === 'd' || stripped === 'چهارم' || stripped === 'چهار') return 3;
+
+        const validDigit = stripped.match(/(?:^|\s)([0-4])(?:\.0+)?(?=\s|$)/);
+        if (validDigit) {
+          const n = Number(validDigit[1]);
+          if (isZeroBasedAns) return Math.max(0, Math.min(3, n));
+          if (n >= 1 && n <= 4) return n - 1;
+          return 0;
+        }
+
+        const any14 = norm.match(/(?<![0-9])([1-4])(?![0-9])/);
+        if (any14) {
+          const n = Number(any14[1]);
+          return isZeroBasedAns ? Math.max(0, Math.min(3, n)) : n - 1;
+        }
         return 0;
       };
 
       const fileBaseTitle = defTitle || f.name.replace(/\.[^.]+$/, '').replace(/_/g, ' ').trim() || 'آزمون بارگذاری‌شده';
       const parsedRows = [];
+      let fileQSeq = 0;
 
-      rows.slice(1).forEach(r => {
+      dataRowsForAns.forEach(({ row: r, origRowNum }) => {
         const qText = String(r[qCol] || '').trim();
         if (!qText) return;
         const opts = [
@@ -7256,6 +7486,8 @@ WITH CHECK (key &lt;&gt; 'baraat_exams_private_v1' OR EXISTS (SELECT 1 FROM publ
         ];
         if (!opts.some(Boolean)) return;
 
+        fileQSeq++;
+        const explicitNum = ciNum >= 0 ? toEn(String(r[ciNum] || '').trim()) : '';
         const rowSub = ciSubj >= 0 ? String(r[ciSubj] || '').trim() : '';
         const chName = ciChap >= 0 ? String(r[ciChap] || '').trim() : '';
         const rowSource = ciSource >= 0 ? String(r[ciSource] || '').trim() : '';
@@ -7271,6 +7503,9 @@ WITH CHECK (key &lt;&gt; 'baraat_exams_private_v1' OR EXISTS (SELECT 1 FROM publ
           rowSub,
           chName,
           sourceLabel,
+          csvQuestionNum: explicitNum || String(fileQSeq),
+          csvRowIndex: origRowNum,
+          csvFileName: f.name,
           qText,
           opts,
           answer: ansToIdx(ciAns >= 0 ? r[ciAns] : 1),
@@ -7323,6 +7558,9 @@ WITH CHECK (key &lt;&gt; 'baraat_exams_private_v1' OR EXISTS (SELECT 1 FROM publ
           q: item.qText,
           chapter: item.chName,
           sourceLabel: item.sourceLabel,
+          csvQuestionNum: item.csvQuestionNum,
+          csvRowIndex: item.csvRowIndex,
+          csvFileName: item.csvFileName,
           options: item.opts,
           answer: item.answer,
           exp: item.exp
@@ -7601,6 +7839,9 @@ WITH CHECK (key &lt;&gt; 'baraat_exams_private_v1' OR EXISTS (SELECT 1 FROM publ
           subjName: sb.name,
           chapter: q.chapter || '',
           sourceLabel: q.sourceLabel || '',
+          csvQuestionNum: q.csvQuestionNum || '',
+          csvRowIndex: q.csvRowIndex || undefined,
+          csvFileName: q.csvFileName || '',
           q: q.q,
           options: q.options || [],
           answer: Number(q.answer || 0),
@@ -7762,6 +8003,7 @@ WITH CHECK (key &lt;&gt; 'baraat_exams_private_v1' OR EXISTS (SELECT 1 FROM publ
                         <span class="art-tag">${esc(item.subjName)} · سوال ${toFa(item.idx)}</span>
                         ${item.q.chapter ? `<span class="pill">سرفصل: ${esc(item.q.chapter)}</span>` : ''}
                         ${formatExamSourceBadgeHtml(item.q.sourceLabel)}
+                        ${formatAdminCsvBadgeHtml(item.q, item.idx)}
                       </div>
                       <div class="row" style="gap:6px; flex-wrap:wrap;">
                         <button type="button" class="btn small" onclick="copyExamQuestionById('${item.q.id}', this)">📋 کپی سوال و جواب</button>
@@ -7802,7 +8044,7 @@ WITH CHECK (key &lt;&gt; 'baraat_exams_private_v1' OR EXISTS (SELECT 1 FROM publ
     if (s.mode === 'study') {
       const allQs = s.subjects.flatMap(sb => sb.questions || []);
       const allRevealedInExam = allQs.length > 0 && allQs.every(q => !!s.revealed[q.id]);
-      const renderStudyCard = (qObj, qIdx, subjName, subjTotal) => {
+      const renderStudyCard = (qObj, qIdx, subjName, subjTotal, globalIdx) => {
         registerCopyableQuestion(qObj, subjName, qIdx + 1);
         const picked = s.answers[qObj.id];
         const isRev = !!s.revealed[qObj.id];
@@ -7815,6 +8057,7 @@ WITH CHECK (key &lt;&gt; 'baraat_exams_private_v1' OR EXISTS (SELECT 1 FROM publ
                 <span class="art-tag">${esc(subjName)} · سوال ${toFa(qIdx + 1)} از ${toFa(subjTotal)}</span>
                 ${qObj.chapter ? `<span class="pill">سرفصل: ${esc(qObj.chapter)}</span>` : ''}
                 ${formatExamSourceBadgeHtml(qObj.sourceLabel)}
+                ${formatAdminCsvBadgeHtml(qObj, globalIdx)}
               </div>
               <div class="row" style="gap:6px; flex-wrap:wrap;">
                 <button type="button" class="btn small" onclick="copyExamQuestionById('${qObj.id}', this)">📋 کپی سوال و جواب</button>
@@ -7886,18 +8129,24 @@ WITH CHECK (key &lt;&gt; 'baraat_exams_private_v1' OR EXISTS (SELECT 1 FROM publ
         <div class="exam-runner-body">
           <div class="exam-workspace-grid">
             <div style="display:grid; gap:22px;">
-              ${s.subjects.map((sb, sIdx) => {
-                const sQs = sb.questions || [];
-                return `
-                  <section id="exSubjSec-${sIdx}" class="ex-subj-sec">
-                    <div class="ex-subj-banner">
-                      <span>📚 ${esc(sb.name)}</span>
-                      <span class="pill done">${toFa(sQs.length)} سوال</span>
-                    </div>
-                    ${sQs.map((q, qi) => renderStudyCard(q, qi, sb.name, sQs.length)).join('')}
-                  </section>
-                `;
-              }).join('')}
+              ${(() => {
+                let runningG = 0;
+                return s.subjects.map((sb, sIdx) => {
+                  const sQs = sb.questions || [];
+                  return `
+                    <section id="exSubjSec-${sIdx}" class="ex-subj-sec">
+                      <div class="ex-subj-banner">
+                        <span>📚 ${esc(sb.name)}</span>
+                        <span class="pill done">${toFa(sQs.length)} سوال</span>
+                      </div>
+                      ${sQs.map((q, qi) => {
+                        runningG++;
+                        return renderStudyCard(q, qi, sb.name, sQs.length, runningG);
+                      }).join('')}
+                    </section>
+                  `;
+                }).join('');
+              })()}
             </div>
 
             <aside class="exam-palette-card">
@@ -7938,6 +8187,9 @@ WITH CHECK (key &lt;&gt; 'baraat_exams_private_v1' OR EXISTS (SELECT 1 FROM publ
       registerCopyableQuestion(qObj, subjName, qIdx + 1);
       const picked = s.answers[qObj.id];
       const flagged = !!s.flags[qObj.id];
+      let prevSubjQ = 0;
+      for (let i = 0; i < sIdx; i++) prevSubjQ += ((s.subjects[i] && s.subjects[i].questions) || []).length;
+      const globalIdx = prevSubjQ + qIdx + 1;
       return `
         <div class="exam-q-card" id="exq-${qObj.id}">
           <div class="row between" style="gap:8px; flex-wrap:wrap;">
@@ -7945,6 +8197,7 @@ WITH CHECK (key &lt;&gt; 'baraat_exams_private_v1' OR EXISTS (SELECT 1 FROM publ
               <span class="art-tag">${esc(subjName)} · سوال ${toFa(qIdx + 1)} از ${toFa(subjTotal)}</span>
               ${qObj.chapter ? `<span class="pill">سرفصل: ${esc(qObj.chapter)}</span>` : ''}
               ${formatExamSourceBadgeHtml(qObj.sourceLabel)}
+              ${formatAdminCsvBadgeHtml(qObj, globalIdx)}
             </div>
             <div class="row" style="gap:6px; flex-wrap:wrap;">
               <button type="button" class="btn small" onclick="copyExamQuestionById('${qObj.id}', this)">📋 کپی سوال و جواب</button>
