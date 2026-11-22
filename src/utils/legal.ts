@@ -863,6 +863,11 @@ export interface ExamImportDefaults {
   subject?: string;
   durationMin?: number;
   isPublished?: boolean;
+  isPremium?: boolean;
+}
+
+export function calcExamDurationMin(totalQuestions: number): number {
+  return Math.max(2, Math.max(1, totalQuestions) * 2);
 }
 
 export function normalizeSourceTag(raw: string): string {
@@ -969,34 +974,37 @@ export async function parseExamSpreadsheetFile(
     if (arr.length > 0 && arr[0] && typeof arr[0] === 'object' && Array.isArray((arr[0] as { subjects?: unknown[] }).subjects)) {
       return (arr as Partial<LegalExam>[]).map((ex, i) => {
         let runningSeq = 0;
+        const subjects = (ex.subjects || []).map((sb, sIdx) => ({
+          id: sb.id || `sub_${baseStamp}_${i}_${sIdx}`,
+          name: sb.name || defaults.subject || 'عمومی',
+          questions: (sb.questions || []).map((q, qIdx) => {
+            runningSeq += 1;
+            return {
+              id: q.id || `q_${baseStamp}_${i}_${sIdx}_${qIdx}`,
+              q: q.q || '',
+              options: Array.isArray(q.options) ? q.options : [],
+              answer: Number(q.answer) || 0,
+              exp: q.exp || '',
+              chapter: q.chapter || '',
+              sourceLabel: q.sourceLabel || buildQuestionSourceLabel('', ex.examType, ex.year),
+              csvQuestionNum: q.csvQuestionNum || String(runningSeq),
+              csvRowIndex: q.csvRowIndex || runningSeq,
+              csvFileName: q.csvFileName || file.name,
+            };
+          }),
+        }));
+        const totalQ = subjects.reduce((s, b) => s + b.questions.length, 0);
         return {
           id: ex.id || `ex_${baseStamp}_${i}`,
           title: ex.title || defaults.title || fileBase,
-          durationMin: Number(ex.durationMin || defaults.durationMin) || 45,
+          durationMin: calcExamDurationMin(totalQ),
           desc: ex.desc || '',
           category: ex.category || defaults.category || '',
           examType: ex.examType || defaults.examType || '',
           year: ex.year ? toEn(ex.year) : defaults.year ? toEn(defaults.year) : '',
           isPublished: ex.isPublished ?? defaults.isPublished ?? true,
-          subjects: (ex.subjects || []).map((sb, sIdx) => ({
-            id: sb.id || `sub_${baseStamp}_${i}_${sIdx}`,
-            name: sb.name || defaults.subject || 'عمومی',
-            questions: (sb.questions || []).map((q, qIdx) => {
-              runningSeq += 1;
-              return {
-                id: q.id || `q_${baseStamp}_${i}_${sIdx}_${qIdx}`,
-                q: q.q || '',
-                options: Array.isArray(q.options) ? q.options : [],
-                answer: Number(q.answer) || 0,
-                exp: q.exp || '',
-                chapter: q.chapter || '',
-                sourceLabel: q.sourceLabel || buildQuestionSourceLabel('', ex.examType, ex.year),
-                csvQuestionNum: q.csvQuestionNum || String(runningSeq),
-                csvRowIndex: q.csvRowIndex || runningSeq,
-                csvFileName: q.csvFileName || file.name,
-              };
-            }),
-          })),
+          isPremium: ex.isPremium ?? defaults.isPremium ?? false,
+          subjects,
           createdAt: ex.createdAt || new Date().toISOString(),
         };
       });
@@ -1220,14 +1228,16 @@ export async function parseExamSpreadsheetFile(
       });
       sIdx += 1;
     }
+    const totalQ = subjects.reduce((s, b) => s + b.questions.length, 0);
     outExams.push({
       id: `ex_${baseStamp}_${eIdx}`,
       title: grp.meta.title || fileBase,
-      durationMin: grp.meta.durationMin || defaults.durationMin || 45,
+      durationMin: calcExamDurationMin(totalQ),
       category: grp.meta.category || undefined,
       examType: grp.meta.examType || undefined,
       year: grp.meta.year || undefined,
       isPublished: defaults.isPublished ?? true,
+      isPremium: defaults.isPremium ?? false,
       subjects,
       createdAt: new Date().toISOString(),
     });
