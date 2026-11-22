@@ -126,8 +126,25 @@ export interface LegalExam {
   examType?: string;
   year?: string;
   isPublished?: boolean;
+  isPremium?: boolean;
   subjects: ExamSubject[];
   createdAt?: string;
+}
+
+export interface VipSubscriber {
+  email: string;
+  name?: string;
+  plan?: string;
+  expiresAt?: string;
+  note?: string;
+  active?: boolean;
+  createdAt: string;
+}
+
+export interface VipSettings {
+  subscribers: VipSubscriber[];
+  upgradeMessage?: string;
+  supportContact?: string;
 }
 
 export interface ExamAttemptQuestionSnapshot {
