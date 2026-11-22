@@ -23,6 +23,10 @@ import {
   Copy,
   Check,
   Tag,
+  Pencil,
+  Save,
+  X,
+  Crown,
 } from 'lucide-react';
 import { useBaraat } from '../context/BaraatContext';
 import type {
@@ -33,6 +37,7 @@ import type {
   ExamQuestionTagState,
   PlannerState,
   AssignedPlanEntry,
+  VipSubscriber,
 } from '../types';
 import {
   supabase,
@@ -54,12 +59,13 @@ import {
   createSampleExamCsv,
   buildQuestionSourceLabel,
   formatAdminCsvQuestionRef,
+  calcExamDurationMin,
   compressImageFile,
 } from '../utils/legal';
 import { updateDocumentSeo } from '../utils/seo';
 
 type AdminTab = 'exams' | 'laws' | 'articles' | 'tools' | 'students' | 'settings';
-type ExamSubTab = 'list' | 'import' | 'attempts' | 'tags' | 'security';
+type ExamSubTab = 'list' | 'import' | 'subscriptions' | 'attempts' | 'tags' | 'security';
 type LawSubTab = 'list' | 'import' | 'single';
 type ArticleSubTab = 'list' | 'create';
 type ToolSubTab = 'deadlines' | 'calcs';
@@ -108,6 +114,8 @@ export const AdminPage: React.FC = () => {
     deleteExamAttempt,
     questions,
     setQuestions,
+    vipSettings,
+    setVipSettings,
     showToast,
   } = useBaraat();
 
@@ -168,15 +176,64 @@ export const AdminPage: React.FC = () => {
   const [exCategory, setExCategory] = useState('');
   const [exType, setExType] = useState('');
   const [exYear, setExYear] = useState('');
-  const [exDuration, setExDuration] = useState(45);
   const [exDesc, setExDesc] = useState('');
   const [exSubjectName, setExSubjectName] = useState('');
   const [exIsPublished, setExIsPublished] = useState(true);
+  const [exIsPremium, setExIsPremium] = useState(false);
   const [exQuestionsJson, setExQuestionsJson] = useState('');
   const [exImporting, setExImporting] = useState(false);
   const [attemptFilter, setAttemptFilter] = useState('');
   const [tagFilterType, setTagFilterType] = useState<string>('all');
   const [tagFilterStudent, setTagFilterStudent] = useState<string>('');
+
+  // Single-question inline editor state
+  const [editingQuestionKey, setEditingQuestionKey] = useState<string | null>(null);
+  const [editQDraft, setEditQDraft] = useState<{
+    q: string;
+    options: [string, string, string, string];
+    answer: number;
+    exp: string;
+    chapter: string;
+    sourceLabel: string;
+  }>({
+    q: '',
+    options: ['', '', '', ''],
+    answer: 0,
+    exp: '',
+    chapter: '',
+    sourceLabel: '',
+  });
+  const [addingQOpen, setAddingQOpen] = useState(false);
+  const [newQSubjectId, setNewQSubjectId] = useState('');
+  const [newQDraft, setNewQDraft] = useState<{
+    q: string;
+    options: [string, string, string, string];
+    answer: number;
+    exp: string;
+    chapter: string;
+    sourceLabel: string;
+  }>({
+    q: '',
+    options: ['', '', '', ''],
+    answer: 0,
+    exp: '',
+    chapter: '',
+    sourceLabel: '',
+  });
+
+  // VIP subscription management state
+  const [vipEmail, setVipEmail] = useState('');
+  const [vipName, setVipName] = useState('');
+  const [vipDurationDays, setVipDurationDays] = useState<'30' | '90' | '180' | '365' | 'lifetime'>('30');
+  const [vipNote, setVipNote] = useState('');
+  const [vipSearch, setVipSearch] = useState('');
+  const [vipMsgDraft, setVipMsgDraft] = useState(vipSettings.upgradeMessage || '');
+  const [vipSupportDraft, setVipSupportDraft] = useState(vipSettings.supportContact || '');
+
+  useEffect(() => {
+    setVipMsgDraft(vipSettings.upgradeMessage || '');
+    setVipSupportDraft(vipSettings.supportContact || '');
+  }, [vipSettings.upgradeMessage, vipSettings.supportContact]);
 
   // QA reply + Student progress + Assign plan + About/Contact
   const [replyDrafts, setReplyDrafts] = useState<Record<string, string>>({});
@@ -580,7 +637,8 @@ export const AdminPage: React.FC = () => {
         examType: exType.trim() || undefined,
         year: exYear.trim() || undefined,
         isPublished: exIsPublished,
-        durationMin: Number(exDuration) || 30,
+        isPremium: exIsPremium,
+        durationMin: calcExamDurationMin(questionsList.length),
         desc: exDesc.trim(),
         subjects: [{ id: `sub_${Date.now()}`, name: exSubjectName.trim() || 'سوالات آزمون', questions: questionsList }],
         createdAt: new Date().toISOString(),
@@ -606,15 +664,15 @@ export const AdminPage: React.FC = () => {
         examType: exType.trim() || undefined,
         year: exYear.trim() || undefined,
         subject: exSubjectName.trim() || undefined,
-        durationMin: Number(exDuration) || 45,
         isPublished: exIsPublished,
+        isPremium: exIsPremium,
       });
       if (!parsedExams.length) {
         showToast('سوالی با ساختار معتبر در فایل پیدا نشد.');
         return;
       }
       await setExams([...parsedExams, ...exams]);
-      showToast(`${toFa(parsedExams.length)} آزمون با موفقیت از فایل وارد و ذخیره شد.`);
+      showToast(`${toFa(parsedExams.length)} آزمون با موفقیت از فایل وارد و ذخیره شد (زمان: خودکار ۲ دقیقه/سوال).`);
       setExamSubTab('list');
     } catch (err) {
       showToast(`خطا در خواندن فایل آزمون: ${err instanceof Error ? err.message : 'نامشخص'}`);
@@ -642,19 +700,210 @@ export const AdminPage: React.FC = () => {
     await setExams(updated);
   };
 
-  const handleDeleteExamQuestion = async (examId: string, subjectId: string, questionId: string) => {
-    if (!window.confirm('این سوال از آزمون حذف شود؟')) return;
+  const handleToggleExamPremium = async (examId: string) => {
+    const updated = exams.map((ex) =>
+      ex.id === examId ? { ...ex, isPremium: !ex.isPremium } : ex
+    );
+    await setExams(updated);
+  };
+
+  const startEditQuestion = (subjectId: string, q: ExamQuestion) => {
+    setEditingQuestionKey(`${subjectId}::${q.id}`);
+    setEditQDraft({
+      q: q.q || '',
+      options: [
+        q.options[0] || '',
+        q.options[1] || '',
+        q.options[2] || '',
+        q.options[3] || '',
+      ],
+      answer: Math.max(0, Math.min(3, Number(q.answer) || 0)),
+      exp: q.exp || '',
+      chapter: q.chapter || '',
+      sourceLabel: q.sourceLabel || '',
+    });
+  };
+
+  const handleSaveEditedQuestion = async (examId: string, subjectId: string, questionId: string) => {
+    if (!editQDraft.q.trim()) {
+      showToast('متن سوال نمی‌تواند خالی باشد.');
+      return;
+    }
+    const cleanOpts = [...editQDraft.options].map((x) => x.trim());
+    while (cleanOpts.length > 2 && !cleanOpts[cleanOpts.length - 1]) {
+      cleanOpts.pop();
+    }
+    if (cleanOpts.filter(Boolean).length < 2) {
+      showToast('حداقل دو گزینه برای سوال وارد کنید.');
+      return;
+    }
+    const safeAns = Math.max(0, Math.min(cleanOpts.length - 1, editQDraft.answer));
     const updated = exams.map((ex) => {
       if (ex.id !== examId) return ex;
       return {
         ...ex,
         subjects: ex.subjects.map((sb) =>
-          sb.id === subjectId ? { ...sb, questions: sb.questions.filter((q) => q.id !== questionId) } : sb
+          sb.id !== subjectId
+            ? sb
+            : {
+                ...sb,
+                questions: sb.questions.map((q) =>
+                  q.id !== questionId
+                    ? q
+                    : {
+                        ...q,
+                        q: editQDraft.q.trim(),
+                        options: cleanOpts,
+                        answer: safeAns,
+                        exp: editQDraft.exp.trim(),
+                        chapter: editQDraft.chapter.trim(),
+                        sourceLabel: editQDraft.sourceLabel.trim() || undefined,
+                      }
+                ),
+              }
         ),
       };
     });
     await setExams(updated);
+    setEditingQuestionKey(null);
+    showToast('سوال با موفقیت ویرایش و ذخیره شد.');
+  };
+
+  const handleAddSingleQuestion = async (examId: string) => {
+    const targetExam = exams.find((e) => e.id === examId);
+    if (!targetExam) return;
+    if (!newQDraft.q.trim()) {
+      showToast('متن سوال جدید را وارد کنید.');
+      return;
+    }
+    const cleanOpts = [...newQDraft.options].map((x) => x.trim());
+    while (cleanOpts.length > 2 && !cleanOpts[cleanOpts.length - 1]) {
+      cleanOpts.pop();
+    }
+    if (cleanOpts.filter(Boolean).length < 2) {
+      showToast('حداقل دو گزینه وارد کنید.');
+      return;
+    }
+    const targetSubId = newQSubjectId || targetExam.subjects[0]?.id;
+    const totalBefore = targetExam.subjects.reduce((s, b) => s + b.questions.length, 0);
+    const createdQ: ExamQuestion = {
+      id: `q_${Date.now()}_${Math.random().toString(36).slice(2, 6)}`,
+      q: newQDraft.q.trim(),
+      options: cleanOpts,
+      answer: Math.max(0, Math.min(cleanOpts.length - 1, newQDraft.answer)),
+      exp: newQDraft.exp.trim(),
+      chapter: newQDraft.chapter.trim(),
+      sourceLabel: newQDraft.sourceLabel.trim() || undefined,
+      csvQuestionNum: String(totalBefore + 1),
+      csvRowIndex: totalBefore + 1,
+    };
+    const updated = exams.map((ex) => {
+      if (ex.id !== examId) return ex;
+      const nextSubjects = ex.subjects.map((sb) =>
+        sb.id === targetSubId ? { ...sb, questions: [...sb.questions, createdQ] } : sb
+      );
+      const nextTotal = nextSubjects.reduce((s, b) => s + b.questions.length, 0);
+      return {
+        ...ex,
+        durationMin: calcExamDurationMin(nextTotal),
+        subjects: nextSubjects,
+      };
+    });
+    await setExams(updated);
+    setNewQDraft({ q: '', options: ['', '', '', ''], answer: 0, exp: '', chapter: '', sourceLabel: '' });
+    setAddingQOpen(false);
+    showToast('سوال جدید به آزمون اضافه شد.');
+  };
+
+  const handleDeleteExamQuestion = async (examId: string, subjectId: string, questionId: string) => {
+    if (!window.confirm('این سوال از آزمون حذف شود؟')) return;
+    const updated = exams.map((ex) => {
+      if (ex.id !== examId) return ex;
+      const nextSubjects = ex.subjects.map((sb) =>
+        sb.id === subjectId ? { ...sb, questions: sb.questions.filter((q) => q.id !== questionId) } : sb
+      );
+      const nextTotal = nextSubjects.reduce((s, b) => s + b.questions.length, 0);
+      return {
+        ...ex,
+        durationMin: calcExamDurationMin(nextTotal),
+        subjects: nextSubjects,
+      };
+    });
+    await setExams(updated);
+    if (editingQuestionKey === `${subjectId}::${questionId}`) setEditingQuestionKey(null);
     showToast('سوال از آزمون حذف شد.');
+  };
+
+  const handleUpsertVipSubscriber = async (e: React.FormEvent) => {
+    e.preventDefault();
+    const cleanEmail = vipEmail.trim().toLowerCase();
+    if (!cleanEmail || !cleanEmail.includes('@')) {
+      showToast('ایمیل معتبر دانشجو را وارد کنید.');
+      return;
+    }
+    const planLabels: Record<typeof vipDurationDays, string> = {
+      '30': '۱ ماهه',
+      '90': '۳ ماهه',
+      '180': '۶ ماهه',
+      '365': '۱ ساله',
+      lifetime: 'دائمی',
+    };
+    const expiresAt =
+      vipDurationDays === 'lifetime'
+        ? ''
+        : new Date(Date.now() + Number(vipDurationDays) * 24 * 60 * 60 * 1000).toISOString();
+    const entry: VipSubscriber = {
+      email: cleanEmail,
+      name: vipName.trim() || undefined,
+      plan: planLabels[vipDurationDays],
+      expiresAt,
+      note: vipNote.trim() || undefined,
+      active: true,
+      createdAt: new Date().toISOString(),
+    };
+    const existing = vipSettings.subscribers || [];
+    const nextList = [entry, ...existing.filter((s) => s.email.trim().toLowerCase() !== cleanEmail)];
+    await setVipSettings({ ...vipSettings, subscribers: nextList });
+    setVipEmail('');
+    setVipName('');
+    setVipNote('');
+  };
+
+  const handleToggleVipActive = async (email: string) => {
+    const nextList = (vipSettings.subscribers || []).map((s) =>
+      s.email.trim().toLowerCase() === email.trim().toLowerCase() ? { ...s, active: s.active === false ? true : false } : s
+    );
+    await setVipSettings({ ...vipSettings, subscribers: nextList });
+  };
+
+  const handleExtendVip30Days = async (email: string) => {
+    const nextList = (vipSettings.subscribers || []).map((s) => {
+      if (s.email.trim().toLowerCase() !== email.trim().toLowerCase()) return s;
+      const baseTs = s.expiresAt ? Math.max(Date.now(), new Date(s.expiresAt).getTime()) : Date.now();
+      return {
+        ...s,
+        active: true,
+        expiresAt: new Date(baseTs + 30 * 24 * 60 * 60 * 1000).toISOString(),
+      };
+    });
+    await setVipSettings({ ...vipSettings, subscribers: nextList });
+  };
+
+  const handleDeleteVipSubscriber = async (email: string) => {
+    if (!window.confirm(`اشتراک ویژه «${email}» حذف شود؟`)) return;
+    const nextList = (vipSettings.subscribers || []).filter(
+      (s) => s.email.trim().toLowerCase() !== email.trim().toLowerCase()
+    );
+    await setVipSettings({ ...vipSettings, subscribers: nextList });
+  };
+
+  const handleSaveVipMessage = async (e: React.FormEvent) => {
+    e.preventDefault();
+    await setVipSettings({
+      ...vipSettings,
+      upgradeMessage: vipMsgDraft.trim(),
+      supportContact: vipSupportDraft.trim(),
+    });
   };
 
   const handleDeleteAllExams = async () => {
@@ -866,6 +1115,10 @@ export const AdminPage: React.FC = () => {
                   {[
                     { id: 'list' as const, label: `فهرست آزمون‌ها (${toFa(exams.length)})` },
                     { id: 'import' as const, label: 'افزودن / ورود فایل' },
+                    {
+                      id: 'subscriptions' as const,
+                      label: `اشتراک و اعضای ویژه (${toFa((vipSettings.subscribers || []).filter((s) => s.active !== false).length)})`,
+                    },
                     { id: 'attempts' as const, label: `کارنامه‌ها (${toFa(examAttempts.length)})` },
                     { id: 'tags' as const, label: `تیک‌های دانشجویان (${toFa(allTaggedEntries.length)})` },
                     { id: 'security' as const, label: 'قفل امنیتی' },
@@ -938,18 +1191,171 @@ export const AdminPage: React.FC = () => {
                             inspectedExam.year ? `سال ${toFa(inspectedExam.year)}` : '',
                             `${toFa(inspectedExam.subjects.length)} درس / سرفصل`,
                             `${toFa(inspectedExam.subjects.reduce((s, b) => s + b.questions.length, 0))} سوال`,
+                            `${toFa(calcExamDurationMin(inspectedExam.subjects.reduce((s, b) => s + b.questions.length, 0)))} دقیقه (۲ د/سوال)`,
+                            inspectedExam.isPremium ? 'ویژه اشتراک' : 'رایگان',
                           ]
                             .filter(Boolean)
                             .join(' · ')}
                         </p>
                       </div>
-                      <Link
-                        to="/exams"
-                        className="shrink-0 whitespace-nowrap rounded-lg border border-[var(--hairline)] bg-[var(--surface-muted)] px-3 py-1.5 text-xs font-bold text-[var(--ink)] hover:border-teal-600/40"
-                      >
-                        مشاهده در محیط آزمون
-                      </Link>
+                      <div className="flex flex-wrap items-center gap-2">
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setAddingQOpen((v) => !v);
+                            setNewQSubjectId(inspectedExam.subjects[0]?.id || '');
+                          }}
+                          className="inline-flex shrink-0 items-center gap-1.5 whitespace-nowrap rounded-lg bg-teal-700 px-3 py-1.5 text-xs font-bold text-white hover:bg-teal-800 dark:bg-teal-500 dark:text-slate-950"
+                        >
+                          <Plus className="h-3.5 w-3.5" />
+                          <span>{addingQOpen ? 'بستن فرم افزودن' : 'افزودن سوال تکی'}</span>
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => handleToggleExamPremium(inspectedExam.id)}
+                          className={`inline-flex shrink-0 items-center gap-1.5 whitespace-nowrap rounded-lg border px-3 py-1.5 text-xs font-bold ${
+                            inspectedExam.isPremium
+                              ? 'border-amber-500/40 bg-amber-500/15 text-amber-800 dark:text-amber-300'
+                              : 'border-[var(--hairline)] bg-[var(--surface-muted)] text-[var(--ink)]'
+                          }`}
+                        >
+                          <Crown className="h-3.5 w-3.5" />
+                          <span>{inspectedExam.isPremium ? 'ویژه اشتراک' : 'تبدیل به ویژه'}</span>
+                        </button>
+                        <Link
+                          to="/exams"
+                          className="shrink-0 whitespace-nowrap rounded-lg border border-[var(--hairline)] bg-[var(--surface-muted)] px-3 py-1.5 text-xs font-bold text-[var(--ink)] hover:border-teal-600/40"
+                        >
+                          مشاهده در محیط آزمون
+                        </Link>
+                      </div>
                     </div>
+
+                    {/* Add Single Question Inline Form */}
+                    {addingQOpen && (
+                      <div className="rounded-xl border border-teal-600/35 bg-[var(--surface)] p-4 space-y-3">
+                        <div className="flex items-center justify-between border-b border-[var(--hairline)] pb-2">
+                          <h3 className="text-xs font-extrabold text-teal-800 dark:text-teal-300">افزودن سوال جدید به این آزمون</h3>
+                          <button
+                            type="button"
+                            onClick={() => setAddingQOpen(false)}
+                            className="rounded-md p-1 text-[var(--ink-muted)] hover:bg-[var(--surface-muted)]"
+                          >
+                            <X className="h-4 w-4" />
+                          </button>
+                        </div>
+                        {inspectedExam.subjects.length > 1 && (
+                          <div>
+                            <label className="mb-1 block text-[11px] font-bold text-[var(--ink-muted)]">درس مقصد</label>
+                            <select
+                              value={newQSubjectId || inspectedExam.subjects[0]?.id || ''}
+                              onChange={(e) => setNewQSubjectId(e.target.value)}
+                              className="w-full sm:w-64 rounded-lg border border-[var(--hairline-strong)] bg-[var(--surface-muted)] px-3 py-2 text-xs text-[var(--ink)] outline-none focus:border-teal-600"
+                            >
+                              {inspectedExam.subjects.map((sb) => (
+                                <option key={sb.id} value={sb.id}>
+                                  {sb.name}
+                                </option>
+                              ))}
+                            </select>
+                          </div>
+                        )}
+                        <div>
+                          <label className="mb-1 block text-[11px] font-bold text-[var(--ink-muted)]">متن سوال *</label>
+                          <textarea
+                            rows={3}
+                            value={newQDraft.q}
+                            onChange={(e) => setNewQDraft((d) => ({ ...d, q: e.target.value }))}
+                            placeholder="صورت سوال را وارد کنید..."
+                            className="w-full rounded-lg border border-[var(--hairline-strong)] bg-[var(--surface-muted)] p-2.5 text-xs leading-6 text-[var(--ink)] outline-none focus:border-teal-600"
+                          />
+                        </div>
+                        <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
+                          {newQDraft.options.map((optVal, oi) => {
+                            const isRight = newQDraft.answer === oi;
+                            return (
+                              <div
+                                key={oi}
+                                className={`flex items-center gap-2 rounded-lg border p-2 ${
+                                  isRight
+                                    ? 'border-emerald-500/50 bg-emerald-500/10'
+                                    : 'border-[var(--hairline)] bg-[var(--surface-muted)]/60'
+                                }`}
+                              >
+                                <button
+                                  type="button"
+                                  onClick={() => setNewQDraft((d) => ({ ...d, answer: oi }))}
+                                  title="انتخاب به عنوان گزینه صحیح"
+                                  className={`shrink-0 rounded-md px-2 py-1 text-[11px] font-extrabold transition-colors ${
+                                    isRight
+                                      ? 'bg-emerald-600 text-white'
+                                      : 'border border-[var(--hairline-strong)] bg-[var(--surface)] text-[var(--ink-muted)] hover:text-[var(--ink)]'
+                                  }`}
+                                >
+                                  {OPTION_LETTERS[oi]} {isRight ? '✓' : ''}
+                                </button>
+                                <input
+                                  type="text"
+                                  value={optVal}
+                                  onChange={(e) =>
+                                    setNewQDraft((d) => {
+                                      const opts = [...d.options] as [string, string, string, string];
+                                      opts[oi] = e.target.value;
+                                      return { ...d, options: opts };
+                                    })
+                                  }
+                                  placeholder={`متن گزینه ${OPTION_LETTERS[oi]}...`}
+                                  className="min-w-0 flex-1 bg-transparent text-xs text-[var(--ink)] outline-none"
+                                />
+                              </div>
+                            );
+                          })}
+                        </div>
+                        <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
+                          <input
+                            type="text"
+                            value={newQDraft.chapter}
+                            onChange={(e) => setNewQDraft((d) => ({ ...d, chapter: e.target.value }))}
+                            placeholder="سرفصل / مبحث (اختیاری)"
+                            className="rounded-lg border border-[var(--hairline-strong)] bg-[var(--surface-muted)] px-3 py-2 text-xs text-[var(--ink)] outline-none focus:border-teal-600"
+                          />
+                          <input
+                            type="text"
+                            value={newQDraft.sourceLabel}
+                            onChange={(e) => setNewQDraft((d) => ({ ...d, sourceLabel: e.target.value }))}
+                            placeholder="منبع / سال سوال (اختیاری)"
+                            className="rounded-lg border border-[var(--hairline-strong)] bg-[var(--surface-muted)] px-3 py-2 text-xs text-[var(--ink)] outline-none focus:border-teal-600"
+                          />
+                        </div>
+                        <div>
+                          <label className="mb-1 block text-[11px] font-bold text-[var(--ink-muted)]">پاسخ تشریحی (اختیاری)</label>
+                          <textarea
+                            rows={2}
+                            value={newQDraft.exp}
+                            onChange={(e) => setNewQDraft((d) => ({ ...d, exp: e.target.value }))}
+                            placeholder="توضیح مستندات قانونی و پاسخ تشریحی..."
+                            className="w-full rounded-lg border border-[var(--hairline-strong)] bg-[var(--surface-muted)] p-2.5 text-xs leading-6 text-[var(--ink)] outline-none focus:border-teal-600"
+                          />
+                        </div>
+                        <div className="flex items-center justify-end gap-2">
+                          <button
+                            type="button"
+                            onClick={() => setAddingQOpen(false)}
+                            className="rounded-lg border border-[var(--hairline)] px-3.5 py-1.5 text-xs font-bold text-[var(--ink-muted)]"
+                          >
+                            انصراف
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => handleAddSingleQuestion(inspectedExam.id)}
+                            className="inline-flex items-center gap-1.5 rounded-lg bg-teal-700 px-4 py-1.5 text-xs font-bold text-white hover:bg-teal-800 dark:bg-teal-500 dark:text-slate-950"
+                          >
+                            <Save className="h-3.5 w-3.5" />
+                            <span>افزودن و ذخیره سوال</span>
+                          </button>
+                        </div>
+                      </div>
+                    )}
 
                     {/* Inspector Search & Subject Filters */}
                     <div className="flex flex-col gap-3 rounded-xl border border-[var(--hairline)] bg-[var(--surface)] p-4">
@@ -1008,10 +1414,15 @@ export const AdminPage: React.FC = () => {
                       ) : (
                         inspectedQuestions.map(({ q, subjectId, subjectName, localIdx, globalIdx }) => {
                           const csvRef = formatAdminCsvQuestionRef(q, globalIdx);
+                          const isEditingThis = editingQuestionKey === `${subjectId}::${q.id}`;
                           return (
                             <div
                               key={q.id}
-                              className="rounded-xl border border-[var(--hairline)] bg-[var(--surface)] p-4 space-y-2.5"
+                              className={`rounded-xl border p-4 space-y-2.5 transition-colors ${
+                                isEditingThis
+                                  ? 'border-teal-600/50 bg-[var(--surface)] shadow-xs'
+                                  : 'border-[var(--hairline)] bg-[var(--surface)]'
+                              }`}
                             >
                               <div className="flex flex-wrap items-center justify-between gap-2 border-b border-[var(--hairline)] pb-2">
                                 <div className="flex flex-wrap items-center gap-x-2.5 gap-y-1 text-[11px]">
@@ -1040,42 +1451,172 @@ export const AdminPage: React.FC = () => {
                                     </span>
                                   )}
                                 </div>
-                                <button
-                                  type="button"
-                                  onClick={() => handleDeleteExamQuestion(inspectedExam.id, subjectId, q.id)}
-                                  className="inline-flex shrink-0 items-center gap-1 rounded-lg px-2 py-1 text-[11px] font-bold text-red-600 hover:bg-red-500/10"
-                                >
-                                  <Trash2 className="h-3 w-3" />
-                                  <span>حذف</span>
-                                </button>
-                              </div>
-
-                              <p className="text-xs font-bold leading-6 text-[var(--ink)]">{q.q}</p>
-
-                              <div className="grid grid-cols-1 gap-1.5 sm:grid-cols-2">
-                                {q.options.map((opt, oi) => {
-                                  const isRight = oi === q.answer;
-                                  return (
-                                    <div
-                                      key={oi}
-                                      className={`rounded-lg border px-2.5 py-1.5 text-[11.5px] ${
-                                        isRight
-                                          ? 'border-emerald-500/40 bg-emerald-500/10 font-bold text-emerald-900 dark:text-emerald-200'
-                                          : 'border-[var(--hairline)] bg-[var(--surface-muted)]/50 text-[var(--ink-muted)]'
-                                      }`}
+                                <div className="flex items-center gap-1.5">
+                                  {isEditingThis ? (
+                                    <button
+                                      type="button"
+                                      onClick={() => setEditingQuestionKey(null)}
+                                      className="inline-flex shrink-0 items-center gap-1 rounded-lg border border-[var(--hairline)] px-2.5 py-1 text-[11px] font-bold text-[var(--ink-muted)] hover:text-[var(--ink)]"
                                     >
-                                      <span className="ml-1.5 font-extrabold">{OPTION_LETTERS[oi] || toFa(oi + 1)})</span>
-                                      {opt}
-                                    </div>
-                                  );
-                                })}
+                                      <X className="h-3 w-3" />
+                                      <span>انصراف</span>
+                                    </button>
+                                  ) : (
+                                    <button
+                                      type="button"
+                                      onClick={() => startEditQuestion(subjectId, q)}
+                                      className="inline-flex shrink-0 items-center gap-1 rounded-lg border border-teal-700/25 bg-teal-700/10 px-2.5 py-1 text-[11px] font-bold text-teal-800 hover:bg-teal-700/20 dark:text-teal-300"
+                                    >
+                                      <Pencil className="h-3 w-3" />
+                                      <span>ویرایش</span>
+                                    </button>
+                                  )}
+                                  <button
+                                    type="button"
+                                    onClick={() => handleDeleteExamQuestion(inspectedExam.id, subjectId, q.id)}
+                                    className="inline-flex shrink-0 items-center gap-1 rounded-lg px-2 py-1 text-[11px] font-bold text-red-600 hover:bg-red-500/10"
+                                  >
+                                    <Trash2 className="h-3 w-3" />
+                                    <span>حذف</span>
+                                  </button>
+                                </div>
                               </div>
 
-                              {q.exp && (
-                                <p className="rounded-lg bg-[var(--surface-muted)]/60 px-3 py-2 text-[11.5px] leading-6 text-[var(--ink-muted)]">
-                                  <span className="font-bold text-[var(--ink)]">پاسخ تشریحی: </span>
-                                  {q.exp}
-                                </p>
+                              {isEditingThis ? (
+                                <div className="space-y-3 pt-1">
+                                  <div>
+                                    <label className="mb-1 block text-[11px] font-bold text-[var(--ink-muted)]">متن سوال</label>
+                                    <textarea
+                                      rows={3}
+                                      value={editQDraft.q}
+                                      onChange={(e) => setEditQDraft((d) => ({ ...d, q: e.target.value }))}
+                                      className="w-full rounded-lg border border-[var(--hairline-strong)] bg-[var(--surface-muted)] p-2.5 text-xs leading-6 text-[var(--ink)] outline-none focus:border-teal-600"
+                                    />
+                                  </div>
+                                  <div>
+                                    <label className="mb-1 block text-[11px] font-bold text-[var(--ink-muted)]">
+                                      گزینه‌ها (روی دکمه حروف کلیک کنید تا گزینه صحیح انتخاب شود)
+                                    </label>
+                                    <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
+                                      {editQDraft.options.map((optVal, oi) => {
+                                        const isRight = editQDraft.answer === oi;
+                                        return (
+                                          <div
+                                            key={oi}
+                                            className={`flex items-center gap-2 rounded-lg border p-2 ${
+                                              isRight
+                                                ? 'border-emerald-500/50 bg-emerald-500/10'
+                                                : 'border-[var(--hairline)] bg-[var(--surface-muted)]/60'
+                                            }`}
+                                          >
+                                            <button
+                                              type="button"
+                                              onClick={() => setEditQDraft((d) => ({ ...d, answer: oi }))}
+                                              title="انتخاب به عنوان پاسخ صحیح"
+                                              className={`shrink-0 rounded-md px-2 py-1 text-[11px] font-extrabold transition-colors ${
+                                                isRight
+                                                  ? 'bg-emerald-600 text-white'
+                                                  : 'border border-[var(--hairline-strong)] bg-[var(--surface)] text-[var(--ink-muted)] hover:text-[var(--ink)]'
+                                              }`}
+                                            >
+                                              {OPTION_LETTERS[oi]} {isRight ? '✓ صحیح' : ''}
+                                            </button>
+                                            <input
+                                              type="text"
+                                              value={optVal}
+                                              onChange={(e) =>
+                                                setEditQDraft((d) => {
+                                                  const opts = [...d.options] as [string, string, string, string];
+                                                  opts[oi] = e.target.value;
+                                                  return { ...d, options: opts };
+                                                })
+                                              }
+                                              placeholder={`متن گزینه ${OPTION_LETTERS[oi]}...`}
+                                              className="min-w-0 flex-1 bg-transparent text-xs text-[var(--ink)] outline-none"
+                                            />
+                                          </div>
+                                        );
+                                      })}
+                                    </div>
+                                  </div>
+                                  <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
+                                    <div>
+                                      <label className="mb-1 block text-[11px] font-bold text-[var(--ink-muted)]">سرفصل / مبحث</label>
+                                      <input
+                                        type="text"
+                                        value={editQDraft.chapter}
+                                        onChange={(e) => setEditQDraft((d) => ({ ...d, chapter: e.target.value }))}
+                                        className="w-full rounded-lg border border-[var(--hairline-strong)] bg-[var(--surface-muted)] px-3 py-1.5 text-xs text-[var(--ink)] outline-none focus:border-teal-600"
+                                      />
+                                    </div>
+                                    <div>
+                                      <label className="mb-1 block text-[11px] font-bold text-[var(--ink-muted)]">منبع / سال</label>
+                                      <input
+                                        type="text"
+                                        value={editQDraft.sourceLabel}
+                                        onChange={(e) => setEditQDraft((d) => ({ ...d, sourceLabel: e.target.value }))}
+                                        className="w-full rounded-lg border border-[var(--hairline-strong)] bg-[var(--surface-muted)] px-3 py-1.5 text-xs text-[var(--ink)] outline-none focus:border-teal-600"
+                                      />
+                                    </div>
+                                  </div>
+                                  <div>
+                                    <label className="mb-1 block text-[11px] font-bold text-[var(--ink-muted)]">پاسخ تشریحی</label>
+                                    <textarea
+                                      rows={3}
+                                      value={editQDraft.exp}
+                                      onChange={(e) => setEditQDraft((d) => ({ ...d, exp: e.target.value }))}
+                                      placeholder="پاسخ تشریحی و مستندات قانونی..."
+                                      className="w-full rounded-lg border border-[var(--hairline-strong)] bg-[var(--surface-muted)] p-2.5 text-xs leading-6 text-[var(--ink)] outline-none focus:border-teal-600"
+                                    />
+                                  </div>
+                                  <div className="flex items-center justify-end gap-2 pt-1">
+                                    <button
+                                      type="button"
+                                      onClick={() => setEditingQuestionKey(null)}
+                                      className="rounded-lg border border-[var(--hairline)] px-3.5 py-1.5 text-xs font-bold text-[var(--ink-muted)] hover:text-[var(--ink)]"
+                                    >
+                                      انصراف
+                                    </button>
+                                    <button
+                                      type="button"
+                                      onClick={() => handleSaveEditedQuestion(inspectedExam.id, subjectId, q.id)}
+                                      className="inline-flex items-center gap-1.5 rounded-lg bg-teal-700 px-4 py-1.5 text-xs font-bold text-white hover:bg-teal-800 dark:bg-teal-500 dark:text-slate-950"
+                                    >
+                                      <Save className="h-3.5 w-3.5" />
+                                      <span>ذخیره تغییرات</span>
+                                    </button>
+                                  </div>
+                                </div>
+                              ) : (
+                                <>
+                                  <p className="text-xs font-bold leading-6 text-[var(--ink)]">{q.q}</p>
+
+                                  <div className="grid grid-cols-1 gap-1.5 sm:grid-cols-2">
+                                    {q.options.map((opt, oi) => {
+                                      const isRight = oi === q.answer;
+                                      return (
+                                        <div
+                                          key={oi}
+                                          className={`rounded-lg border px-2.5 py-1.5 text-[11.5px] ${
+                                            isRight
+                                              ? 'border-emerald-500/40 bg-emerald-500/10 font-bold text-emerald-900 dark:text-emerald-200'
+                                              : 'border-[var(--hairline)] bg-[var(--surface-muted)]/50 text-[var(--ink-muted)]'
+                                          }`}
+                                        >
+                                          <span className="ml-1.5 font-extrabold">{OPTION_LETTERS[oi] || toFa(oi + 1)})</span>
+                                          {opt}
+                                        </div>
+                                      );
+                                    })}
+                                  </div>
+
+                                  {q.exp && (
+                                    <p className="rounded-lg bg-[var(--surface-muted)]/60 px-3 py-2 text-[11.5px] leading-6 text-[var(--ink-muted)]">
+                                      <span className="font-bold text-[var(--ink)]">پاسخ تشریحی: </span>
+                                      {q.exp}
+                                    </p>
+                                  )}
+                                </>
                               )}
                             </div>
                           );
@@ -1106,7 +1647,9 @@ export const AdminPage: React.FC = () => {
                       ) : (
                         filteredExams.map((ex) => {
                           const totalQ = ex.subjects.reduce((s, b) => s + b.questions.length, 0);
+                          const autoMin = calcExamDurationMin(totalQ);
                           const isPub = ex.isPublished !== false;
+                          const isPrem = Boolean(ex.isPremium);
                           return (
                             <div
                               key={ex.id}
@@ -1115,6 +1658,15 @@ export const AdminPage: React.FC = () => {
                               <div className="min-w-0 flex-1">
                                 <div className="flex flex-wrap items-center gap-2">
                                   <span className="text-sm font-extrabold text-[var(--ink)]">{ex.title}</span>
+                                  <span
+                                    className={`rounded-md border px-2 py-0.5 text-[10.5px] font-bold ${
+                                      isPrem
+                                        ? 'border-amber-500/40 bg-amber-500/15 text-amber-800 dark:text-amber-300'
+                                        : 'border-emerald-500/30 bg-emerald-500/10 text-emerald-700 dark:text-emerald-300'
+                                    }`}
+                                  >
+                                    {isPrem ? 'ویژه اشتراک' : 'رایگان'}
+                                  </span>
                                   <span
                                     className={`text-[11px] font-bold ${
                                       isPub
@@ -1132,7 +1684,7 @@ export const AdminPage: React.FC = () => {
                                     ex.year ? `سال ${toFa(ex.year)}` : '',
                                     `${toFa(ex.subjects.length)} درس`,
                                     `${toFa(totalQ)} سوال`,
-                                    `${toFa(ex.durationMin)} دقیقه`,
+                                    `${toFa(autoMin)} دقیقه (۲ د/سوال)`,
                                   ]
                                     .filter(Boolean)
                                     .join(' · ')}
@@ -1146,11 +1698,26 @@ export const AdminPage: React.FC = () => {
                                     setInspectedExamId(ex.id);
                                     setInspectSubjectId('all');
                                     setInspectSearch('');
+                                    setEditingQuestionKey(null);
+                                    setAddingQOpen(false);
                                   }}
                                   className="inline-flex shrink-0 items-center gap-1.5 whitespace-nowrap rounded-lg border border-indigo-500/30 bg-indigo-500/10 px-2.5 py-1.5 text-xs font-bold text-indigo-800 hover:bg-indigo-500/15 dark:text-indigo-300"
                                 >
                                   <ListChecks className="h-3.5 w-3.5" />
-                                  <span>سوالات و ردیف CSV</span>
+                                  <span>سوالات و ویرایش</span>
+                                </button>
+                                <button
+                                  type="button"
+                                  onClick={() => handleToggleExamPremium(ex.id)}
+                                  className={`inline-flex shrink-0 items-center gap-1 whitespace-nowrap rounded-lg border px-2.5 py-1.5 text-xs font-bold transition-colors ${
+                                    isPrem
+                                      ? 'border-amber-500/40 bg-amber-500/15 text-amber-800 hover:bg-amber-500/25 dark:text-amber-300'
+                                      : 'border-[var(--hairline)] text-[var(--ink-muted)] hover:text-[var(--ink)]'
+                                  }`}
+                                  title="تغییر وضعیت رایگان یا ویژه اشتراک"
+                                >
+                                  <Crown className="h-3.5 w-3.5" />
+                                  <span>{isPrem ? 'ویژه' : 'رایگان'}</span>
                                 </button>
                                 <button
                                   type="button"
@@ -1277,25 +1844,33 @@ export const AdminPage: React.FC = () => {
                       />
                     </div>
                     <div>
-                      <label className="mb-1 block text-[11px] font-bold text-[var(--ink-muted)]">مدت (دقیقه)</label>
-                      <input
-                        type="number"
-                        value={exDuration}
-                        onChange={(e) => setExDuration(Number(e.target.value))}
-                        className="w-full rounded-lg border border-[var(--hairline-strong)] bg-[var(--surface-muted)] px-3 py-2 text-xs text-center text-[var(--ink)] outline-none focus:border-teal-600 tabular-nums"
-                      />
+                      <label className="mb-1 block text-[11px] font-bold text-[var(--ink-muted)]">زمان‌بندی آزمون</label>
+                      <div className="flex h-[34px] items-center justify-center rounded-lg border border-teal-700/25 bg-teal-700/5 px-3 text-[11px] font-bold text-teal-800 dark:text-teal-300">
+                        خودکار: ۲ دقیقه به ازای هر سوال
+                      </div>
                     </div>
                   </div>
 
-                  <label className="inline-flex items-center gap-2 text-xs font-bold text-[var(--ink)] cursor-pointer">
-                    <input
-                      type="checkbox"
-                      checked={exIsPublished}
-                      onChange={(e) => setExIsPublished(e.target.checked)}
-                      className="h-4 w-4 accent-teal-700"
-                    />
-                    <span>انتشار عمومی برای همه کاربران (در صورت برداشتن تیک، آزمون فقط برای مدیر قابل مشاهده است)</span>
-                  </label>
+                  <div className="flex flex-wrap items-center gap-5">
+                    <label className="inline-flex items-center gap-2 text-xs font-bold text-[var(--ink)] cursor-pointer">
+                      <input
+                        type="checkbox"
+                        checked={exIsPublished}
+                        onChange={(e) => setExIsPublished(e.target.checked)}
+                        className="h-4 w-4 accent-teal-700"
+                      />
+                      <span>انتشار عمومی (در صورت برداشتن تیک فقط برای مدیر قابل مشاهده است)</span>
+                    </label>
+                    <label className="inline-flex items-center gap-2 text-xs font-bold text-amber-800 dark:text-amber-300 cursor-pointer">
+                      <input
+                        type="checkbox"
+                        checked={exIsPremium}
+                        onChange={(e) => setExIsPremium(e.target.checked)}
+                        className="h-4 w-4 accent-amber-600"
+                      />
+                      <span>آزمون ویژه اعضای اشتراکی (نیازمند اشتراک فعال)</span>
+                    </label>
+                  </div>
 
                   {examCreateMode === 'file' ? (
                     <div className="rounded-xl border border-dashed border-[var(--hairline-strong)] bg-[var(--surface-muted)]/50 p-6 text-center space-y-3">
@@ -1356,6 +1931,258 @@ export const AdminPage: React.FC = () => {
                       </button>
                     </form>
                   )}
+                </div>
+              )}
+
+              {/* Sub-tab 1B-2: VIP Subscriptions & Premium Exam Access */}
+              {examSubTab === 'subscriptions' && (
+                <div className="space-y-5">
+                  <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
+                    {/* Add / Update VIP Subscriber */}
+                    <form
+                      onSubmit={handleUpsertVipSubscriber}
+                      className="rounded-xl border border-[var(--hairline)] bg-[var(--surface)] p-5 space-y-3"
+                    >
+                      <div className="flex items-center gap-2">
+                        <Crown className="h-4 w-4 text-amber-600" />
+                        <h2 className="text-sm font-extrabold text-[var(--ink)]">افزودن یا تمدید عضو ویژه (اشتراک)</h2>
+                      </div>
+                      <p className="text-xs text-[var(--ink-muted)] leading-5">
+                        ایمیل دانشجو را وارد کنید تا دسترسی کامل به تمام آزمون‌های «ویژه اشتراک» برای او فعال شود.
+                      </p>
+                      <div className="grid grid-cols-1 gap-2.5 sm:grid-cols-2">
+                        <div>
+                          <label className="mb-1 block text-[11px] font-bold text-[var(--ink-muted)]">ایمیل دانشجو *</label>
+                          <input
+                            type="email"
+                            dir="ltr"
+                            required
+                            value={vipEmail}
+                            onChange={(e) => setVipEmail(e.target.value)}
+                            placeholder="student@example.com"
+                            className="w-full rounded-lg border border-[var(--hairline-strong)] bg-[var(--surface-muted)] px-3 py-2 text-xs text-left text-[var(--ink)] outline-none focus:border-teal-600"
+                          />
+                        </div>
+                        <div>
+                          <label className="mb-1 block text-[11px] font-bold text-[var(--ink-muted)]">نام (اختیاری)</label>
+                          <input
+                            type="text"
+                            value={vipName}
+                            onChange={(e) => setVipName(e.target.value)}
+                            placeholder="مثلاً علی رضایی"
+                            className="w-full rounded-lg border border-[var(--hairline-strong)] bg-[var(--surface-muted)] px-3 py-2 text-xs text-[var(--ink)] outline-none focus:border-teal-600"
+                          />
+                        </div>
+                      </div>
+                      <div className="grid grid-cols-1 gap-2.5 sm:grid-cols-2">
+                        <div>
+                          <label className="mb-1 block text-[11px] font-bold text-[var(--ink-muted)]">مدت اشتراک</label>
+                          <select
+                            value={vipDurationDays}
+                            onChange={(e) => setVipDurationDays(e.target.value as '30' | '90' | '180' | '365' | 'lifetime')}
+                            className="w-full rounded-lg border border-[var(--hairline-strong)] bg-[var(--surface-muted)] px-3 py-2 text-xs text-[var(--ink)] outline-none focus:border-teal-600"
+                          >
+                            <option value="30">۱ ماهه (۳۰ روز)</option>
+                            <option value="90">۳ ماهه (۹۰ روز)</option>
+                            <option value="180">۶ ماهه (۱۸۰ روز)</option>
+                            <option value="365">۱ ساله (۳۶۵ روز)</option>
+                            <option value="lifetime">دائمی (بدون انقضا)</option>
+                          </select>
+                        </div>
+                        <div>
+                          <label className="mb-1 block text-[11px] font-bold text-[var(--ink-muted)]">یادداشت مدیر (اختیاری)</label>
+                          <input
+                            type="text"
+                            value={vipNote}
+                            onChange={(e) => setVipNote(e.target.value)}
+                            placeholder="شماره پیگیری یا توضیح..."
+                            className="w-full rounded-lg border border-[var(--hairline-strong)] bg-[var(--surface-muted)] px-3 py-2 text-xs text-[var(--ink)] outline-none focus:border-teal-600"
+                          />
+                        </div>
+                      </div>
+
+                      {/* Quick-pick from known students */}
+                      {(() => {
+                        const existingEmails = new Set(
+                          (vipSettings.subscribers || []).map((s) => s.email.trim().toLowerCase())
+                        );
+                        const knownEmails = Array.from(
+                          new Set([
+                            ...studentRows.map((r) => (r.email || '').trim().toLowerCase()),
+                            ...examAttempts.map((a) => (a.userEmail || '').trim().toLowerCase()),
+                          ])
+                        )
+                          .filter((em) => em && em.includes('@') && !existingEmails.has(em))
+                          .slice(0, 8);
+                        if (!knownEmails.length) return null;
+                        return (
+                          <div className="pt-1">
+                            <p className="text-[11px] font-bold text-[var(--ink-muted)] mb-1.5">
+                              انتخاب سریع از دانشجویان ثبت‌شده:
+                            </p>
+                            <div className="flex flex-wrap gap-1.5">
+                              {knownEmails.map((em) => (
+                                <button
+                                  key={em}
+                                  type="button"
+                                  dir="ltr"
+                                  onClick={() => setVipEmail(em)}
+                                  className="rounded-md border border-[var(--hairline)] bg-[var(--surface-muted)] px-2 py-0.5 text-[11px] font-mono text-[var(--ink)] hover:border-amber-500/50"
+                                >
+                                  {em}
+                                </button>
+                              ))}
+                            </div>
+                          </div>
+                        );
+                      })()}
+
+                      <button
+                        type="submit"
+                        className="inline-flex items-center gap-1.5 rounded-lg bg-amber-600 px-4 py-2 text-xs font-bold text-white hover:bg-amber-700"
+                      >
+                        <Crown className="h-3.5 w-3.5" />
+                        <span>فعال‌سازی / تمدید اشتراک ویژه</span>
+                      </button>
+                    </form>
+
+                    {/* Upgrade Prompt Message Settings */}
+                    <form
+                      onSubmit={handleSaveVipMessage}
+                      className="rounded-xl border border-[var(--hairline)] bg-[var(--surface)] p-5 space-y-3"
+                    >
+                      <h2 className="text-sm font-extrabold text-[var(--ink)]">پیام راهنمای خرید اشتراک برای کاربران عادی</h2>
+                      <p className="text-xs text-[var(--ink-muted)] leading-5">
+                        وقتی دانشجوی بدون اشتراک روی آزمون «ویژه اشتراک» کلیک کند، این متن و راه ارتباطی نمایش داده می‌شود.
+                      </p>
+                      <div>
+                        <label className="mb-1 block text-[11px] font-bold text-[var(--ink-muted)]">متن پیام</label>
+                        <textarea
+                          rows={3}
+                          value={vipMsgDraft}
+                          onChange={(e) => setVipMsgDraft(e.target.value)}
+                          className="w-full rounded-lg border border-[var(--hairline-strong)] bg-[var(--surface-muted)] p-2.5 text-xs leading-6 text-[var(--ink)] outline-none focus:border-teal-600"
+                        />
+                      </div>
+                      <div>
+                        <label className="mb-1 block text-[11px] font-bold text-[var(--ink-muted)]">
+                          شماره تماس / آیدی تلگرام یا لینک پرداخت (اختیاری)
+                        </label>
+                        <input
+                          type="text"
+                          value={vipSupportDraft}
+                          onChange={(e) => setVipSupportDraft(e.target.value)}
+                          placeholder="مثلاً پیام به تلگرام @baraat_support یا شماره ۰۹۱۲..."
+                          className="w-full rounded-lg border border-[var(--hairline-strong)] bg-[var(--surface-muted)] px-3 py-2 text-xs text-[var(--ink)] outline-none focus:border-teal-600"
+                        />
+                      </div>
+                      <button
+                        type="submit"
+                        className="inline-flex items-center gap-1.5 rounded-lg bg-teal-700 px-4 py-2 text-xs font-bold text-white hover:bg-teal-800 dark:bg-teal-500 dark:text-slate-950"
+                      >
+                        <Save className="h-3.5 w-3.5" />
+                        <span>ذخیره متن راهنما</span>
+                      </button>
+                    </form>
+                  </div>
+
+                  {/* Subscribers List */}
+                  <div className="rounded-xl border border-[var(--hairline)] bg-[var(--surface)] p-4 space-y-3">
+                    <div className="flex flex-wrap items-center justify-between gap-3">
+                      <h3 className="text-xs font-extrabold text-[var(--ink)]">
+                        فهرست اعضای ویژه ({toFa((vipSettings.subscribers || []).length)} نفر)
+                      </h3>
+                      <input
+                        type="text"
+                        value={vipSearch}
+                        onChange={(e) => setVipSearch(e.target.value)}
+                        placeholder="جستجوی ایمیل یا نام..."
+                        className="w-full sm:w-60 rounded-lg border border-[var(--hairline-strong)] bg-[var(--surface-muted)] px-3 py-1.5 text-xs text-[var(--ink)] outline-none focus:border-teal-600"
+                      />
+                    </div>
+
+                    {(() => {
+                      const q = vipSearch.trim().toLowerCase();
+                      const filteredSubs = (vipSettings.subscribers || []).filter((s) => {
+                        if (!q) return true;
+                        return `${s.email} ${s.name || ''} ${s.note || ''} ${s.plan || ''}`.toLowerCase().includes(q);
+                      });
+                      if (!filteredSubs.length) {
+                        return (
+                          <div className="rounded-lg border border-dashed border-[var(--hairline)] p-6 text-center text-xs text-[var(--ink-muted)]">
+                            هنوز عضو ویژه‌ای ثبت نشده است. از فرم بالا ایمیل دانشجو را اضافه کنید.
+                          </div>
+                        );
+                      }
+                      return (
+                        <div className="divide-y divide-[var(--hairline)]">
+                          {filteredSubs.map((sub) => {
+                            const isExpired = Boolean(
+                              sub.expiresAt && !Number.isNaN(new Date(sub.expiresAt).getTime()) && new Date(sub.expiresAt).getTime() < Date.now()
+                            );
+                            const isActiveNow = sub.active !== false && !isExpired;
+                            return (
+                              <div
+                                key={sub.email}
+                                className="flex flex-wrap items-center justify-between gap-3 py-3 text-xs"
+                              >
+                                <div className="min-w-0">
+                                  <div className="flex flex-wrap items-center gap-2">
+                                    <span dir="ltr" className="font-mono font-bold text-[var(--ink)]">
+                                      {sub.email}
+                                    </span>
+                                    {sub.name && <span className="font-bold text-[var(--ink-muted)]">({sub.name})</span>}
+                                    <span
+                                      className={`rounded-md px-2 py-0.5 text-[10.5px] font-bold ${
+                                        isActiveNow
+                                          ? 'bg-emerald-500/15 text-emerald-700 dark:text-emerald-300'
+                                          : isExpired
+                                            ? 'bg-rose-500/15 text-rose-700 dark:text-rose-300'
+                                            : 'bg-slate-500/15 text-[var(--ink-muted)]'
+                                      }`}
+                                    >
+                                      {isActiveNow ? 'فعال' : isExpired ? 'منقضی‌شده' : 'غیرفعال'}
+                                    </span>
+                                  </div>
+                                  <p className="mt-1 text-[11px] text-[var(--ink-muted)] tabular-nums">
+                                    طرح: {sub.plan || 'ویژه'} ·{' '}
+                                    {sub.expiresAt
+                                      ? `انقضا: ${new Date(sub.expiresAt).toLocaleDateString('fa-IR')}`
+                                      : 'دائمی (بدون تاریخ انقضا)'}
+                                    {sub.note ? ` · ${sub.note}` : ''}
+                                  </p>
+                                </div>
+                                <div className="flex flex-wrap items-center gap-1.5">
+                                  <button
+                                    type="button"
+                                    onClick={() => handleExtendVip30Days(sub.email)}
+                                    className="rounded-lg border border-teal-700/25 bg-teal-700/10 px-2.5 py-1 text-[11px] font-bold text-teal-800 hover:bg-teal-700/20 dark:text-teal-300"
+                                  >
+                                    +۳۰ روز تمدید
+                                  </button>
+                                  <button
+                                    type="button"
+                                    onClick={() => handleToggleVipActive(sub.email)}
+                                    className="rounded-lg border border-[var(--hairline)] px-2.5 py-1 text-[11px] font-bold text-[var(--ink-muted)] hover:text-[var(--ink)]"
+                                  >
+                                    {sub.active === false ? 'فعال‌سازی' : 'تعلیق'}
+                                  </button>
+                                  <button
+                                    type="button"
+                                    onClick={() => handleDeleteVipSubscriber(sub.email)}
+                                    className="rounded-lg border border-[var(--hairline)] p-1.5 text-red-600 hover:bg-red-500/10"
+                                    title="حذف اشتراک"
+                                  >
+                                    <Trash2 className="h-3.5 w-3.5" />
+                                  </button>
+                                </div>
+                              </div>
+                            );
+                          })}
+                        </div>
+                      );
+                    })()}
+                  </div>
                 </div>
               )}
 

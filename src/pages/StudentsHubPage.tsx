@@ -27,6 +27,9 @@ import {
   Search,
   Play,
   Layers,
+  Crown,
+  Lock,
+  RotateCcw,
 } from 'lucide-react';
 import studentBannerImg from '../assets/images/student_study_library_1794776843555.jpg';
 import { useBaraat, EMPTY_PLANNER } from '../context/BaraatContext';
@@ -44,7 +47,14 @@ import type {
   QuestionReplyItem,
 } from '../types';
 import { uploadPlannerAttachment, getSignedAttachmentUrl } from '../services/supabase';
-import { toFa, formatJalaali, normalizeSourceTag, buildQuestionSourceLabel, formatAdminCsvQuestionRef } from '../utils/legal';
+import {
+  toFa,
+  formatJalaali,
+  normalizeSourceTag,
+  buildQuestionSourceLabel,
+  formatAdminCsvQuestionRef,
+  calcExamDurationMin,
+} from '../utils/legal';
 import { updateDocumentSeo } from '../utils/seo';
 
 function formatQuestionSourceNotice(label?: string): string {
@@ -252,6 +262,11 @@ export const StudentsHubPage: React.FC = () => {
     laws,
     user,
     isAdmin,
+    isVip,
+    hasVipAccess,
+    vipInfo,
+    vipSettings,
+    contact,
     openAuthModal,
     planner,
     updatePlanner,
@@ -303,6 +318,7 @@ export const StudentsHubPage: React.FC = () => {
   const [inspectedAttempt, setInspectedAttempt] = useState<ExamAttemptResult | null>(null);
   const [examNoteDrafts, setExamNoteDrafts] = useState<Record<string, string>>({});
   const [copiedQId, setCopiedQId] = useState<string | null>(null);
+  const [vipPromptExam, setVipPromptExam] = useState<{ title: string; isLesson?: boolean } | null>(null);
 
   // Exam Notebook (دفترچه نکات و مرور آزمونی) state
   const [nbGroupBy, setNbGroupBy] = useState<'subject' | 'exam'>('subject');
@@ -716,7 +732,7 @@ export const StudentsHubPage: React.FC = () => {
       {
         name: string;
         totalQ: number;
-        exams: { examId: string; examTitle: string; year?: string; qCount: number }[];
+        exams: { examId: string; examTitle: string; year?: string; qCount: number; isPremium?: boolean }[];
         chapters: Set<string>;
       }
     >();
@@ -734,6 +750,7 @@ export const StudentsHubPage: React.FC = () => {
           examTitle: ex.title,
           year: ex.year,
           qCount: sb.questions.length,
+          isPremium: Boolean(ex.isPremium),
         });
         for (const q of sb.questions) {
           if (q.chapter?.trim()) entry.chapters.add(q.chapter.trim());
@@ -1009,7 +1026,7 @@ export const StudentsHubPage: React.FC = () => {
       title: `مرور هوشمند دفترچه: ${filterTitleMap[nbFilter]}${nbSelectedGroup !== 'all' ? ` · ${nbSelectedGroup}` : ''}`,
       category: 'دفترچه نکات آزمونی',
       examType: 'مرور شخصی‌سازی‌شده',
-      durationMin: Math.max(10, Math.round(playable.length * 1.5)),
+      durationMin: calcExamDurationMin(playable.length),
       desc: 'ساخته‌شده از دفترچه نکات و برچسب‌های آزمونی شما',
       subjects,
     };
@@ -1057,12 +1074,18 @@ export const StudentsHubPage: React.FC = () => {
   };
 
   const startExam = (ex: LegalExam, mode: 'exam' | 'study' = 'study', jumpToSubjectId?: string) => {
-    setActiveExam(ex);
+    if (ex.isPremium && !hasVipAccess) {
+      setVipPromptExam({ title: ex.title });
+      return;
+    }
+    const totalQ = ex.subjects.reduce((s, sb) => s + sb.questions.length, 0);
+    const autoDurationMin = calcExamDurationMin(totalQ);
+    setActiveExam({ ...ex, durationMin: autoDurationMin });
     setActiveExamMode(mode);
     setRevealedQIds({});
     setExamAnswers({});
     setInspectedAttempt(null);
-    setExamSecondsLeft((ex.durationMin || 30) * 60);
+    setExamSecondsLeft(autoDurationMin * 60);
     if (jumpToSubjectId) {
       setTimeout(() => {
         document.getElementById(`sub-sec-${jumpToSubjectId}`)?.scrollIntoView({ behavior: 'smooth', block: 'start' });
@@ -1071,10 +1094,22 @@ export const StudentsHubPage: React.FC = () => {
   };
 
   const startLessonPractice = (lessonName: string, mode: 'exam' | 'study' = 'study', onlyExamId?: string) => {
+    if (onlyExamId) {
+      const targetEx = visibleExams.find((e) => e.id === onlyExamId);
+      if (targetEx?.isPremium && !hasVipAccess) {
+        setVipPromptExam({ title: `${targetEx.title} — ${lessonName}` });
+        return;
+      }
+    }
     const subjects: { id: string; name: string; questions: LegalExam['subjects'][number]['questions'] }[] = [];
     let totalQ = 0;
+    let skippedPremium = 0;
     for (const ex of visibleExams) {
       if (onlyExamId && ex.id !== onlyExamId) continue;
+      if (ex.isPremium && !hasVipAccess) {
+        skippedPremium += 1;
+        continue;
+      }
       for (const sb of ex.subjects) {
         if ((sb.name?.trim() || 'سایر دروس') !== lessonName || !sb.questions.length) continue;
         const taggedQs = sb.questions.map((q) => ({
@@ -1089,14 +1124,22 @@ export const StudentsHubPage: React.FC = () => {
         });
       }
     }
-    if (!subjects.length || !totalQ) return;
+    if (!subjects.length || !totalQ) {
+      if (skippedPremium > 0) {
+        setVipPromptExam({ title: `درس ${lessonName}`, isLesson: true });
+      }
+      return;
+    }
     const virtualExam: LegalExam = {
       id: `lesson_${Date.now()}`,
       title: `مطالعه درس به درس: ${lessonName}`,
       category: 'مطالعه درس به درس',
       examType: onlyExamId ? subjects[0].name : `تجمیع ${toFa(subjects.length)} آزمون`,
-      durationMin: Math.max(15, Math.round(totalQ * 1.5)),
-      desc: `تمام سوالات درس «${lessonName}» به ترتیب آزمون‌ها`,
+      durationMin: calcExamDurationMin(totalQ),
+      desc:
+        skippedPremium > 0
+          ? `تمام سوالات رایگان درس «${lessonName}» (${toFa(skippedPremium)} آزمون ویژه نیازمند اشتراک)`
+          : `تمام سوالات درس «${lessonName}» به ترتیب آزمون‌ها`,
       subjects,
     };
     startExam(virtualExam, mode);
@@ -1104,6 +1147,7 @@ export const StudentsHubPage: React.FC = () => {
 
   const startChapterPractice = (topicName: string, kind: 'chapter' | 'subject' = 'chapter', mode: 'exam' | 'study' = 'study') => {
     const matchingQuestions = [];
+    let skippedPremium = 0;
     const base =
       selectedExamCat === 'all'
         ? visibleExams
@@ -1111,6 +1155,10 @@ export const StudentsHubPage: React.FC = () => {
     for (const ex of base) {
       if (selectedExamType !== 'all' && (ex.examType || '') !== selectedExamType) continue;
       if (selectedExamYear !== 'all' && (ex.year || '') !== selectedExamYear) continue;
+      if (ex.isPremium && !hasVipAccess) {
+        skippedPremium += 1;
+        continue;
+      }
       for (const sb of ex.subjects) {
         for (const q of sb.questions) {
           const match = kind === 'chapter' ? q.chapter?.trim() === topicName : sb.name?.trim() === topicName;
@@ -1123,13 +1171,18 @@ export const StudentsHubPage: React.FC = () => {
         }
       }
     }
-    if (!matchingQuestions.length) return;
+    if (!matchingQuestions.length) {
+      if (skippedPremium > 0) {
+        setVipPromptExam({ title: `مبحث ${topicName}`, isLesson: true });
+      }
+      return;
+    }
     const virtualExam: LegalExam = {
       id: `chap_${Date.now()}`,
       title: `آزمون مبحثی: ${topicName}`,
       category: selectedExamCat !== 'all' ? selectedExamCat : undefined,
       examType: 'مبحثی',
-      durationMin: Math.max(10, matchingQuestions.length * 2),
+      durationMin: calcExamDurationMin(matchingQuestions.length),
       desc: `تمرین متمرکز سوالات سرفصل/مبحث «${topicName}»`,
       subjects: [{ id: `sub_chap_${Date.now()}`, name: topicName, questions: matchingQuestions }],
     };
@@ -1910,13 +1963,35 @@ export const StudentsHubPage: React.FC = () => {
       {activeTab === 'exams' && (
         <section className="mt-6 space-y-6">
           {activeExam ? (
+            (() => {
+              const allActiveQs = activeExam.subjects.flatMap((sb) => sb.questions);
+              const totalActiveCount = allActiveQs.length;
+              let studyCorrectCount = 0;
+              let studyWrongCount = 0;
+              for (const q of allActiveQs) {
+                const p = examAnswers[q.id];
+                if (p !== undefined) {
+                  if (p === q.answer) studyCorrectCount += 1;
+                  else studyWrongCount += 1;
+                }
+              }
+              const studyAnsweredCount = studyCorrectCount + studyWrongCount;
+              const studyLivePct =
+                studyAnsweredCount > 0
+                  ? Math.max(0, Math.round(((studyCorrectCount * 3 - studyWrongCount) / (studyAnsweredCount * 3)) * 100))
+                  : 0;
+              const allStudyRevealed = totalActiveCount > 0 && allActiveQs.every((q) => !!revealedQIds[q.id]);
+
+              return (
             <div className="rounded-2xl border border-[var(--hairline)] bg-[var(--surface)] p-5 sm:p-7">
               <div className="flex flex-wrap items-center justify-between gap-4 border-b border-[var(--hairline)] pb-4">
                 <div>
                   <h2 className="text-lg font-extrabold text-[var(--ink)]">{activeExam.title}</h2>
                   <p className="text-xs text-[var(--ink-muted)]">
                     {[
-                      activeExamMode === 'study' ? 'مشاهده سوالات و پاسخ (پیوسته بین همه دروس)' : 'آزمون زمان‌دار (همه دروس به ترتیب با اسکرول)',
+                      activeExamMode === 'study'
+                        ? 'حالت شبه‌آزمون تعاملی (انتخاب هر گزینه = نمایش فوری درست/غلط و پاسخ تشریحی)'
+                        : `آزمون زمان‌دار (${toFa(calcExamDurationMin(totalActiveCount))} دقیقه · ۲ دقیقه برای هر سوال)`,
                       activeExam.category,
                       activeExam.examType,
                       activeExam.year ? `سال ${toFa(activeExam.year)}` : '',
@@ -1928,27 +2003,38 @@ export const StudentsHubPage: React.FC = () => {
                 </div>
                 <div className="flex flex-wrap items-center gap-2.5">
                   {activeExamMode === 'study' && (
-                    <button
-                      type="button"
-                      onClick={() => {
-                        const allIds = activeExam.subjects.flatMap((sb) => sb.questions.map((q) => q.id));
-                        const allOpen = allIds.length > 0 && allIds.every((id) => !!revealedQIds[id]);
-                        if (allOpen) {
-                          setRevealedQIds({});
-                        } else {
-                          const next: Record<string, boolean> = {};
-                          allIds.forEach((id) => {
-                            next[id] = true;
-                          });
-                          setRevealedQIds(next);
-                        }
-                      }}
-                      className="rounded-xl border border-teal-700/30 bg-teal-700/10 px-3.5 py-2 text-xs font-bold text-teal-800 hover:bg-teal-700/20 dark:text-teal-300"
-                    >
-                      {activeExam.subjects.flatMap((sb) => sb.questions).every((q) => !!revealedQIds[q.id])
-                        ? 'بستن همه پاسخ‌ها'
-                        : 'نمایش همه پاسخ‌ها'}
-                    </button>
+                    <>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          if (allStudyRevealed) {
+                            setRevealedQIds({});
+                          } else {
+                            const next: Record<string, boolean> = {};
+                            allActiveQs.forEach((q) => {
+                              next[q.id] = true;
+                            });
+                            setRevealedQIds(next);
+                          }
+                        }}
+                        className="rounded-xl border border-teal-700/30 bg-teal-700/10 px-3.5 py-2 text-xs font-bold text-teal-800 hover:bg-teal-700/20 dark:text-teal-300"
+                      >
+                        {allStudyRevealed ? 'بستن همه پاسخ‌ها' : 'نمایش همه پاسخ‌ها'}
+                      </button>
+                      {studyAnsweredCount > 0 && (
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setExamAnswers({});
+                            setRevealedQIds({});
+                          }}
+                          className="inline-flex items-center gap-1 rounded-xl border border-[var(--hairline)] px-3 py-2 text-xs font-bold text-[var(--ink-muted)] hover:border-teal-600/40 hover:text-[var(--ink)]"
+                        >
+                          <RotateCcw className="h-3.5 w-3.5" />
+                          <span>پاک کردن پاسخ‌ها</span>
+                        </button>
+                      )}
+                    </>
                   )}
                   {activeExamMode === 'exam' ? (
                     <div className="inline-flex items-center gap-1.5 rounded-xl bg-amber-500/10 px-3.5 py-2 text-xs font-extrabold text-amber-700 dark:text-amber-300 tabular-nums">
@@ -1960,7 +2046,10 @@ export const StudentsHubPage: React.FC = () => {
                   ) : (
                     <button
                       type="button"
-                      onClick={() => setActiveExamMode('exam')}
+                      onClick={() => {
+                        setExamSecondsLeft(calcExamDurationMin(totalActiveCount) * 60);
+                        setActiveExamMode('exam');
+                      }}
                       className="rounded-xl border border-[var(--hairline)] px-3.5 py-2 text-xs font-bold text-[var(--ink)] hover:border-teal-600/40"
                     >
                       تغییر به آزمون زمان‌دار
@@ -1972,7 +2061,7 @@ export const StudentsHubPage: React.FC = () => {
                       onClick={() => setActiveExamMode('study')}
                       className="rounded-xl border border-[var(--hairline)] px-3.5 py-2 text-xs font-bold text-[var(--ink)] hover:border-teal-600/40"
                     >
-                      مشاهده سوالات و پاسخ
+                      شبه‌آزمون / مشاهده پاسخ
                     </button>
                   )}
                   <button
@@ -1991,6 +2080,31 @@ export const StudentsHubPage: React.FC = () => {
                   </button>
                 </div>
               </div>
+
+              {/* Live Quasi-Exam Score Bar in Study Mode */}
+              {activeExamMode === 'study' && (
+                <div className="mt-4 flex flex-wrap items-center justify-between gap-3 rounded-xl border border-teal-700/20 bg-teal-700/5 px-4 py-2.5 text-xs">
+                  <div className="flex flex-wrap items-center gap-x-4 gap-y-1.5 tabular-nums">
+                    <span className="font-extrabold text-[var(--ink)]">
+                      پاسخ‌داده‌شده: {toFa(studyAnsweredCount)} از {toFa(totalActiveCount)}
+                    </span>
+                    <span className="inline-flex items-center gap-1 font-extrabold text-emerald-700 dark:text-emerald-400">
+                      <CheckCircle2 className="h-3.5 w-3.5" />
+                      صحیح: {toFa(studyCorrectCount)}
+                    </span>
+                    <span className="inline-flex items-center gap-1 font-extrabold text-rose-700 dark:text-rose-400">
+                      <XCircle className="h-3.5 w-3.5" />
+                      غلط: {toFa(studyWrongCount)}
+                    </span>
+                    <span className="font-extrabold text-teal-800 dark:text-teal-300">
+                      درصد لحظه‌ای (با نمره منفی): {toFa(studyLivePct)}٪
+                    </span>
+                  </div>
+                  <span className="text-[11px] text-[var(--ink-muted)]">
+                    روی هر گزینه بزنید تا بلافاصله درستی یا نادرستی و پاسخ تشریحی مشخص شود
+                  </span>
+                </div>
+              )}
 
               {activeExam.subjects.length > 1 && (
                 <div className="mt-4 flex flex-wrap items-center gap-1.5 border-b border-[var(--hairline)] pb-3">
@@ -2021,14 +2135,38 @@ export const StudentsHubPage: React.FC = () => {
                       </h3>
                       {sub.questions.map((q, qIdx) => {
                         const picked = examAnswers[q.id];
-                        const isRev = activeExamMode === 'study' && !!revealedQIds[q.id];
+                        const isRev = activeExamMode === 'study' && (!!revealedQIds[q.id] || picked !== undefined);
+                        const isPickedCorrect = picked !== undefined && picked === q.answer;
+                        const isPickedWrong = picked !== undefined && picked !== q.answer;
                         const srcNotice = formatQuestionSourceNotice(q.sourceLabel);
                         const isCopied = copiedQId === q.id;
                         const adminCsvRef = isAdmin ? formatAdminCsvQuestionRef(q, prevCount + qIdx + 1) : '';
                         return (
-                          <div key={q.id} id={`q-card-${q.id}`} className="rounded-xl border border-[var(--hairline)] bg-[var(--surface-muted)]/60 p-4">
+                          <div
+                            key={q.id}
+                            id={`q-card-${q.id}`}
+                            className={`rounded-xl border p-4 transition-colors ${
+                              activeExamMode === 'study' && isPickedCorrect
+                                ? 'border-emerald-500/40 bg-emerald-500/[0.04]'
+                                : activeExamMode === 'study' && isPickedWrong
+                                  ? 'border-rose-500/40 bg-rose-500/[0.04]'
+                                  : 'border-[var(--hairline)] bg-[var(--surface-muted)]/60'
+                            }`}
+                          >
                             <div className="mb-2 flex flex-wrap items-center justify-between gap-2 text-[11px]">
                               <div className="flex flex-wrap items-center gap-2">
+                                {activeExamMode === 'study' && isPickedCorrect && (
+                                  <span className="inline-flex items-center gap-1 rounded-lg bg-emerald-500/15 px-2.5 py-0.5 font-extrabold text-emerald-800 dark:text-emerald-300">
+                                    <CheckCircle2 className="h-3.5 w-3.5" />
+                                    پاسخ صحیح
+                                  </span>
+                                )}
+                                {activeExamMode === 'study' && isPickedWrong && (
+                                  <span className="inline-flex items-center gap-1 rounded-lg bg-rose-500/15 px-2.5 py-0.5 font-extrabold text-rose-800 dark:text-rose-300">
+                                    <XCircle className="h-3.5 w-3.5" />
+                                    نادرست · گزینه صحیح: {toFa(q.answer + 1)}
+                                  </span>
+                                )}
                                 {q.chapter && (
                                   <span className="font-bold text-teal-700 dark:text-teal-400">
                                     سرفصل: {q.chapter}
@@ -2072,7 +2210,7 @@ export const StudentsHubPage: React.FC = () => {
                                     btnCls =
                                       'border-emerald-600 bg-emerald-500/15 font-bold text-emerald-800 dark:text-emerald-300';
                                   } else if (selected) {
-                                    btnCls = 'border-red-600 bg-red-500/15 font-bold text-red-800 dark:text-red-300';
+                                    btnCls = 'border-rose-600 bg-rose-500/15 font-bold text-rose-800 dark:text-rose-300';
                                   }
                                 } else if (selected) {
                                   btnCls =
@@ -2082,18 +2220,38 @@ export const StudentsHubPage: React.FC = () => {
                                   <button
                                     key={optIdx}
                                     type="button"
-                                    onClick={() =>
-                                      setExamAnswers((p) => {
-                                        const copy = { ...p };
-                                        if (copy[q.id] === optIdx) delete copy[q.id];
-                                        else copy[q.id] = optIdx;
-                                        return copy;
-                                      })
-                                    }
-                                    className={`rounded-xl border px-3.5 py-2.5 text-right text-xs font-medium transition-colors ${btnCls}`}
+                                    onClick={() => {
+                                      if (activeExamMode === 'study') {
+                                        setExamAnswers((p) => {
+                                          const copy = { ...p };
+                                          if (copy[q.id] === optIdx) {
+                                            delete copy[q.id];
+                                          } else {
+                                            copy[q.id] = optIdx;
+                                          }
+                                          return copy;
+                                        });
+                                        setRevealedQIds((p) => ({
+                                          ...p,
+                                          [q.id]: picked === optIdx ? false : true,
+                                        }));
+                                      } else {
+                                        setExamAnswers((p) => {
+                                          const copy = { ...p };
+                                          if (copy[q.id] === optIdx) delete copy[q.id];
+                                          else copy[q.id] = optIdx;
+                                          return copy;
+                                        });
+                                      }
+                                    }}
+                                    className={`flex items-start justify-between gap-2 rounded-xl border px-3.5 py-2.5 text-right text-xs font-medium transition-colors ${btnCls}`}
                                   >
-                                    <span className="ml-2 font-extrabold tabular-nums">{toFa(optIdx + 1)})</span>
-                                    {opt}
+                                    <span>
+                                      <span className="ml-2 font-extrabold tabular-nums">{toFa(optIdx + 1)})</span>
+                                      {opt}
+                                    </span>
+                                    {isRev && isRightOpt && <CheckCircle2 className="h-4 w-4 shrink-0 text-emerald-600 dark:text-emerald-400" />}
+                                    {isRev && selected && !isRightOpt && <XCircle className="h-4 w-4 shrink-0 text-rose-600 dark:text-rose-400" />}
                                   </button>
                                 );
                               })}
@@ -2101,13 +2259,26 @@ export const StudentsHubPage: React.FC = () => {
 
                             {activeExamMode === 'study' && (
                               <div className="mt-3">
-                                <button
-                                  type="button"
-                                  onClick={() => setRevealedQIds((p) => ({ ...p, [q.id]: !p[q.id] }))}
-                                  className="rounded-lg border border-teal-700/30 bg-teal-700/10 px-3 py-1.5 text-[11px] font-bold text-teal-800 hover:bg-teal-700/20 dark:text-teal-300"
-                                >
-                                  {isRev ? 'بستن پاسخ و تشریح' : 'مشاهده پاسخ صحیح و تشریح'}
-                                </button>
+                                <div className="flex flex-wrap items-center gap-2">
+                                  <button
+                                    type="button"
+                                    onClick={() => {
+                                      if (isRev) {
+                                        setRevealedQIds((p) => ({ ...p, [q.id]: false }));
+                                        setExamAnswers((p) => {
+                                          const copy = { ...p };
+                                          delete copy[q.id];
+                                          return copy;
+                                        });
+                                      } else {
+                                        setRevealedQIds((p) => ({ ...p, [q.id]: true }));
+                                      }
+                                    }}
+                                    className="rounded-lg border border-teal-700/30 bg-teal-700/10 px-3 py-1.5 text-[11px] font-bold text-teal-800 hover:bg-teal-700/20 dark:text-teal-300"
+                                  >
+                                    {isRev ? 'بستن پاسخ و بازنشانی' : 'مشاهده مستقیم پاسخ و تشریح'}
+                                  </button>
+                                </div>
                                 {isRev && (
                                   <div className="mt-2 rounded-lg border border-emerald-600/25 bg-[var(--surface)] p-3 text-xs leading-6">
                                     <p className="font-extrabold text-emerald-700 dark:text-emerald-400">
@@ -2142,7 +2313,11 @@ export const StudentsHubPage: React.FC = () => {
                 {/* Independently scrollable question navigator sidebar */}
                 <aside className="rounded-xl border border-[var(--hairline)] bg-[var(--surface-muted)]/70 p-4 lg:sticky lg:top-4 lg:max-h-[calc(100vh-2rem)] lg:overflow-y-auto overscroll-contain">
                   <h4 className="text-xs font-extrabold text-[var(--ink)]">ناوبری سریع سوالات</h4>
-                  <p className="mt-1 text-[11px] text-[var(--ink-muted)]">اسکرول جداگانه برای پرش به هر درس و سوال</p>
+                  <p className="mt-1 text-[11px] text-[var(--ink-muted)]">
+                    {activeExamMode === 'study'
+                      ? 'سبز = درست · قرمز = غلط · کلیک برای پرش'
+                      : 'اسکرول جداگانه برای پرش به هر درس و سوال'}
+                  </p>
                   <div className="mt-3 space-y-3">
                     {activeExam.subjects.map((sub) => (
                       <div key={sub.id} className="space-y-1.5 border-t border-[var(--hairline)] pt-2 first:border-t-0 first:pt-0">
@@ -2155,22 +2330,29 @@ export const StudentsHubPage: React.FC = () => {
                         </button>
                         <div className="grid grid-cols-5 gap-1.5">
                           {sub.questions.map((q, qIdx) => {
-                            const isAns = examAnswers[q.id] !== undefined;
-                            const isRev = activeExamMode === 'study' && !!revealedQIds[q.id];
+                            const pickedVal = examAnswers[q.id];
+                            const isAns = pickedVal !== undefined;
+                            const isRev = activeExamMode === 'study' && (!!revealedQIds[q.id] || isAns);
                             const qTag = examTags[q.id];
                             const hasTag = Boolean(qTag && (qTag.difficulty || (qTag.tags && qTag.tags.length > 0)));
+                            let tileCls =
+                              'border-[var(--hairline-strong)] bg-[var(--surface)] text-[var(--ink)] hover:border-teal-600/50';
+                            if (activeExamMode === 'study' && isAns) {
+                              tileCls =
+                                pickedVal === q.answer
+                                  ? 'border-emerald-600 bg-emerald-600 text-white'
+                                  : 'border-rose-600 bg-rose-600 text-white';
+                            } else if (isRev) {
+                              tileCls = 'border-emerald-600/50 bg-emerald-500/15 text-emerald-800 dark:text-emerald-300';
+                            } else if (isAns) {
+                              tileCls = 'border-teal-600 bg-teal-700 text-white dark:bg-teal-500 dark:text-slate-950';
+                            }
                             return (
                               <button
                                 key={q.id}
                                 type="button"
                                 onClick={() => document.getElementById(`q-card-${q.id}`)?.scrollIntoView({ behavior: 'smooth', block: 'center' })}
-                                className={`relative h-7 rounded-lg border text-[11px] font-bold tabular-nums transition-colors ${
-                                  isRev
-                                    ? 'border-emerald-600 bg-emerald-500/20 text-emerald-800 dark:text-emerald-300'
-                                    : isAns
-                                      ? 'border-teal-600 bg-teal-700 text-white dark:bg-teal-500 dark:text-slate-950'
-                                      : 'border-[var(--hairline-strong)] bg-[var(--surface)] text-[var(--ink)] hover:border-teal-600/50'
-                                }`}
+                                className={`relative h-7 rounded-lg border text-[11px] font-bold tabular-nums transition-colors ${tileCls}`}
                               >
                                 {toFa(qIdx + 1)}
                                 {hasTag && (
@@ -2197,6 +2379,8 @@ export const StudentsHubPage: React.FC = () => {
                 </aside>
               </div>
             </div>
+              );
+            })()
           ) : (
             <>
               {/* Detailed Attempt Review (Right/Wrong per Question + Personal Notes) */}
@@ -2388,11 +2572,24 @@ export const StudentsHubPage: React.FC = () => {
                     <span>مطالعه درس به درس سوالات ({toFa(lessonBankSummary.length)} درس)</span>
                   </button>
                 </div>
-                <p className="text-[11px] text-[var(--ink-muted)]">
-                  {examHubSection === 'lessons'
-                    ? 'تمام سوالات همه آزمون‌ها به تفکیک هر درس یکجا گردآوری شده‌اند'
-                    : 'با ورود به هر آزمون، درس‌ها به ترتیب پشت سر هم با اسکرول نمایش داده می‌شوند'}
-                </p>
+                <div className="flex flex-wrap items-center gap-2">
+                  {isVip && (
+                    <span className="inline-flex items-center gap-1.5 rounded-lg border border-amber-500/40 bg-amber-500/15 px-3 py-1 text-[11px] font-extrabold text-amber-800 dark:text-amber-300">
+                      <Crown className="h-3.5 w-3.5" />
+                      <span>
+                        اشتراک ویژه فعال
+                        {vipInfo?.expiresAt
+                          ? ` تا ${new Date(vipInfo.expiresAt).toLocaleDateString('fa-IR')}`
+                          : ' (دائمی)'}
+                      </span>
+                    </span>
+                  )}
+                  <p className="text-[11px] text-[var(--ink-muted)]">
+                    {examHubSection === 'lessons'
+                      ? 'تمام سوالات همه آزمون‌ها به تفکیک هر درس یکجا گردآوری شده‌اند'
+                      : 'زمان هر آزمون به‌طور خودکار ۲ دقیقه برای هر سوال است'}
+                  </p>
+                </div>
               </div>
 
               {examHubSection === 'lessons' ? (
@@ -2442,16 +2639,24 @@ export const StudentsHubPage: React.FC = () => {
                                 آزمون‌های شامل این درس (کلیک برای مطالعه تک‌آزمون):
                               </p>
                               <div className="flex flex-wrap gap-1.5">
-                                {ls.exams.map((exRef) => (
-                                  <button
-                                    key={`${ls.name}_${exRef.examId}`}
-                                    type="button"
-                                    onClick={() => startLessonPractice(ls.name, 'study', exRef.examId)}
-                                    className="rounded-lg border border-[var(--hairline)] bg-[var(--surface-muted)] px-2.5 py-1 text-[11px] font-bold text-[var(--ink)] hover:border-teal-600/50"
-                                  >
-                                    {exRef.examTitle} ({toFa(exRef.qCount)})
-                                  </button>
-                                ))}
+                                {ls.exams.map((exRef) => {
+                                  const locked = Boolean(exRef.isPremium && !hasVipAccess);
+                                  return (
+                                    <button
+                                      key={`${ls.name}_${exRef.examId}`}
+                                      type="button"
+                                      onClick={() => startLessonPractice(ls.name, 'study', exRef.examId)}
+                                      className={`inline-flex items-center gap-1 rounded-lg border px-2.5 py-1 text-[11px] font-bold transition-colors ${
+                                        locked
+                                          ? 'border-amber-500/40 bg-amber-500/10 text-amber-800 dark:text-amber-300'
+                                          : 'border-[var(--hairline)] bg-[var(--surface-muted)] text-[var(--ink)] hover:border-teal-600/50'
+                                      }`}
+                                    >
+                                      {locked && <Lock className="h-3 w-3 shrink-0" />}
+                                      <span>{exRef.examTitle} ({toFa(exRef.qCount)})</span>
+                                    </button>
+                                  );
+                                })}
                               </div>
                             </div>
                           </div>
@@ -2648,6 +2853,8 @@ export const StudentsHubPage: React.FC = () => {
                     ) : (
                       categoryScopedExams.map((ex) => {
                         const qCount = ex.subjects.reduce((s, sub) => s + sub.questions.length, 0);
+                        const autoMin = calcExamDurationMin(qCount);
+                        const isLocked = Boolean(ex.isPremium && !hasVipAccess);
                         const headings = Array.from(
                           new Set([
                             ...ex.subjects.map((sb) => sb.name).filter(Boolean),
@@ -2657,11 +2864,27 @@ export const StudentsHubPage: React.FC = () => {
                         return (
                           <div
                             key={ex.id}
-                            className="flex flex-col justify-between rounded-2xl border border-[var(--hairline)] bg-[var(--surface)] p-5"
+                            className={`flex flex-col justify-between rounded-2xl border p-5 transition-colors ${
+                              ex.isPremium
+                                ? 'border-amber-500/35 bg-[var(--surface)]'
+                                : 'border-[var(--hairline)] bg-[var(--surface)]'
+                            }`}
                           >
                             <div>
                               <div className="flex flex-wrap items-center justify-between gap-2">
-                                <h3 className="text-base font-extrabold text-[var(--ink)]">{ex.title}</h3>
+                                <div className="flex flex-wrap items-center gap-2">
+                                  <h3 className="text-base font-extrabold text-[var(--ink)]">{ex.title}</h3>
+                                  {ex.isPremium ? (
+                                    <span className="inline-flex items-center gap-1 rounded-md border border-amber-500/40 bg-amber-500/15 px-2 py-0.5 text-[10.5px] font-extrabold text-amber-800 dark:text-amber-300">
+                                      {isLocked ? <Lock className="h-3 w-3" /> : <Crown className="h-3 w-3" />}
+                                      <span>ویژه اشتراک</span>
+                                    </span>
+                                  ) : (
+                                    <span className="rounded-md border border-emerald-500/30 bg-emerald-500/10 px-2 py-0.5 text-[10.5px] font-bold text-emerald-700 dark:text-emerald-300">
+                                      رایگان
+                                    </span>
+                                  )}
+                                </div>
                                 {isAdmin && ex.isPublished === false && (
                                   <span className="text-[11px] font-bold text-amber-600 dark:text-amber-400">
                                     (مخفی برای کاربران)
@@ -2674,7 +2897,7 @@ export const StudentsHubPage: React.FC = () => {
                                 {ex.examType && <span>· {ex.examType}</span>}
                                 {ex.year && <span>· سال {toFa(ex.year)}</span>}
                                 <span>· {toFa(qCount)} پرسش</span>
-                                <span>· {toFa(ex.durationMin || 30)} دقیقه</span>
+                                <span>· {toFa(autoMin)} دقیقه (۲ دقیقه/سوال)</span>
                               </div>
                               {headings.length > 0 && (
                                 <div className="mt-3 border-t border-[var(--hairline)] pt-2.5">
@@ -2700,16 +2923,21 @@ export const StudentsHubPage: React.FC = () => {
                               <button
                                 type="button"
                                 onClick={() => startExam(ex, 'study')}
-                                className="flex-1 rounded-xl bg-teal-700 py-2.5 px-3 text-xs font-bold text-white hover:bg-teal-800 dark:bg-teal-500 dark:text-slate-950"
+                                className={`flex-1 inline-flex items-center justify-center gap-1.5 rounded-xl py-2.5 px-3 text-xs font-bold transition-colors ${
+                                  isLocked
+                                    ? 'bg-amber-600 text-white hover:bg-amber-700'
+                                    : 'bg-teal-700 text-white hover:bg-teal-800 dark:bg-teal-500 dark:text-slate-950'
+                                }`}
                               >
-                                مشاهده سوالات و پاسخ
+                                {isLocked && <Lock className="h-3.5 w-3.5" />}
+                                <span>{isLocked ? 'مخصوص اعضای ویژه' : 'شبه‌آزمون / مشاهده و پاسخ'}</span>
                               </button>
                               <button
                                 type="button"
                                 onClick={() => startExam(ex, 'exam')}
                                 className="rounded-xl border border-[var(--hairline-strong)] bg-[var(--surface-muted)] py-2.5 px-3.5 text-xs font-bold text-[var(--ink)] hover:border-teal-600/50"
                               >
-                                آزمون زمان‌دار
+                                آزمون زمان‌دار ({toFa(autoMin)} د)
                               </button>
                             </div>
                           </div>
@@ -3302,6 +3530,89 @@ export const StudentsHubPage: React.FC = () => {
                   className="max-h-[75vh] rounded-xl object-contain"
                 />
               )}
+            </div>
+          </div>
+        </div>
+      )}
+      {/* VIP Subscription Required Modal */}
+      {vipPromptExam && (
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/75 p-4 backdrop-blur-xs"
+          onClick={() => setVipPromptExam(null)}
+        >
+          <div
+            className="w-full max-w-md rounded-2xl border border-amber-500/35 bg-[var(--surface)] p-6 shadow-2xl space-y-4"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="flex items-start justify-between gap-3">
+              <div className="flex items-center gap-2.5">
+                <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-amber-500/15 text-amber-700 dark:text-amber-300">
+                  <Crown className="h-5 w-5" />
+                </div>
+                <div>
+                  <h3 className="text-sm font-extrabold text-[var(--ink)]">آزمون ویژه اعضای اشتراکی</h3>
+                  <p className="mt-0.5 text-xs text-[var(--ink-muted)]">{vipPromptExam.title}</p>
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={() => setVipPromptExam(null)}
+                className="rounded-lg p-1.5 text-[var(--ink-muted)] hover:bg-[var(--surface-muted)]"
+              >
+                <X className="h-4 w-4" />
+              </button>
+            </div>
+
+            <p className="rounded-xl border border-[var(--hairline)] bg-[var(--surface-muted)]/60 p-3.5 text-xs leading-6 text-[var(--ink-prose)]">
+              {vipSettings.upgradeMessage ||
+                'این آزمون ویژه اعضای دارای اشتراک فعال برائت است. برای فعال‌سازی اشتراک ویژه و دسترسی به تمام آزمون‌های تخصصی با پشتیبانی تماس بگیرید.'}
+            </p>
+
+            {(vipSettings.supportContact || contact.telegram || contact.phone || contact.mobile) && (
+              <div className="rounded-xl border border-teal-700/20 bg-teal-700/5 p-3 text-xs space-y-1 text-[var(--ink)]">
+                <p className="font-extrabold text-teal-800 dark:text-teal-300">راه‌های فعال‌سازی اشتراک:</p>
+                {vipSettings.supportContact && <p>{vipSettings.supportContact}</p>}
+                {contact.telegram && (
+                  <p dir="ltr" className="text-right font-mono text-[11px]">
+                    Telegram: {contact.telegram}
+                  </p>
+                )}
+                {(contact.mobile || contact.phone) && (
+                  <p className="tabular-nums">تلفن پشتیبانی: {toFa(contact.mobile || contact.phone)}</p>
+                )}
+              </div>
+            )}
+
+            <div className="flex flex-wrap items-center justify-end gap-2 pt-1">
+              {!user && (
+                <button
+                  type="button"
+                  onClick={() => {
+                    setVipPromptExam(null);
+                    openAuthModal();
+                  }}
+                  className="rounded-xl bg-teal-700 px-4 py-2 text-xs font-bold text-white hover:bg-teal-800 dark:bg-teal-500 dark:text-slate-950"
+                >
+                  ورود به حساب کاربری
+                </button>
+              )}
+              <button
+                type="button"
+                onClick={() => {
+                  setVipPromptExam(null);
+                  navigate('/contact');
+                }}
+                className="rounded-xl border border-amber-500/40 bg-amber-500/15 px-4 py-2 text-xs font-bold text-amber-800 hover:bg-amber-500/25 dark:text-amber-300"
+              >
+                تماس برای تهیه اشتراک
+              </button>
+              <button
+                type="button"
+                onClick={() => setVipPromptExam(null)}
+                className="rounded-xl border border-[var(--hairline)] px-4 py-2 text-xs font-bold text-[var(--ink-muted)] hover:text-[var(--ink)]"
+              >
+                بستن
+              </button>
             </div>
           </div>
         </div>
