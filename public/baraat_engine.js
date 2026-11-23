@@ -6001,15 +6001,30 @@
   let examHubQuery = '';
   let examHubSubViewMode = 'list';
 
+  function syncStudentsSubTabsActive() {
+    const isNotebookActive = window._studentsSub === 'exams' && examHubSection === 'notebook';
+    document.querySelectorAll('[data-studentssub]').forEach(b => {
+      const ds = b.dataset.studentssub;
+      const on = ds === 'exams'
+        ? (window._studentsSub === 'exams' && !isNotebookActive)
+        : (ds === window._studentsSub);
+      b.classList.toggle('active', on);
+    });
+    const nbBtn = document.getElementById('studentsSubNotebookBtn');
+    if (nbBtn) nbBtn.classList.toggle('active', isNotebookActive);
+  }
+
   window.setExamHubSection = function(sec) {
     examHubSection = sec === 'notebook' ? 'notebook' : 'exams';
     if (sec === 'exams') selectedMainTitle = '';
+    syncStudentsSubTabsActive();
     window.renderExamsHub();
   };
 
   window.selectMainTitleEnc = function(encName) {
     examHubSection = 'exams';
     selectedMainTitle = decodeURIComponent(encName || '');
+    syncStudentsSubTabsActive();
     window.renderExamsHub();
   };
   window.selectSubjectGroupEnc = window.selectMainTitleEnc;
@@ -6064,8 +6079,11 @@
 
   window.openStudentExamNotebook = function() {
     examHubSection = 'notebook';
-    if (window.setStudentsSub) window.setStudentsSub('exams');
-    else window.renderExamsHub();
+    if (window.setStudentsSub) window.setStudentsSub('exams', true);
+    else {
+      syncStudentsSubTabsActive();
+      window.renderExamsHub();
+    }
   };
 
   window.setExamHubFilters = function(kind, val) {
@@ -7002,6 +7020,8 @@
               if (item.hasFullQuestion) registerCopyableQuestion(item, item.subjectName, item.qNumber || idx + 1);
               const isExp = !!examNbExpanded[item.id];
               const themeIdx = hashSubjectColorIdx(item.subjectName);
+              const rightIdx = Number(item.answer || 0);
+              const rightOptText = (item.options || [])[rightIdx] || '';
               return `
                 <article class="exam-q-card baraat-subj-theme-${themeIdx}">
                   <div class="row between" style="gap:8px; flex-wrap:wrap; margin-bottom:8px;">
@@ -7014,45 +7034,42 @@
                     </div>
                     ${item.hasFullQuestion ? `<button type="button" class="btn small" onclick="copyExamQuestionById('${item.id}', this)">📋 کپی سوال و نکته</button>` : ''}
                   </div>
-                  <div class="muted small" style="font-weight:700; margin-bottom:4px;">متن سوال مرتبط:</div>
                   <div class="exam-q-stem" style="margin-top:0;">${esc(item.q)}</div>
-                  ${renderQuestionNoteBoxHtml(item.id, 'nb')}
-                  ${renderQuestionTagBarHtml(item.id, item.examTitle, item.subjectName, item.q, 'nb')}
-                  ${item.hasFullQuestion ? (() => {
-                    const rightIdx = Number(item.answer || 0);
-                    const rightOptText = (item.options || [])[rightIdx] || '';
-                    return `
-                    <div class="exam-exp-box" style="margin-top:10px; padding:10px 12px;">
-                      <div><b>✅ پاسخ صحیح: گزینه ${EXAM_LETTERS[rightIdx] || toFa(rightIdx + 1)}</b>${rightOptText ? ` — ${esc(rightOptText)}` : ''}</div>
+                  ${item.hasFullQuestion ? `
+                    <div class="exam-options-list" style="margin-top:10px;">
+                      ${(item.options || []).map((opt, oi) => {
+                        if (!opt) return '';
+                        const isRight = isExp && oi === rightIdx;
+                        const isWrongPick = isExp && item.isWrong && item.lastWrongPicked === oi && oi !== rightIdx;
+                        return `
+                          <div class="exam-opt-btn ${isRight ? 'correct' : ''} ${isWrongPick ? 'wrong' : ''}" style="cursor:default;">
+                            <span class="exam-opt-letter">${EXAM_LETTERS[oi] || toFa(oi + 1)}</span>
+                            <span>${esc(opt)}${isRight ? ' <small style="font-weight:800;">✓ صحیح</small>' : ''}${isWrongPick ? ' <small style="font-weight:800;">✕ انتخاب قبلی</small>' : ''}</span>
+                          </div>
+                        `;
+                      }).join('')}
                     </div>
-                    <div style="margin-top:8px;">
-                      <button type="button" class="btn small" onclick="toggleExamNbExpand('${item.id}')">
-                        ${isExp ? '▲ بستن همه گزینه‌ها و پاسخ تشریحی' : '▼ مشاهده همه گزینه‌ها و پاسخ تشریحی'}
-                      </button>
-                      ${isExp ? `
-                        <div class="exam-options-list" style="margin-top:10px;">
-                          ${(item.options || []).map((opt, oi) => {
-                            if (!opt) return '';
-                            const isRight = oi === rightIdx;
-                            const isWrongPick = item.isWrong && item.lastWrongPicked === oi && !isRight;
-                            return `
-                              <div class="exam-opt-btn ${isRight ? 'correct' : ''} ${isWrongPick ? 'wrong' : ''}" style="cursor:default;">
-                                <span class="exam-opt-letter">${EXAM_LETTERS[oi] || toFa(oi + 1)}</span>
-                                <span>${esc(opt)}${isRight ? ' <small style="font-weight:800;">✓ صحیح</small>' : ''}${isWrongPick ? ' <small style="font-weight:800;">✕ انتخاب قبلی</small>' : ''}</span>
-                              </div>
-                            `;
-                          }).join('')}
-                        </div>
-                        ${item.exp ? `<div class="exam-exp-box" style="margin-top:8px;"><b>💡 پاسخ تشریحی:</b> ${esc(item.exp)}</div>` : ''}
-                      ` : ''}
-                    </div>
-                  `;
-                  })() : `
-                    ${item.exp ? `<div class="exam-exp-box" style="margin-top:10px;"><b>💡 پاسخ تشریحی:</b> ${esc(item.exp)}</div>` : ''}
-                    <div class="muted small" style="margin-top:8px; padding:8px 10px; border-radius:10px; background:var(--soft); border:1px dashed var(--line);">
-                      ℹ️ گزینه‌ها و پاسخ این سوال در آزمون‌های فعلی پیدا نشد (احتمالاً آزمون منبع قبلاً حذف یا مخفی شده است؛ با انتشار یا آپلود مجدد فایل آزمون به‌صورت خودکار بازیابی می‌شود).
-                    </div>
-                  `}
+                  ` : ''}
+                  <div style="margin-top:12px;">
+                    <button type="button" class="btn small ${isExp ? '' : 'primary'}" onclick="toggleExamNbExpand('${item.id}')">
+                      ${isExp ? '▲ بستن پاسخ و یادداشت' : '👁 مشاهده پاسخ و یادداشت'}
+                    </button>
+                  </div>
+                  ${isExp ? `
+                    ${item.hasFullQuestion ? `
+                      <div class="exam-exp-box" style="margin-top:10px; padding:10px 12px;">
+                        <div><b>✅ پاسخ صحیح: گزینه ${EXAM_LETTERS[rightIdx] || toFa(rightIdx + 1)}</b>${rightOptText ? ` — ${esc(rightOptText)}` : ''}</div>
+                        ${item.exp ? `<div style="margin-top:8px;"><b>💡 پاسخ تشریحی:</b> ${esc(item.exp)}</div>` : ''}
+                      </div>
+                    ` : `
+                      ${item.exp ? `<div class="exam-exp-box" style="margin-top:10px;"><b>💡 پاسخ تشریحی:</b> ${esc(item.exp)}</div>` : ''}
+                      <div class="muted small" style="margin-top:10px; padding:8px 10px; border-radius:10px; background:var(--soft); border:1px dashed var(--line);">
+                        ℹ️ گزینه‌ها و پاسخ این سوال در آزمون‌های فعلی پیدا نشد (احتمالاً آزمون منبع قبلاً حذف یا مخفی شده است؛ با انتشار یا آپلود مجدد فایل آزمون به‌صورت خودکار بازیابی می‌شود).
+                      </div>
+                    `}
+                    ${renderQuestionNoteBoxHtml(item.id, 'nb')}
+                    ${renderQuestionTagBarHtml(item.id, item.examTitle, item.subjectName, item.q, 'nb')}
+                  ` : ''}
                 </article>
               `;
             }).join('')}
@@ -9709,17 +9726,20 @@ WITH CHECK (key &lt;&gt; 'baraat_exams_private_v1' OR EXISTS (SELECT 1 FROM publ
   window._studentsSub = 'planner';
   window._lawyersSub = 'cases';
 
-  window.setStudentsSub = function(sub) {
+  window.setStudentsSub = function(sub, keepExamSection) {
     window._studentsSub = sub === 'exams' ? 'exams' : 'planner';
+    if (window._studentsSub === 'exams' && !keepExamSection) {
+      examHubSection = 'exams';
+    }
     document.getElementById('tab-planner')?.classList.toggle('hidden', window._studentsSub !== 'planner');
     document.getElementById('tab-exams')?.classList.toggle('hidden', window._studentsSub !== 'exams');
-    document.querySelectorAll('[data-studentssub]').forEach(b => b.classList.toggle('active', b.dataset.studentssub === window._studentsSub));
+    syncStudentsSubTabsActive();
     if (window._studentsSub === 'planner') {
       if (typeof enterPlanner === 'function') enterPlanner();
     } else {
       window.renderExamsHub();
     }
-    try { history.replaceState(null, '', '#' + window._studentsSub); } catch (e) {}
+    try { history.replaceState(null, '', '#' + (window._studentsSub === 'exams' && examHubSection === 'notebook' ? 'notebook' : window._studentsSub)); } catch (e) {}
   };
 
   window.setLawyersSub = function(sub) {
@@ -9753,9 +9773,14 @@ WITH CHECK (key &lt;&gt; 'baraat_exams_private_v1' OR EXISTS (SELECT 1 FROM publ
     } else if (t === 'articles') {
       topHub = 'articles';
       exactSub = 'articles';
-    } else if (t === 'students' || t === 'planner' || t === 'exams') {
+    } else if (t === 'students' || t === 'planner' || t === 'exams' || t === 'notebook') {
       topHub = 'students';
-      if (t !== 'students') window._studentsSub = t;
+      if (t === 'notebook') {
+        window._studentsSub = 'exams';
+        examHubSection = 'notebook';
+      } else if (t !== 'students') {
+        window._studentsSub = t;
+      }
       exactSub = window._studentsSub;
     } else if (t === 'lawyers' || t === 'cases' || t === 'deadlines' || t === 'calculator') {
       topHub = 'lawyers';
@@ -9792,7 +9817,7 @@ WITH CHECK (key &lt;&gt; 'baraat_exams_private_v1' OR EXISTS (SELECT 1 FROM publ
       window.syncAllFromSupabase();
       try { history.replaceState(null, '', '#articles'); } catch (e) {}
     } else if (topHub === 'students') {
-      window.setStudentsSub(window._studentsSub);
+      window.setStudentsSub(window._studentsSub, t === 'notebook' || t === 'students');
       window.syncAllFromSupabase();
     } else if (topHub === 'lawyers') {
       window.setLawyersSub(window._lawyersSub);
