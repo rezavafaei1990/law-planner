@@ -75,7 +75,14 @@
     if (!window.sb || !navigator.onLine) return;
     const adminBypassThrottle = !!(window.isAdmin && !_syncedAsAdmin);
     if (!force && !adminBypassThrottle && _hasSyncedOnce && (Date.now() - _lastSyncAt < 45000)) return;
-    if (_syncPromise) return _syncPromise;
+    if (_syncPromise) {
+      if (force || adminBypassThrottle) {
+        try { await _syncPromise; } catch (e) {}
+        if (!force && !(window.isAdmin && !_syncedAsAdmin)) return;
+      } else {
+        return _syncPromise;
+      }
+    }
     _syncPromise = (async () => {
       try {
         const keysToFetch = [
@@ -92,7 +99,7 @@
         ];
         if (window.isAdmin) {
           keysToFetch.push(EXAMS_PRIVATE_KEY, CASES_KEY, ASSIGNED_PLANS_KEY, EXAM_ATTEMPTS_KEY);
-        } else {
+        } else if (window._authResolved) {
           try { localStorage.removeItem(EXAMS_PRIVATE_KEY); } catch (e) {}
         }
         const res = await window.sb.from('meta').select('key, value').in('key', keysToFetch);
@@ -159,15 +166,26 @@
         if (Array.isArray(map[EXAMS_KEY]) || (window.isAdmin && Array.isArray(map[EXAMS_PRIVATE_KEY]))) {
           const pubListRaw = Array.isArray(map[EXAMS_KEY]) ? map[EXAMS_KEY] : [];
           if (window.isAdmin) {
-            const privListRaw = Array.isArray(map[EXAMS_PRIVATE_KEY]) ? map[EXAMS_PRIVATE_KEY] : [];
+            const hasServerPriv = Array.isArray(map[EXAMS_PRIVATE_KEY]);
+            let privListRaw = hasServerPriv ? map[EXAMS_PRIVATE_KEY] : [];
+            if (!hasServerPriv) {
+              try {
+                const cachedPriv = JSON.parse(localStorage.getItem(EXAMS_PRIVATE_KEY) || '[]');
+                if (Array.isArray(cachedPriv)) privListRaw = cachedPriv;
+              } catch (e) {}
+            }
             const legacyHiddenInPub = pubListRaw.filter(x => x && x.isPublished === false);
             const cleanPub = pubListRaw.filter(x => !x || x.isPublished !== false);
             const mergedPrivMap = new Map();
             privListRaw.forEach(x => { if (x && x.id) mergedPrivMap.set(x.id, Object.assign({}, x, { isPublished: false })); });
             legacyHiddenInPub.forEach(x => { if (x && x.id && !mergedPrivMap.has(x.id)) mergedPrivMap.set(x.id, Object.assign({}, x, { isPublished: false })); });
             const cleanPriv = [...mergedPrivMap.values()];
-            localStorage.setItem(EXAMS_KEY, JSON.stringify(cleanPub));
-            localStorage.setItem(EXAMS_PRIVATE_KEY, JSON.stringify(cleanPriv));
+            if (Array.isArray(map[EXAMS_KEY])) {
+              localStorage.setItem(EXAMS_KEY, JSON.stringify(cleanPub));
+            }
+            if (hasServerPriv || legacyHiddenInPub.length > 0) {
+              localStorage.setItem(EXAMS_PRIVATE_KEY, JSON.stringify(cleanPriv));
+            }
             // پاکسازی خودکار آزمون‌های مخفی قدیمی از کلید عمومی
             if (legacyHiddenInPub.length > 0) {
               await syncToSupabase(EXAMS_PRIVATE_KEY, cleanPriv.map(normalizeExamRecord));
@@ -175,7 +193,9 @@
             }
           } else {
             localStorage.setItem(EXAMS_KEY, JSON.stringify(pubListRaw.filter(x => !x || x.isPublished !== false)));
-            try { localStorage.removeItem(EXAMS_PRIVATE_KEY); } catch (e) {}
+            if (window._authResolved) {
+              try { localStorage.removeItem(EXAMS_PRIVATE_KEY); } catch (e) {}
+            }
           }
           if (window.renderExamsHub) window.renderExamsHub();
         }
@@ -4505,6 +4525,7 @@
   const EXAM_TAGS_LOCAL_PREFIX = 'baraat_exam_tags_v1_';
   const EXAM_TAGS_DEL_LOCAL_PREFIX = 'baraat_exam_tags_del_v1_';
   const EXAM_PREP_LOCAL_PREFIX = 'baraat_exam_prep_v1_';
+  const EXAM_QSNAP_LOCAL_PREFIX = 'baraat_exam_qsnap_v1_';
   const EXAM_ATTEMPTS_KEY = 'baraat_exam_attempts_v1';
   const EXAM_DELETED_ATTEMPTS_KEY = 'baraat_deleted_exam_attempts_v1';
   const EXAM_SUBJECTS_KEY = 'baraat_exam_subjects_v1';
@@ -4755,7 +4776,10 @@
     if (ex.examScope === 'subject' && String(ex.subjectGroup || '').trim()) {
       return String(ex.subjectGroup).trim();
     }
-    return String(ex.title || ex.category || ex.org || 'آزمون حقوقی').trim();
+    const cat = String(ex.category || ex.org || '').trim();
+    const subjList = typeof getExamSubjectsList === 'function' ? getExamSubjectsList() : DEFAULT_EXAM_SUBJECTS;
+    if (cat && subjList.includes(cat)) return cat;
+    return String(ex.title || cat || 'آزمون حقوقی').trim();
   }
 
   function getAllMainTitleSuggestions() {
@@ -4779,7 +4803,9 @@
     const qTotal = subjects.reduce((sum, s) => sum + ((s.questions || []).length), 0);
     const scope = ex.examScope === 'subject' ? 'subject' : 'general';
     const subjGrp = scope === 'subject' ? String(ex.subjectGroup || cat || '').trim() : '';
-    const mainTitle = String(ex.mainTitle || (scope === 'subject' && subjGrp ? subjGrp : '') || ex.title || cat || 'آزمون حقوقی').trim();
+    const subjList = typeof getExamSubjectsList === 'function' ? getExamSubjectsList() : DEFAULT_EXAM_SUBJECTS;
+    const inferredMain = (scope === 'subject' && subjGrp) ? subjGrp : (cat && subjList.includes(cat) ? cat : (ex.title || cat || 'آزمون حقوقی'));
+    const mainTitle = String(ex.mainTitle || inferredMain || 'آزمون حقوقی').trim();
     const topicTitle = String(ex.topicTitle || '').trim();
     return Object.assign({}, ex, {
       mainTitle,
@@ -4975,13 +5001,14 @@
     const pubList = normalized.filter(ex => ex.isPublished !== false);
     const privList = normalized.filter(ex => ex.isPublished === false);
     localStorage.setItem(EXAMS_KEY, JSON.stringify(pubList));
-    if (window.isAdmin) {
+    const canSyncPriv = window.isAdmin && (_syncedAsAdmin || privList.length > 0);
+    if (canSyncPriv) {
       localStorage.setItem(EXAMS_PRIVATE_KEY, JSON.stringify(privList));
     }
     if (window.renderExamsHub) window.renderExamsHub();
     if (typeof renderAdminPanels === 'function') renderAdminPanels();
     const resPub = await syncToSupabase(EXAMS_KEY, pubList);
-    const resPriv = await syncToSupabase(EXAMS_PRIVATE_KEY, privList);
+    const resPriv = canSyncPriv ? await syncToSupabase(EXAMS_PRIVATE_KEY, privList) : { ok: true };
     if (resPub.ok && resPriv.ok) {
       if (typeof toast === 'function') toast(successMsg || 'آزمون در سرور ذخیره شد (آزمون‌های مخفی در کلید اختصاصی مدیر).');
     } else {
@@ -4998,6 +5025,101 @@
   }
   function getNotesMetaLocalStorageKey() {
     return EXAM_NOTES_META_LOCAL_PREFIX + getUserUidSuffix();
+  }
+
+  function getQSnapLocalStorageKey() {
+    return EXAM_QSNAP_LOCAL_PREFIX + getUserUidSuffix();
+  }
+
+  function getExamQuestionSnapshotsMap() {
+    const merged = {};
+    const keysToCheck = [getQSnapLocalStorageKey()];
+    if (window.me && window.me.email) keysToCheck.push(EXAM_QSNAP_LOCAL_PREFIX + String(window.me.email).toLowerCase());
+    keysToCheck.push(EXAM_QSNAP_LOCAL_PREFIX + 'guest');
+    [...new Set(keysToCheck)].reverse().forEach(k => {
+      try {
+        const raw = localStorage.getItem(k);
+        const obj = raw ? JSON.parse(raw) : {};
+        if (obj && typeof obj === 'object') Object.assign(merged, obj);
+      } catch (e) {}
+    });
+    try {
+      const api = window.BARAAT_PLANNER_API;
+      if (api && window.me && api.isReady()) {
+        const st = api.getState();
+        if (st && st.examQuestionSnapshots && typeof st.examQuestionSnapshots === 'object') {
+          Object.assign(merged, st.examQuestionSnapshots);
+        }
+      }
+    } catch (e) {}
+    return merged;
+  }
+
+  function buildCompactQuestionSnapshot(qId, fallbackMeta) {
+    if (!qId) return null;
+    const meta = fallbackMeta || examQuestionTagMetaRegistry[qId] || {};
+    const makeSnap = (qObj, exTitle, subjName) => {
+      const opts = Array.isArray(qObj && qObj.options) ? qObj.options.map(x => String(x || '')) : [];
+      if (!opts.filter(Boolean).length) return null;
+      return {
+        id: qId,
+        q: String(qObj.q || '').trim(),
+        options: opts,
+        answer: Number(qObj.answer || 0),
+        exp: String(qObj.exp || '').trim(),
+        chapter: String(qObj.chapter || '').trim(),
+        sourceLabel: String(qObj.sourceLabel || '').trim(),
+        examTitle: String(exTitle || meta.examTitle || '').trim(),
+        subjectName: String(subjName || meta.subjectName || '').trim(),
+        updatedAt: new Date().toISOString()
+      };
+    };
+
+    const copyRec = examQuestionCopyRegistry[qId];
+    if (copyRec && copyRec.qObj) {
+      const s = makeSnap(copyRec.qObj, (examSession && examSession.exam && examSession.exam.title) || copyRec.qObj.examTitle || meta.examTitle, copyRec.subjName || copyRec.qObj.subjectName);
+      if (s) return s;
+    }
+
+    if (examSession && Array.isArray(examSession.subjects)) {
+      for (const sb of examSession.subjects) {
+        const found = (sb.questions || []).find(q => q && q.id === qId);
+        if (found) {
+          const s = makeSnap(found, (examSession.exam && examSession.exam.title) || '', sb.name || '');
+          if (s) return s;
+        }
+      }
+    }
+
+    const allEx = window.getExams();
+    for (const ex of allEx) {
+      for (const sb of (ex.subjects || [])) {
+        const found = (sb.questions || []).find(q => q && q.id === qId);
+        if (found) {
+          const s = makeSnap(found, ex.title || getExamMainTitle(ex), sb.name || '');
+          if (s) return s;
+        }
+      }
+    }
+
+    const resList = typeof getExamResults === 'function' ? getExamResults() : [];
+    for (const att of resList) {
+      const found = (att && Array.isArray(att.questionsSnapshot) ? att.questionsSnapshot : []).find(sn => sn && sn.id === qId);
+      if (found) {
+        const s = makeSnap(found, att.examTitle || '', found.subjName || found.subjectName || '');
+        if (s) return s;
+      }
+    }
+    return null;
+  }
+
+  function saveQuestionSnapshotLocalOnly(qId, snap) {
+    if (!qId || !snap || !Array.isArray(snap.options) || !snap.options.filter(Boolean).length) return;
+    const key = getQSnapLocalStorageKey();
+    let obj = {};
+    try { obj = JSON.parse(localStorage.getItem(key) || '{}') || {}; } catch (e) { obj = {}; }
+    obj[qId] = snap;
+    try { localStorage.setItem(key, JSON.stringify(obj)); } catch (e) {}
   }
 
   function getExamNotesMap() {
@@ -5053,10 +5175,12 @@
       metaObj.deletedAt = parsedM.deletedAt || {};
     } catch (e) {}
 
+    const snap = text ? buildCompactQuestionSnapshot(qId) : null;
     if (text) {
       localObj[qId] = text;
       metaObj.updatedAt[qId] = nowIso;
       delete metaObj.deletedAt[qId];
+      if (snap) saveQuestionSnapshotLocalOnly(qId, snap);
     } else {
       delete localObj[qId];
       metaObj.deletedAt[qId] = nowIso;
@@ -5075,10 +5199,12 @@
           st.examNotes = (st.examNotes && typeof st.examNotes === 'object') ? st.examNotes : {};
           st.examNotesUpdatedAt = (st.examNotesUpdatedAt && typeof st.examNotesUpdatedAt === 'object') ? st.examNotesUpdatedAt : {};
           st.examNotesDeletedAt = (st.examNotesDeletedAt && typeof st.examNotesDeletedAt === 'object') ? st.examNotesDeletedAt : {};
+          st.examQuestionSnapshots = (st.examQuestionSnapshots && typeof st.examQuestionSnapshots === 'object') ? st.examQuestionSnapshots : {};
           if (text) {
             st.examNotes[qId] = text;
             st.examNotesUpdatedAt[qId] = nowIso;
             delete st.examNotesDeletedAt[qId];
+            if (snap) st.examQuestionSnapshots[qId] = snap;
           } else {
             delete st.examNotes[qId];
             st.examNotesDeletedAt[qId] = nowIso;
@@ -5180,12 +5306,14 @@
     let delObj = {};
     try { localObj = JSON.parse(localStorage.getItem(localKey) || '{}') || {}; } catch (e) { localObj = {}; }
     try { delObj = JSON.parse(localStorage.getItem(delKey) || '{}') || {}; } catch (e) { delObj = {}; }
+    const snap = !isEmpty ? buildCompactQuestionSnapshot(qId, nextTag) : null;
     if (isEmpty) {
       delete localObj[qId];
       delObj[qId] = nowIso;
     } else {
       localObj[qId] = Object.assign({}, nextTag, { updatedAt: nextTag.updatedAt || nowIso });
       delete delObj[qId];
+      if (snap) saveQuestionSnapshotLocalOnly(qId, snap);
     }
     try { localStorage.setItem(localKey, JSON.stringify(localObj)); } catch (e) {}
     try { localStorage.setItem(delKey, JSON.stringify(delObj)); } catch (e) {}
@@ -5198,12 +5326,14 @@
           const st = api.getState();
           st.examTags = (st.examTags && typeof st.examTags === 'object') ? st.examTags : {};
           st.examTagsDeletedAt = (st.examTagsDeletedAt && typeof st.examTagsDeletedAt === 'object') ? st.examTagsDeletedAt : {};
+          st.examQuestionSnapshots = (st.examQuestionSnapshots && typeof st.examQuestionSnapshots === 'object') ? st.examQuestionSnapshots : {};
           if (isEmpty) {
             delete st.examTags[qId];
             st.examTagsDeletedAt[qId] = nowIso;
           } else {
             st.examTags[qId] = Object.assign({}, nextTag, { updatedAt: nextTag.updatedAt || nowIso });
             delete st.examTagsDeletedAt[qId];
+            if (snap) st.examQuestionSnapshots[qId] = snap;
           }
           if (api.saveImmediate) await api.saveImmediate();
           else if (api.persist) api.persist();
@@ -6340,18 +6470,49 @@
     renderExamRunner();
   };
 
+  function normalizeQuestionStemForMatch(str) {
+    return toEn(String(str || ''))
+      .replace(/[يى]/g, 'ی')
+      .replace(/ك/g, 'ک')
+      .replace(/[أإآ]/g, 'ا')
+      .replace(/[\u064B-\u065F\u0670\u0640\u200c\u200f\u200e]/g, '')
+      .replace(/[^\u0600-\u06FFa-zA-Z0-9]+/g, ' ')
+      .replace(/\s+/g, ' ')
+      .trim()
+      .toLowerCase();
+  }
+
   function buildStudentNotebookEntries() {
-    const exams = getVisibleExams();
+    const exams = window.getExams();
     const results = getExamResults();
     const notesMap = getExamNotesMap();
     const tagsMap = getExamTagsMap();
+    const snapshotsMap = getExamQuestionSnapshotsMap();
     const qMap = new Map();
+    const qNormList = [];
+    const seenNormSet = new Set();
+
+    const indexQuestion = (rec) => {
+      if (!rec || !rec.id) return;
+      const hasOpts = Array.isArray(rec.options) && rec.options.filter(Boolean).length > 0;
+      const prev = qMap.get(rec.id);
+      if (!prev || (!prev.options.filter(Boolean).length && hasOpts)) {
+        qMap.set(rec.id, rec);
+      }
+      if (hasOpts && rec.q) {
+        const norm = normalizeQuestionStemForMatch(rec.q);
+        if (norm.length >= 16 && !seenNormSet.has(norm)) {
+          seenNormSet.add(norm);
+          qNormList.push({ norm, info: rec });
+        }
+      }
+    };
 
     exams.forEach(ex => {
       (ex.subjects || []).forEach(sb => {
         (sb.questions || []).forEach((q, idx) => {
-          if (!q || !q.id || qMap.has(q.id)) return;
-          qMap.set(q.id, {
+          if (!q || !q.id) return;
+          indexQuestion({
             id: q.id,
             q: q.q || '',
             options: Array.isArray(q.options) ? q.options : [],
@@ -6360,7 +6521,7 @@
             chapter: q.chapter || '',
             sourceLabel: q.sourceLabel || buildExamSourceLabel('', ex.examType, ex.year) || '',
             examId: ex.id,
-            examTitle: ex.title || 'آزمون',
+            examTitle: ex.title || getExamMainTitle(ex) || 'آزمون',
             subjectName: String(sb.name || '').trim() || 'سایر دروس',
             qNumber: idx + 1
           });
@@ -6369,13 +6530,13 @@
     });
 
     const wrongMap = new Map();
-    results.forEach(att => {
-      const snaps = Array.isArray(att.questionsSnapshot) ? att.questionsSnapshot : [];
-      const ans = (att.answers && typeof att.answers === 'object') ? att.answers : {};
-      snaps.forEach((sn, idx) => {
-        if (!sn || !sn.id) return;
-        if (!qMap.has(sn.id)) {
-          qMap.set(sn.id, {
+    const scanAttemptsForPool = (attList, recordWrongs) => {
+      (attList || []).forEach(att => {
+        const snaps = Array.isArray(att && att.questionsSnapshot) ? att.questionsSnapshot : [];
+        const ans = (att && att.answers && typeof att.answers === 'object') ? att.answers : {};
+        snaps.forEach((sn, idx) => {
+          if (!sn || !sn.id) return;
+          indexQuestion({
             id: sn.id,
             q: sn.q || '',
             options: Array.isArray(sn.options) ? sn.options : [],
@@ -6388,16 +6549,43 @@
             subjectName: String(sn.subjName || sn.subjectName || '').trim() || 'سایر دروس',
             qNumber: idx + 1
           });
-        }
-        const picked = ans[sn.id];
-        if (picked !== undefined && picked !== null && Number(picked) !== Number(sn.answer)) {
-          const prev = wrongMap.get(sn.id);
-          wrongMap.set(sn.id, {
-            count: (prev ? prev.count : 0) + 1,
-            lastExamTitle: (prev && prev.lastExamTitle) || att.examTitle || 'آزمون',
-            lastPicked: prev ? prev.lastPicked : Number(picked)
-          });
-        }
+          if (recordWrongs) {
+            const picked = ans[sn.id];
+            if (picked !== undefined && picked !== null && Number(picked) !== Number(sn.answer)) {
+              const prev = wrongMap.get(sn.id);
+              wrongMap.set(sn.id, {
+                count: (prev ? prev.count : 0) + 1,
+                lastExamTitle: (prev && prev.lastExamTitle) || att.examTitle || 'آزمون',
+                lastPicked: prev ? prev.lastPicked : Number(picked)
+              });
+            }
+          }
+        });
+      });
+    };
+
+    scanAttemptsForPool(results, true);
+    if (window.isAdmin) {
+      try {
+        const admAtts = JSON.parse(localStorage.getItem(EXAM_ATTEMPTS_KEY) || '[]');
+        if (Array.isArray(admAtts) && admAtts.length) scanAttemptsForPool(admAtts, false);
+      } catch (e) {}
+    }
+
+    Object.entries(snapshotsMap).forEach(([qid, sn]) => {
+      if (!sn || typeof sn !== 'object') return;
+      indexQuestion({
+        id: qid,
+        q: sn.q || '',
+        options: Array.isArray(sn.options) ? sn.options : [],
+        answer: Number(sn.answer || 0),
+        exp: sn.exp || '',
+        chapter: sn.chapter || '',
+        sourceLabel: sn.sourceLabel || '',
+        examId: '',
+        examTitle: sn.examTitle || 'آزمون‌های من',
+        subjectName: String(sn.subjectName || '').trim() || 'سایر دروس',
+        qNumber: 0
       });
     });
 
@@ -6410,18 +6598,53 @@
     });
     wrongMap.forEach((_v, qId) => idSet.add(qId));
 
+    const findByTextFallback = (rawText) => {
+      const candNorm = normalizeQuestionStemForMatch(rawText);
+      if (candNorm.length < 16) return null;
+      for (const entry of qNormList) {
+        if (entry.norm === candNorm) return entry.info;
+        if (entry.norm.startsWith(candNorm) || candNorm.startsWith(entry.norm)) return entry.info;
+        if (candNorm.length >= 36 && entry.norm.length >= 36 && entry.norm.startsWith(candNorm.slice(0, 50))) return entry.info;
+      }
+      return null;
+    };
+
+    let backfilledCount = 0;
     const list = [...idSet].map(qId => {
-      const info = qMap.get(qId);
+      let info = qMap.get(qId);
       const tg = tagsMap[qId] || null;
       const note = String(notesMap[qId] || '').trim();
       const wrong = wrongMap.get(qId);
-      const opts = info ? info.options : [];
+      if (!info || !Array.isArray(info.options) || !info.options.filter(Boolean).length) {
+        const previewText = (info && info.q) || (tg && (tg.qPreview || tg.questionPreview)) || '';
+        const recovered = findByTextFallback(previewText);
+        if (recovered) info = recovered;
+      }
+      const opts = (info && Array.isArray(info.options)) ? info.options : [];
+      const hasFull = opts.filter(Boolean).length > 0;
+      if (hasFull && (note || tg) && (!snapshotsMap[qId] || !Array.isArray(snapshotsMap[qId].options) || !snapshotsMap[qId].options.filter(Boolean).length)) {
+        const snapObj = {
+          id: qId,
+          q: info.q || '',
+          options: opts,
+          answer: Number(info.answer || 0),
+          exp: info.exp || '',
+          chapter: info.chapter || '',
+          sourceLabel: info.sourceLabel || '',
+          examTitle: info.examTitle || (tg && tg.examTitle) || 'آزمون‌های من',
+          subjectName: info.subjectName || (tg && tg.subjectName) || 'سایر دروس',
+          updatedAt: new Date().toISOString()
+        };
+        snapshotsMap[qId] = snapObj;
+        saveQuestionSnapshotLocalOnly(qId, snapObj);
+        backfilledCount++;
+      }
       return {
         id: qId,
         q: (info && info.q) || (tg && (tg.qPreview || tg.questionPreview)) || 'سوال ثبت‌شده در سابقه شما',
         options: opts,
         answer: info ? info.answer : 0,
-        hasFullQuestion: opts.filter(Boolean).length > 0,
+        hasFullQuestion: hasFull,
         exp: (info && info.exp) || '',
         chapter: (info && info.chapter) || '',
         sourceLabel: (info && info.sourceLabel) || '',
@@ -6436,6 +6659,17 @@
         updatedAt: (tg && tg.updatedAt) || ''
       };
     });
+
+    if (backfilledCount > 0) {
+      try {
+        const api = window.BARAAT_PLANNER_API;
+        if (api && window.me && api.isReady()) {
+          const st = api.getState();
+          st.examQuestionSnapshots = Object.assign({}, st.examQuestionSnapshots || {}, snapshotsMap);
+          if (api.persist) api.persist();
+        }
+      } catch (e) {}
+    }
 
     list.sort((a, b) => {
       if (!!b.note !== !!a.note) return b.note ? 1 : -1;
@@ -6784,16 +7018,22 @@
                   <div class="exam-q-stem" style="margin-top:0;">${esc(item.q)}</div>
                   ${renderQuestionNoteBoxHtml(item.id, 'nb')}
                   ${renderQuestionTagBarHtml(item.id, item.examTitle, item.subjectName, item.q, 'nb')}
-                  ${item.hasFullQuestion ? `
-                    <div style="margin-top:10px;">
+                  ${item.hasFullQuestion ? (() => {
+                    const rightIdx = Number(item.answer || 0);
+                    const rightOptText = (item.options || [])[rightIdx] || '';
+                    return `
+                    <div class="exam-exp-box" style="margin-top:10px; padding:10px 12px;">
+                      <div><b>✅ پاسخ صحیح: گزینه ${EXAM_LETTERS[rightIdx] || toFa(rightIdx + 1)}</b>${rightOptText ? ` — ${esc(rightOptText)}` : ''}</div>
+                    </div>
+                    <div style="margin-top:8px;">
                       <button type="button" class="btn small" onclick="toggleExamNbExpand('${item.id}')">
-                        ${isExp ? '▲ بستن گزینه‌ها و پاسخ تشریحی' : '▼ مشاهده گزینه‌ها و پاسخ تشریحی'}
+                        ${isExp ? '▲ بستن همه گزینه‌ها و پاسخ تشریحی' : '▼ مشاهده همه گزینه‌ها و پاسخ تشریحی'}
                       </button>
                       ${isExp ? `
                         <div class="exam-options-list" style="margin-top:10px;">
                           ${(item.options || []).map((opt, oi) => {
                             if (!opt) return '';
-                            const isRight = oi === Number(item.answer);
+                            const isRight = oi === rightIdx;
                             const isWrongPick = item.isWrong && item.lastWrongPicked === oi && !isRight;
                             return `
                               <div class="exam-opt-btn ${isRight ? 'correct' : ''} ${isWrongPick ? 'wrong' : ''}" style="cursor:default;">
@@ -6806,7 +7046,13 @@
                         ${item.exp ? `<div class="exam-exp-box" style="margin-top:8px;"><b>💡 پاسخ تشریحی:</b> ${esc(item.exp)}</div>` : ''}
                       ` : ''}
                     </div>
-                  ` : ''}
+                  `;
+                  })() : `
+                    ${item.exp ? `<div class="exam-exp-box" style="margin-top:10px;"><b>💡 پاسخ تشریحی:</b> ${esc(item.exp)}</div>` : ''}
+                    <div class="muted small" style="margin-top:8px; padding:8px 10px; border-radius:10px; background:var(--soft); border:1px dashed var(--line);">
+                      ℹ️ گزینه‌ها و پاسخ این سوال در آزمون‌های فعلی پیدا نشد (احتمالاً آزمون منبع قبلاً حذف یا مخفی شده است؛ با انتشار یا آپلود مجدد فایل آزمون به‌صورت خودکار بازیابی می‌شود).
+                    </div>
+                  `}
                 </article>
               `;
             }).join('')}
@@ -6917,6 +7163,7 @@
                     <span class="pill ${g.totalQ ? 'done' : ''}">${toFa(g.topics.length)} سرفصل · ${toFa(g.totalQ)} سوال</span>
                   </div>
                   <div class="ex-f-title">${esc(g.name)}</div>
+                  ${g.topics.length ? `<div class="ex-f-meta" style="color:var(--text); opacity:.78;">سرفصل‌ها: ${esc(g.topics.slice(0, 3).map(t => t.name).join(' · '))}${g.topics.length > 3 ? ' ...' : ''}</div>` : ''}
                   <div class="row" style="gap:6px; flex-wrap:wrap;">
                     ${g.hasPremium ? `<span class="ex-vip-badge">⭐ ویژه VIP</span>` : ''}
                     ${g.allHidden ? `<span class="ex-vis-badge hid">🙈 مخفی (فقط مدیر)</span>` : ''}
