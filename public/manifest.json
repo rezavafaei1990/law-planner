@@ -1,8 +1,8 @@
 {
   "id": "./",
-  "name": "برائت - سامانه جامع حقوقی",
+  "name": "گروه حقوقی برائت | سامانه جامع حقوقی",
   "short_name": "برائت",
-  "description": "پایگاه قوانین، مقالات پژوهشی، مواعد قانونی و برنامه‌ریزی حقوقی برائت",
+  "description": "پایگاه قوانین، آرای وحدت رویه، نشریه تخصصی حقوق، محاسبه‌گرها، مواعد قانونی و برنامه مطالعاتی گروه حقوقی برائت",
   "start_url": "./",
   "scope": "./",
   "display": "standalone",
@@ -10,22 +10,22 @@
   "dir": "rtl",
   "lang": "fa",
   "theme_color": "#0f766e",
-  "background_color": "#f8fafc",
+  "background_color": "#faf9f6",
   "icons": [
     {
-      "src": "./icons/icon-192.png",
+      "src": "icons/icon-192.png",
       "sizes": "192x192",
       "type": "image/png",
       "purpose": "any"
     },
     {
-      "src": "./icons/icon-512.png",
+      "src": "icons/icon-512.png",
       "sizes": "512x512",
       "type": "image/png",
       "purpose": "any"
     },
     {
-      "src": "./icons/icon-maskable-512.png",
+      "src": "icons/icon-maskable-512.png",
       "sizes": "512x512",
       "type": "image/png",
       "purpose": "maskable"

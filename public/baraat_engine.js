@@ -86,7 +86,9 @@
           CONTACT_KEY,
           QUESTION_REPLIES_KEY,
           EXAMS_KEY,
-          EXAM_DELETED_ATTEMPTS_KEY
+          EXAM_DELETED_ATTEMPTS_KEY,
+          EXAM_SUBJECTS_KEY,
+          VIP_SETTINGS_KEY
         ];
         if (window.isAdmin) {
           keysToFetch.push(EXAMS_PRIVATE_KEY, CASES_KEY, ASSIGNED_PLANS_KEY, EXAM_ATTEMPTS_KEY);
@@ -144,6 +146,12 @@
         }
         if (Array.isArray(map[EXAM_DELETED_ATTEMPTS_KEY])) {
           localStorage.setItem(EXAM_DELETED_ATTEMPTS_KEY, JSON.stringify(map[EXAM_DELETED_ATTEMPTS_KEY]));
+        }
+        if (Array.isArray(map[EXAM_SUBJECTS_KEY]) && map[EXAM_SUBJECTS_KEY].length > 0) {
+          localStorage.setItem(EXAM_SUBJECTS_KEY, JSON.stringify(map[EXAM_SUBJECTS_KEY]));
+        }
+        if (map[VIP_SETTINGS_KEY] && typeof map[VIP_SETTINGS_KEY] === 'object') {
+          localStorage.setItem(VIP_SETTINGS_KEY, JSON.stringify(map[VIP_SETTINGS_KEY]));
         }
         if (window.isAdmin && Array.isArray(map[EXAM_ATTEMPTS_KEY])) {
           localStorage.setItem(EXAM_ATTEMPTS_KEY, JSON.stringify(map[EXAM_ATTEMPTS_KEY]));
@@ -232,6 +240,8 @@
     const examsData = window.getExams ? window.getExams() : null;
     const examsPublic = Array.isArray(examsData) ? examsData.filter(x => x && x.isPublished !== false) : null;
     const examsPrivate = Array.isArray(examsData) ? examsData.filter(x => x && x.isPublished === false) : null;
+    const subjectsList = typeof getExamSubjectsList === 'function' ? getExamSubjectsList() : null;
+    const vipCfg = typeof getVipSettings === 'function' ? getVipSettings() : null;
 
     const r1 = await syncToSupabase(ARTICLES_KEY, arts);
     const r2 = await syncToSupabase(DEADLINES_KEY, dls);
@@ -242,10 +252,12 @@
     const r7 = (window.isAdmin && casesData) ? await syncToSupabase(CASES_KEY, casesData) : { ok: true };
     const r8 = examsPublic ? await syncToSupabase(EXAMS_KEY, examsPublic) : { ok: true };
     const r9 = examsPrivate ? await syncToSupabase(EXAMS_PRIVATE_KEY, examsPrivate) : { ok: true };
+    const r10 = subjectsList ? await syncToSupabase(EXAM_SUBJECTS_KEY, subjectsList) : { ok: true };
+    const r11 = vipCfg ? await syncToSupabase(VIP_SETTINGS_KEY, vipCfg) : { ok: true };
 
     if (typeof renderAdminPanels === 'function') renderAdminPanels();
 
-    const errors = [r1, r2, r3, r4, r5, r6, r7, r8, r9].filter(r => !r.ok).map(r => r.error);
+    const errors = [r1, r2, r3, r4, r5, r6, r7, r8, r9, r10, r11].filter(r => !r.ok).map(r => r.error);
     if (errors.length === 0) {
       if (typeof toast === 'function') toast('همه مقالات، آزمون‌ها و تنظیمات با موفقیت روی سرور منتشر شدند.');
     } else {
@@ -4489,9 +4501,28 @@
   const EXAMS_PRIVATE_KEY = 'baraat_exams_private_v1';
   const EXAM_RESULTS_LOCAL_KEY = 'baraat_exam_results_v1';
   const EXAM_NOTES_LOCAL_PREFIX = 'baraat_exam_notes_v1_';
+  const EXAM_NOTES_META_LOCAL_PREFIX = 'baraat_exam_notes_meta_v1_';
   const EXAM_TAGS_LOCAL_PREFIX = 'baraat_exam_tags_v1_';
+  const EXAM_TAGS_DEL_LOCAL_PREFIX = 'baraat_exam_tags_del_v1_';
+  const EXAM_PREP_LOCAL_PREFIX = 'baraat_exam_prep_v1_';
   const EXAM_ATTEMPTS_KEY = 'baraat_exam_attempts_v1';
   const EXAM_DELETED_ATTEMPTS_KEY = 'baraat_deleted_exam_attempts_v1';
+  const EXAM_SUBJECTS_KEY = 'baraat_exam_subjects_v1';
+  const VIP_SETTINGS_KEY = 'baraat_vip_settings_v1';
+  const DEFAULT_EXAM_SUBJECTS = [
+    'حقوق مدنی',
+    'آیین دادرسی مدنی',
+    'حقوق تجارت',
+    'حقوق جزا',
+    'آیین دادرسی کیفری',
+    'اصول فقه',
+    'حقوق اساسی',
+    'متون فقه'
+  ];
+  function calcExamDurationMin(qCount) {
+    const n = Math.max(0, Number(qCount || 0));
+    return n > 0 ? Math.max(2, n * 2) : 60;
+  }
   const EXAM_ORGS = [
     'آزمون وکالت کانون',
     'کانون وکلا (اسکودا)',
@@ -4608,6 +4639,24 @@
       [data-theme="dark"] .baraat-subj-theme-5 { background:linear-gradient(270deg, rgba(249,115,22,.15) 0%, var(--panel) 60%) !important; }
       [data-theme="dark"] .baraat-subj-theme-6 { background:linear-gradient(270deg, rgba(6,182,212,.16) 0%, var(--panel) 60%) !important; }
       [data-theme="dark"] .baraat-subj-theme-7 { background:linear-gradient(270deg, rgba(217,70,239,.15) 0%, var(--panel) 60%) !important; }
+      /* استایل‌های سبک بخش‌بندی دوقسمتی آزمون، VIP و سابقه آمادگی (بدون تغییر تم اصلی) */
+      .ex-vip-badge { display:inline-flex; align-items:center; gap:4px; padding:2px 9px; border-radius:99px; font-size:11px; font-weight:800; background:rgba(245,158,11,.16); color:#b45309; border:1px solid rgba(245,158,11,.42); }
+      [data-theme="dark"] .ex-vip-badge { color:#fcd34d; background:rgba(245,158,11,.18); }
+      .ex-mode-badge { display:inline-flex; align-items:center; gap:4px; padding:2px 8px; border-radius:6px; font-size:11px; font-weight:800; }
+      .ex-mode-badge.timed { background:rgba(37,99,235,.12); color:#1d4ed8; }
+      .ex-mode-badge.prep { background:rgba(16,185,129,.14); color:#047857; }
+      [data-theme="dark"] .ex-mode-badge.timed { color:#93c5fd; }
+      [data-theme="dark"] .ex-mode-badge.prep { color:#6ee7b7; }
+      .ex-prev-history-box { margin-top:8px; padding:8px 12px; border-radius:10px; font-size:12px; line-height:1.7; border:1px solid var(--line); background:var(--soft); }
+      .ex-prev-history-box.ok { border-color:rgba(16,185,129,.45); background:rgba(16,185,129,.09); }
+      .ex-prev-history-box.bad { border-color:rgba(239,68,68,.45); background:rgba(239,68,68,.09); }
+      .ex-prep-stats-strip { display:flex; align-items:center; gap:8px; flex-wrap:wrap; font-size:12px; font-weight:700; }
+      .ex-section-tabs { display:grid; grid-template-columns:repeat(auto-fit, minmax(210px, 1fr)); gap:10px; margin:0 0 14px; }
+      .ex-section-tab-card { display:flex; align-items:center; justify-content:space-between; gap:10px; padding:12px 16px; border-radius:14px; border:1.5px solid var(--line); background:var(--panel); color:var(--text); cursor:pointer; font-family:inherit; text-align:right; transition:all .16s ease; }
+      .ex-section-tab-card:hover { border-color:var(--main); }
+      .ex-section-tab-card.active { border-color:var(--main); background:var(--soft); box-shadow:0 4px 14px rgba(0,0,0,.05); }
+      .exam-q-dot.res-bad { background:rgba(239,68,68,.18) !important; border-color:#ef4444 !important; color:#b91c1c !important; }
+      [data-theme="dark"] .exam-q-dot.res-bad { color:#fca5a5 !important; }
     `;
     document.head.appendChild(st);
   }
@@ -4702,23 +4751,130 @@
   function normalizeExamRecord(ex) {
     if (!ex || typeof ex !== 'object') return ex;
     const cat = String(ex.category || ex.org || 'آزمون حقوقی').trim();
+    const subjects = Array.isArray(ex.subjects) ? ex.subjects.map(s => Object.assign({}, s, {
+      questions: Array.isArray(s.questions) ? s.questions.map(q => Object.assign({}, q, {
+        chapter: String(q.chapter || q.topic || '').trim(),
+        sourceLabel: normalizeExamSourceTag(q.sourceLabel || q.source || ''),
+        csvQuestionNum: q.csvQuestionNum ? String(q.csvQuestionNum).trim() : '',
+        csvRowIndex: q.csvRowIndex ? Number(q.csvRowIndex) : undefined,
+        csvFileName: q.csvFileName ? String(q.csvFileName).trim() : ''
+      })) : []
+    })) : [];
+    const qTotal = subjects.reduce((sum, s) => sum + ((s.questions || []).length), 0);
+    const scope = ex.examScope === 'subject' ? 'subject' : 'general';
+    const subjGrp = scope === 'subject' ? String(ex.subjectGroup || cat || '').trim() : '';
     return Object.assign({}, ex, {
       org: cat,
       category: cat,
+      examScope: scope,
+      subjectGroup: subjGrp,
+      isPremium: Boolean(ex.isPremium),
       examType: String(ex.examType || ex.source || '').trim() || 'تالیفی',
       year: ex.year ? (Number(toEn(String(ex.year))) || ex.year) : '',
-      durationMinutes: Number(ex.durationMinutes || ex.durationMin || 60) || 60,
+      durationMinutes: qTotal > 0 ? calcExamDurationMin(qTotal) : (Number(ex.durationMinutes || ex.durationMin || 60) || 60),
       isPublished: ex.isPublished !== false,
-      subjects: Array.isArray(ex.subjects) ? ex.subjects.map(s => Object.assign({}, s, {
-        questions: Array.isArray(s.questions) ? s.questions.map(q => Object.assign({}, q, {
-          chapter: String(q.chapter || q.topic || '').trim(),
-          sourceLabel: normalizeExamSourceTag(q.sourceLabel || q.source || ''),
-          csvQuestionNum: q.csvQuestionNum ? String(q.csvQuestionNum).trim() : '',
-          csvRowIndex: q.csvRowIndex ? Number(q.csvRowIndex) : undefined,
-          csvFileName: q.csvFileName ? String(q.csvFileName).trim() : ''
-        })) : []
-      })) : []
+      subjects
     });
+  }
+
+  // --- مدیریت دروس درس‌به‌درس و تنظیمات اشتراک ویژه (VIP) ---
+  function getExamSubjectsList() {
+    try {
+      const raw = localStorage.getItem(EXAM_SUBJECTS_KEY);
+      const arr = raw ? JSON.parse(raw) : null;
+      if (Array.isArray(arr) && arr.length > 0) {
+        return [...new Set(arr.map(x => String(x || '').trim()).filter(Boolean))];
+      }
+    } catch (e) {}
+    return DEFAULT_EXAM_SUBJECTS.slice();
+  }
+  window.getExamSubjectsList = getExamSubjectsList;
+
+  async function saveExamSubjectsList(list, msg) {
+    const clean = [...new Set((list || []).map(x => String(x || '').trim()).filter(Boolean))];
+    try { localStorage.setItem(EXAM_SUBJECTS_KEY, JSON.stringify(clean)); } catch (e) {}
+    if (window.renderExamsHub) window.renderExamsHub();
+    if (window.renderAdminExamsList) window.renderAdminExamsList();
+    const res = await syncToSupabase(EXAM_SUBJECTS_KEY, clean);
+    if (typeof toast === 'function') {
+      toast(res.ok ? (msg || 'فهرست دروس درس‌به‌درس ذخیره شد.') : ('ذخیره محلی انجام شد اما خطای سرور رخ داد: ' + res.error));
+    }
+  }
+
+  function getVipSettings() {
+    const def = {
+      subscribers: [],
+      upgradeMessage: 'این آزمون مخصوص اعضای دارای اشتراک ویژه (VIP) است. برای فعال‌سازی اشتراک با پشتیبانی گروه حقوقی برائت تماس بگیرید.',
+      supportContact: ''
+    };
+    try {
+      const raw = localStorage.getItem(VIP_SETTINGS_KEY);
+      const parsed = raw ? JSON.parse(raw) : null;
+      if (parsed && typeof parsed === 'object') {
+        return {
+          subscribers: Array.isArray(parsed.subscribers) ? parsed.subscribers : [],
+          upgradeMessage: String(parsed.upgradeMessage || def.upgradeMessage),
+          supportContact: String(parsed.supportContact || '')
+        };
+      }
+    } catch (e) {}
+    return def;
+  }
+  window.getVipSettings = getVipSettings;
+
+  async function saveVipSettings(cfg, msg) {
+    const clean = {
+      subscribers: Array.isArray(cfg.subscribers) ? cfg.subscribers : [],
+      upgradeMessage: String(cfg.upgradeMessage || '').trim(),
+      supportContact: String(cfg.supportContact || '').trim()
+    };
+    try { localStorage.setItem(VIP_SETTINGS_KEY, JSON.stringify(clean)); } catch (e) {}
+    if (window.renderAdminExamsList) window.renderAdminExamsList();
+    if (window.renderExamsHub) window.renderExamsHub();
+    const res = await syncToSupabase(VIP_SETTINGS_KEY, clean);
+    if (typeof toast === 'function') {
+      toast(res.ok ? (msg || 'تنظیمات اشتراک ویژه در سرور ذخیره شد.') : ('ذخیره محلی انجام شد اما خطای سرور رخ داد: ' + res.error));
+    }
+  }
+
+  function isCurrentUserVip() {
+    if (window.isAdmin) return true;
+    const mail = (window.me && window.me.email) ? String(window.me.email).trim().toLowerCase() : '';
+    if (!mail) return false;
+    const cfg = getVipSettings();
+    const now = Date.now();
+    return cfg.subscribers.some(sub => {
+      if (!sub || sub.active === false) return false;
+      if (String(sub.email || '').trim().toLowerCase() !== mail) return false;
+      if (sub.expiresAt) {
+        const expMs = Date.parse(sub.expiresAt);
+        if (!isNaN(expMs) && expMs < now) return false;
+      }
+      return true;
+    });
+  }
+
+  function showVipLockModal(examTitle) {
+    const cfg = getVipSettings();
+    const m = document.getElementById('modal');
+    if (!m) {
+      if (typeof toast === 'function') toast(cfg.upgradeMessage);
+      return;
+    }
+    m.innerHTML = `
+      <h2>⭐ آزمون ویژه (اشتراک VIP)</h2>
+      <div class="callout-warn" style="padding:14px; border-radius:12px; margin:12px 0;">
+        <b style="display:block; margin-bottom:6px;">${esc(examTitle || 'این آزمون')}</b>
+        <p style="margin:0; line-height:1.9; font-size:13.5px;">${esc(cfg.upgradeMessage)}</p>
+        ${cfg.supportContact ? `<div style="margin-top:10px; font-weight:800; color:var(--main);">📞 راه ارتباطی فعال‌سازی: ${esc(cfg.supportContact)}</div>` : ''}
+      </div>
+      ${!window.me ? `<p class="muted small">اگر قبلاً اشتراک تهیه کرده‌اید ابتدا وارد حساب کاربری خود شوید.</p>` : `<p class="muted small">حساب فعلی شما: <b dir="ltr">${esc(window.me.email || '')}</b></p>`}
+      <div class="modal-actions">
+        ${!window.me ? `<button type="button" class="btn primary" onclick="closeModal();if(window.openAuthModal)openAuthModal()">ورود به حساب کاربری</button>` : ''}
+        <button type="button" class="btn" onclick="closeModal()">بستن</button>
+      </div>
+    `;
+    document.getElementById('modalBack').classList.add('show');
   }
 
   function formatAdminCsvRefText(qObj, fallbackGlobalIdx) {
@@ -4813,25 +4969,43 @@
     }
   }
 
-  // --- نکات شخصی کاربر برای هر سوال (کاملاً مجزا از نتایج و غیرقابل حذف هنگام حذف کارنامه) ---
+  // --- نکات شخصی کاربر برای هر سوال (همگام کامل بین وب، PWA و اپلیکیشن اندروید) ---
+  function getUserUidSuffix() {
+    return (window.me && (window.me.id || window.me.email)) ? String(window.me.id || window.me.email).toLowerCase() : 'guest';
+  }
   function getNotesLocalStorageKey() {
-    const uid = (window.me && (window.me.id || window.me.email)) ? String(window.me.id || window.me.email).toLowerCase() : 'guest';
-    return EXAM_NOTES_LOCAL_PREFIX + uid;
+    return EXAM_NOTES_LOCAL_PREFIX + getUserUidSuffix();
+  }
+  function getNotesMetaLocalStorageKey() {
+    return EXAM_NOTES_META_LOCAL_PREFIX + getUserUidSuffix();
   }
 
   function getExamNotesMap() {
     const merged = {};
-    try {
-      const raw = localStorage.getItem(getNotesLocalStorageKey());
-      const localObj = raw ? JSON.parse(raw) : {};
-      if (localObj && typeof localObj === 'object') Object.assign(merged, localObj);
-    } catch (e) {}
+    const keysToCheck = [getNotesLocalStorageKey()];
+    if (window.me && window.me.email) keysToCheck.push(EXAM_NOTES_LOCAL_PREFIX + String(window.me.email).toLowerCase());
+    keysToCheck.push(EXAM_NOTES_LOCAL_PREFIX + 'guest');
+    [...new Set(keysToCheck)].reverse().forEach(k => {
+      try {
+        const raw = localStorage.getItem(k);
+        const obj = raw ? JSON.parse(raw) : {};
+        if (obj && typeof obj === 'object') Object.assign(merged, obj);
+      } catch (e) {}
+    });
     try {
       const api = window.BARAAT_PLANNER_API;
       if (api && window.me && api.isReady()) {
         const st = api.getState();
         if (st && st.examNotes && typeof st.examNotes === 'object') {
           Object.assign(merged, st.examNotes);
+        }
+        if (st && st.examNotesDeletedAt && typeof st.examNotesDeletedAt === 'object') {
+          Object.entries(st.examNotesDeletedAt).forEach(([qid, delTs]) => {
+            const updTs = st.examNotesUpdatedAt && st.examNotesUpdatedAt[qid];
+            if (delTs && (!updTs || Date.parse(delTs) >= Date.parse(updTs))) {
+              delete merged[qid];
+            }
+          });
         }
       }
     } catch (e) {}
@@ -4847,26 +5021,52 @@
   window.saveExamQuestionNote = async function(qId, textVal, statusElId) {
     if (!qId) return;
     const text = String(textVal || '').trim();
+    const nowIso = new Date().toISOString();
     const localKey = getNotesLocalStorageKey();
+    const metaKey = getNotesMetaLocalStorageKey();
     let localObj = {};
+    let metaObj = { updatedAt: {}, deletedAt: {} };
+    try { localObj = JSON.parse(localStorage.getItem(localKey) || '{}') || {}; } catch (e) { localObj = {}; }
     try {
-      localObj = JSON.parse(localStorage.getItem(localKey) || '{}') || {};
-    } catch (e) { localObj = {}; }
-    if (text) localObj[qId] = text;
-    else delete localObj[qId];
+      const parsedM = JSON.parse(localStorage.getItem(metaKey) || '{}') || {};
+      metaObj.updatedAt = parsedM.updatedAt || {};
+      metaObj.deletedAt = parsedM.deletedAt || {};
+    } catch (e) {}
+
+    if (text) {
+      localObj[qId] = text;
+      metaObj.updatedAt[qId] = nowIso;
+      delete metaObj.deletedAt[qId];
+    } else {
+      delete localObj[qId];
+      metaObj.deletedAt[qId] = nowIso;
+      delete metaObj.updatedAt[qId];
+    }
     try { localStorage.setItem(localKey, JSON.stringify(localObj)); } catch (e) {}
+    try { localStorage.setItem(metaKey, JSON.stringify(metaObj)); } catch (e) {}
 
     let savedCloud = false;
     try {
       const api = window.BARAAT_PLANNER_API;
-      if (api && window.me && api.isReady()) {
-        const st = api.getState();
-        st.examNotes = (st.examNotes && typeof st.examNotes === 'object') ? st.examNotes : {};
-        if (text) st.examNotes[qId] = text;
-        else delete st.examNotes[qId];
-        if (api.persist) api.persist();
-        if (api.saveImmediate) await api.saveImmediate();
-        savedCloud = true;
+      if (api && window.me) {
+        if (!api.isReady() && api.ensureLoaded) await api.ensureLoaded();
+        if (api.isReady()) {
+          const st = api.getState();
+          st.examNotes = (st.examNotes && typeof st.examNotes === 'object') ? st.examNotes : {};
+          st.examNotesUpdatedAt = (st.examNotesUpdatedAt && typeof st.examNotesUpdatedAt === 'object') ? st.examNotesUpdatedAt : {};
+          st.examNotesDeletedAt = (st.examNotesDeletedAt && typeof st.examNotesDeletedAt === 'object') ? st.examNotesDeletedAt : {};
+          if (text) {
+            st.examNotes[qId] = text;
+            st.examNotesUpdatedAt[qId] = nowIso;
+            delete st.examNotesDeletedAt[qId];
+          } else {
+            delete st.examNotes[qId];
+            st.examNotesDeletedAt[qId] = nowIso;
+            delete st.examNotesUpdatedAt[qId];
+          }
+          if (api.saveImmediate) savedCloud = !!(await api.saveImmediate());
+          else if (api.persist) { api.persist(); savedCloud = true; }
+        }
       }
     } catch (e) {}
 
@@ -4874,12 +5074,12 @@
       const el = document.getElementById(statusElId);
       if (el) {
         el.textContent = text
-          ? (savedCloud ? '✅ نکته در حساب کاربری شما ذخیره شد' : '✅ نکته روی دستگاه ذخیره شد')
+          ? (savedCloud ? '✅ همگام با حساب ابری (وب و اپ)' : '📱 ذخیره روی دستگاه (با اتصال همگام می‌شود)')
           : 'پاک شد';
       }
     }
     if (typeof toast === 'function') {
-      toast(text ? 'نکته شخصی شما زیر این سوال ذخیره شد.' : 'نکته این سوال پاک شد.');
+      toast(text ? (savedCloud ? 'نکته شما در حساب ابری ذخیره و همگام شد.' : 'نکته روی دستگاه ذخیره شد.') : 'نکته این سوال پاک شد.');
     }
   };
 
@@ -4902,26 +5102,41 @@
     `;
   }
 
-  // --- تیک‌ها و برچسب‌های سطح سختی و مطالعه هر سوال (ذخیره برای دانشجو و قابل مشاهده برای مدیر) ---
+  // --- تیک‌ها و برچسب‌های سطح سختی و مطالعه هر سوال (همگام کامل بین وب، PWA و اپلیکیشن) ---
   const examQuestionTagMetaRegistry = {};
   function getTagsLocalStorageKey() {
-    const uid = (window.me && (window.me.id || window.me.email)) ? String(window.me.id || window.me.email).toLowerCase() : 'guest';
-    return EXAM_TAGS_LOCAL_PREFIX + uid;
+    return EXAM_TAGS_LOCAL_PREFIX + getUserUidSuffix();
+  }
+  function getTagsDelLocalStorageKey() {
+    return EXAM_TAGS_DEL_LOCAL_PREFIX + getUserUidSuffix();
   }
 
   function getExamTagsMap() {
     const merged = {};
-    try {
-      const raw = localStorage.getItem(getTagsLocalStorageKey());
-      const localObj = raw ? JSON.parse(raw) : {};
-      if (localObj && typeof localObj === 'object') Object.assign(merged, localObj);
-    } catch (e) {}
+    const keysToCheck = [getTagsLocalStorageKey()];
+    if (window.me && window.me.email) keysToCheck.push(EXAM_TAGS_LOCAL_PREFIX + String(window.me.email).toLowerCase());
+    keysToCheck.push(EXAM_TAGS_LOCAL_PREFIX + 'guest');
+    [...new Set(keysToCheck)].reverse().forEach(k => {
+      try {
+        const raw = localStorage.getItem(k);
+        const obj = raw ? JSON.parse(raw) : {};
+        if (obj && typeof obj === 'object') Object.assign(merged, obj);
+      } catch (e) {}
+    });
     try {
       const api = window.BARAAT_PLANNER_API;
       if (api && window.me && api.isReady()) {
         const st = api.getState();
         if (st && st.examTags && typeof st.examTags === 'object') {
           Object.assign(merged, st.examTags);
+        }
+        if (st && st.examTagsDeletedAt && typeof st.examTagsDeletedAt === 'object') {
+          Object.entries(st.examTagsDeletedAt).forEach(([qid, delTs]) => {
+            const cur = merged[qid];
+            if (delTs && (!cur || !cur.updatedAt || Date.parse(delTs) >= Date.parse(cur.updatedAt))) {
+              delete merged[qid];
+            }
+          });
         }
       }
     } catch (e) {}
@@ -4938,22 +5153,98 @@
     if (!qId) return;
     const fl = (nextTag && (nextTag.tags || nextTag.flags)) || [];
     const isEmpty = !nextTag || (!nextTag.difficulty && (!Array.isArray(fl) || !fl.length));
+    const nowIso = new Date().toISOString();
     const localKey = getTagsLocalStorageKey();
+    const delKey = getTagsDelLocalStorageKey();
     let localObj = {};
+    let delObj = {};
     try { localObj = JSON.parse(localStorage.getItem(localKey) || '{}') || {}; } catch (e) { localObj = {}; }
-    if (isEmpty) delete localObj[qId];
-    else localObj[qId] = nextTag;
+    try { delObj = JSON.parse(localStorage.getItem(delKey) || '{}') || {}; } catch (e) { delObj = {}; }
+    if (isEmpty) {
+      delete localObj[qId];
+      delObj[qId] = nowIso;
+    } else {
+      localObj[qId] = Object.assign({}, nextTag, { updatedAt: nextTag.updatedAt || nowIso });
+      delete delObj[qId];
+    }
     try { localStorage.setItem(localKey, JSON.stringify(localObj)); } catch (e) {}
+    try { localStorage.setItem(delKey, JSON.stringify(delObj)); } catch (e) {}
 
+    try {
+      const api = window.BARAAT_PLANNER_API;
+      if (api && window.me) {
+        if (!api.isReady() && api.ensureLoaded) await api.ensureLoaded();
+        if (api.isReady()) {
+          const st = api.getState();
+          st.examTags = (st.examTags && typeof st.examTags === 'object') ? st.examTags : {};
+          st.examTagsDeletedAt = (st.examTagsDeletedAt && typeof st.examTagsDeletedAt === 'object') ? st.examTagsDeletedAt : {};
+          if (isEmpty) {
+            delete st.examTags[qId];
+            st.examTagsDeletedAt[qId] = nowIso;
+          } else {
+            st.examTags[qId] = Object.assign({}, nextTag, { updatedAt: nextTag.updatedAt || nowIso });
+            delete st.examTagsDeletedAt[qId];
+          }
+          if (api.saveImmediate) await api.saveImmediate();
+          else if (api.persist) api.persist();
+        }
+      }
+    } catch (e) {}
+  }
+
+  // --- سابقه پاسخ‌دهی در حالت آمادگی (بدون نمایش پیشاپیش؛ فقط پس از پاسخ دادن) ---
+  function getPrepLocalStorageKey() {
+    return EXAM_PREP_LOCAL_PREFIX + getUserUidSuffix();
+  }
+
+  function getExamPrepHistoryMap() {
+    const merged = {};
+    const keysToCheck = [getPrepLocalStorageKey()];
+    if (window.me && window.me.email) keysToCheck.push(EXAM_PREP_LOCAL_PREFIX + String(window.me.email).toLowerCase());
+    keysToCheck.push(EXAM_PREP_LOCAL_PREFIX + 'guest');
+    [...new Set(keysToCheck)].reverse().forEach(k => {
+      try {
+        const raw = localStorage.getItem(k);
+        const obj = raw ? JSON.parse(raw) : {};
+        if (obj && typeof obj === 'object') Object.assign(merged, obj);
+      } catch (e) {}
+    });
     try {
       const api = window.BARAAT_PLANNER_API;
       if (api && window.me && api.isReady()) {
         const st = api.getState();
-        st.examTags = (st.examTags && typeof st.examTags === 'object') ? st.examTags : {};
-        if (isEmpty) delete st.examTags[qId];
-        else st.examTags[qId] = nextTag;
+        if (st && st.examPrepHistory && typeof st.examPrepHistory === 'object') {
+          Object.assign(merged, st.examPrepHistory);
+        }
+      }
+    } catch (e) {}
+    return merged;
+  }
+
+  function recordExamPrepAnswer(qId, choiceIdx, isCorrect) {
+    if (!qId) return;
+    const nowIso = new Date().toISOString();
+    const localKey = getPrepLocalStorageKey();
+    let localObj = {};
+    try { localObj = JSON.parse(localStorage.getItem(localKey) || '{}') || {}; } catch (e) { localObj = {}; }
+    const prev = localObj[qId] || getExamPrepHistoryMap()[qId] || {};
+    const nextRec = {
+      attempts: Number(prev.attempts || 0) + 1,
+      correctRuns: Number(prev.correctRuns || 0) + (isCorrect ? 1 : 0),
+      wrongRuns: Number(prev.wrongRuns || 0) + (isCorrect ? 0 : 1),
+      lastChoice: Number(choiceIdx),
+      isCorrect: !!isCorrect,
+      updatedAt: nowIso
+    };
+    localObj[qId] = nextRec;
+    try { localStorage.setItem(localKey, JSON.stringify(localObj)); } catch (e) {}
+    try {
+      const api = window.BARAAT_PLANNER_API;
+      if (api && window.me && api.isReady()) {
+        const st = api.getState();
+        st.examPrepHistory = (st.examPrepHistory && typeof st.examPrepHistory === 'object') ? st.examPrepHistory : {};
+        st.examPrepHistory[qId] = nextRec;
         if (api.persist) api.persist();
-        if (api.saveImmediate) await api.saveImmediate();
       }
     } catch (e) {}
   }
@@ -5113,38 +5404,45 @@
 
   async function saveExamResultRecord(rec) {
     try {
+      const upsertById = (arr, item, maxLen) => {
+        const clean = (Array.isArray(arr) ? arr : []).filter(x => x && x.id !== item.id);
+        clean.unshift(item);
+        return clean.slice(0, maxLen || 80);
+      };
       const userKey = getUserResultsStorageKey();
       const userList = (() => {
         try { return JSON.parse(localStorage.getItem(userKey) || '[]'); } catch (e) { return []; }
       })();
-      userList.unshift(rec);
-      localStorage.setItem(userKey, JSON.stringify(userList.slice(0, 60)));
+      localStorage.setItem(userKey, JSON.stringify(upsertById(userList, rec, 80)));
 
       const localList = (() => {
         try { return JSON.parse(localStorage.getItem(EXAM_RESULTS_LOCAL_KEY) || '[]'); } catch (e) { return []; }
       })();
-      localList.unshift(rec);
-      localStorage.setItem(EXAM_RESULTS_LOCAL_KEY, JSON.stringify(localList.slice(0, 60)));
+      localStorage.setItem(EXAM_RESULTS_LOCAL_KEY, JSON.stringify(upsertById(localList, rec, 80)));
 
       const api = window.BARAAT_PLANNER_API;
-      if (api && window.me && api.isReady()) {
-        const st = api.getState();
-        st.examResults = Array.isArray(st.examResults) ? st.examResults : [];
-        st.examResults.unshift(rec);
-        st.examResults = st.examResults.slice(0, 60);
-        if (api.persist) api.persist();
-        await api.saveImmediate();
+      if (api && window.me) {
+        if (!api.isReady() && api.ensureLoaded) await api.ensureLoaded();
+        if (api.isReady()) {
+          const st = api.getState();
+          st.examResults = upsertById(st.examResults, rec, 80);
+          if (api.saveImmediate) await api.saveImmediate();
+          else if (api.persist) api.persist();
+        }
       }
 
-      // تلاش برای ثبت در گزارش کل برای مشاهده و مدیریت توسط مدیر (در صورت اجازه RLS)
-      if (window.sb) {
+      // ثبت در گزارش کل برای مشاهده مدیر (زمان‌دار و حالت آمادگی)
+      if (window.sb && navigator.onLine) {
         try {
           const r = await syncFromSupabase(EXAM_ATTEMPTS_KEY);
           const arr = (r && r.exists && Array.isArray(r.data)) ? r.data : [];
-          arr.unshift({
+          const sharedItem = {
             id: rec.id,
             examId: rec.examId,
             examTitle: rec.examTitle,
+            examScope: rec.examScope || 'general',
+            subjectGroup: rec.subjectGroup || '',
+            mode: rec.mode || 'timed',
             scopeLabel: rec.scopeLabel,
             userId: rec.userId || '',
             userEmail: rec.userEmail || '',
@@ -5155,11 +5453,14 @@
             total: rec.total,
             rawPct: rec.rawPct,
             netPct: rec.netPct,
+            answers: rec.answers || {},
             questionTags: rec.questionTags || {},
-            createdAt: rec.createdAt
-          });
-          localStorage.setItem(EXAM_ATTEMPTS_KEY, JSON.stringify(arr.slice(0, 200)));
-          await syncToSupabase(EXAM_ATTEMPTS_KEY, arr.slice(0, 200));
+            createdAt: rec.createdAt,
+            updatedAt: rec.updatedAt || rec.createdAt
+          };
+          const nextArr = upsertById(arr, sharedItem, 250);
+          localStorage.setItem(EXAM_ATTEMPTS_KEY, JSON.stringify(nextArr));
+          await syncToSupabase(EXAM_ATTEMPTS_KEY, nextArr);
         } catch (e2) {}
       }
     } catch (e) {
@@ -5170,6 +5471,8 @@
   let adminAttemptsCache = [];
   let adminStudentTagsCache = [];
   let adminTagFilterType = 'all';
+  let adminAttemptModeFilter = 'all'; // 'all' | 'timed' | 'prep'
+  let studentResultsModeFilter = 'all'; // 'all' | 'timed' | 'prep'
 
   window.setAdminTagFilter = function(val) {
     adminTagFilterType = val || 'all';
@@ -5300,13 +5603,140 @@
     `;
   }
 
+  window.setAdminAttemptModeFilter = function(val) {
+    adminAttemptModeFilter = (val === 'timed' || val === 'prep') ? val : 'all';
+    const box = document.getElementById('admExamAttemptsBox');
+    if (box) box.innerHTML = renderAdminAttemptsInnerHtml();
+  };
+
+  window.setStudentResultsModeFilter = function(val) {
+    studentResultsModeFilter = (val === 'timed' || val === 'prep') ? val : 'all';
+    if (window.renderExamsHub) window.renderExamsHub();
+  };
+
+  function resolveAttemptQuestionsSnapshot(rec) {
+    if (Array.isArray(rec.questionsSnapshot) && rec.questionsSnapshot.length) return rec.questionsSnapshot;
+    const ex = (window.getExams ? window.getExams() : []).find(x => x.id === rec.examId);
+    if (!ex) return [];
+    const out = [];
+    (ex.subjects || []).forEach(sb => {
+      (sb.questions || []).forEach(q => {
+        out.push({
+          id: q.id,
+          subjName: sb.name || '',
+          chapter: q.chapter || '',
+          sourceLabel: q.sourceLabel || '',
+          csvQuestionNum: q.csvQuestionNum || '',
+          csvRowIndex: q.csvRowIndex || undefined,
+          csvFileName: q.csvFileName || '',
+          q: q.q,
+          options: q.options || [],
+          answer: Number(q.answer || 0),
+          exp: q.exp || ''
+        });
+      });
+    });
+    return out;
+  }
+
+  window.openAdminAttemptInspectModal = function(attemptId, filterKind) {
+    if (!window.isAdmin) return;
+    const rec = adminAttemptsCache.find(x => x.id === attemptId) || getExamResults().find(x => x.id === attemptId);
+    if (!rec) {
+      if (typeof toast === 'function') toast('جزئیات این گزارش یافت نشد.');
+      return;
+    }
+    const flt = filterKind || 'all';
+    const snap = resolveAttemptQuestionsSnapshot(rec);
+    const answers = (rec.answers && typeof rec.answers === 'object') ? rec.answers : {};
+    const m = document.getElementById('modal');
+    if (!m) return;
+
+    const rows = snap.map((item, idx) => {
+      const picked = answers[item.id];
+      const isBlank = picked === undefined || picked === null;
+      const isCorrect = !isBlank && Number(picked) === Number(item.answer);
+      return { item, idx: idx + 1, picked, isBlank, isCorrect };
+    }).filter(r => {
+      if (flt === 'wrong') return !r.isBlank && !r.isCorrect;
+      if (flt === 'correct') return r.isCorrect;
+      if (flt === 'blank') return r.isBlank;
+      return true;
+    });
+
+    const isPrep = rec.mode === 'prep';
+    m.innerHTML = `
+      <div class="row between" style="gap:10px; flex-wrap:wrap; margin-bottom:10px;">
+        <div>
+          <h2 style="margin:0;">👁 پاسخ‌های دانشجو: ${esc(rec.examTitle)}</h2>
+          <div class="muted small" style="margin-top:4px;">
+            دانشجو: <b dir="ltr">${esc(rec.userEmail || 'مهمان')}</b> ·
+            <span class="ex-mode-badge ${isPrep ? 'prep' : 'timed'}">${isPrep ? '📖 حالت آمادگی' : '⏱ آزمون زمان‌دار'}</span> ·
+            ${esc(rec.dateLabel || '')} · صحیح: <b>${toFa(rec.correct)}</b> · غلط: <b>${toFa(rec.wrong)}</b> · نزده: <b>${toFa(rec.blank)}</b> · درصد خام: <b>${toFa(rec.rawPct)}٪</b> · تراز: <b>${toFa(rec.netPct)}٪</b>
+          </div>
+        </div>
+      </div>
+      <div class="row" style="gap:6px; flex-wrap:wrap; margin-bottom:10px;">
+        <button type="button" class="btn small ${flt === 'all' ? 'primary' : ''}" onclick="openAdminAttemptInspectModal('${attemptId}', 'all')">همه (${toFa(snap.length)})</button>
+        <button type="button" class="btn small ${flt === 'wrong' ? 'primary' : ''}" onclick="openAdminAttemptInspectModal('${attemptId}', 'wrong')">غلط‌ها (${toFa(rec.wrong)})</button>
+        <button type="button" class="btn small ${flt === 'correct' ? 'primary' : ''}" onclick="openAdminAttemptInspectModal('${attemptId}', 'correct')">صحیح‌ها (${toFa(rec.correct)})</button>
+        <button type="button" class="btn small ${flt === 'blank' ? 'primary' : ''}" onclick="openAdminAttemptInspectModal('${attemptId}', 'blank')">نزده‌ها (${toFa(rec.blank)})</button>
+      </div>
+      ${!snap.length ? `
+        <div class="callout-info" style="padding:12px; border-radius:10px;">جزئیات سوال‌به‌سوال برای این سابقه قدیمی ثبت نشده است.</div>
+      ` : !rows.length ? `
+        <div class="muted small surface-box">موردی با این فیلتر یافت نشد.</div>
+      ` : `
+        <div style="display:grid; gap:10px; max-height:60vh; overflow:auto; padding-left:4px;">
+          ${rows.map(r => `
+            <div class="exam-q-card" style="padding:12px;">
+              <div class="row between" style="gap:6px; flex-wrap:wrap;">
+                <div class="row" style="gap:6px; flex-wrap:wrap;">
+                  <span class="art-tag">${esc(r.item.subjName || 'سوال')} · سوال ${toFa(r.idx)}</span>
+                  ${r.item.chapter ? `<span class="pill">سرفصل: ${esc(r.item.chapter)}</span>` : ''}
+                  ${formatAdminCsvBadgeHtml(r.item, r.idx)}
+                </div>
+                <span class="pill ${r.isCorrect ? 'done' : (!r.isBlank ? 'bad' : '')}">
+                  ${r.isBlank ? '⚪ نزده' : (r.isCorrect ? '✅ صحیح' : '❌ غلط')}
+                </span>
+              </div>
+              <div style="font-size:13.5px; font-weight:700; margin:8px 0; line-height:1.7;">${esc(r.item.q)}</div>
+              <div class="muted small" style="display:flex; gap:12px; flex-wrap:wrap;">
+                <span>پاسخ دانشجو: <b>${r.isBlank ? 'نزده' : ('گزینه ' + (EXAM_LETTERS[Number(r.picked)] || toFa(Number(r.picked) + 1)))}</b></span>
+                <span>کلید صحیح: <b style="color:var(--ok, #16a34a);">گزینه ${EXAM_LETTERS[Number(r.item.answer)] || toFa(Number(r.item.answer) + 1)}</b></span>
+              </div>
+            </div>
+          `).join('')}
+        </div>
+      `}
+      <div class="modal-actions">
+        <button type="button" class="btn primary" onclick="closeModal()">بستن</button>
+      </div>
+    `;
+    document.getElementById('modalBack').classList.add('show');
+  };
+
   function renderAdminAttemptsInnerHtml() {
     if (!adminAttemptsCache.length) {
-      return '<div class="muted small surface-box">نتیجه آزمون ثبت‌شده‌ای وجود ندارد.</div>';
+      return '<div class="muted small surface-box">نتیجه آزمون یا گزارش حالت آمادگی ثبت‌شده‌ای وجود ندارد.</div>';
     }
+    const cAll = adminAttemptsCache.length;
+    const cTimed = adminAttemptsCache.filter(r => r.mode !== 'prep').length;
+    const cPrep = adminAttemptsCache.filter(r => r.mode === 'prep').length;
+    const filtered = adminAttemptsCache.filter(r => {
+      if (adminAttemptModeFilter === 'timed') return r.mode !== 'prep';
+      if (adminAttemptModeFilter === 'prep') return r.mode === 'prep';
+      return true;
+    });
     return `
-      <div style="display:grid; gap:8px; max-height:300px; overflow:auto;">
-        ${adminAttemptsCache.map(r => {
+      <div class="row" style="gap:6px; flex-wrap:wrap; margin-bottom:10px;">
+        <button type="button" class="btn small ${adminAttemptModeFilter === 'all' ? 'primary' : ''}" onclick="setAdminAttemptModeFilter('all')">همه (${toFa(cAll)})</button>
+        <button type="button" class="btn small ${adminAttemptModeFilter === 'timed' ? 'primary' : ''}" onclick="setAdminAttemptModeFilter('timed')">⏱ آزمون زمان‌دار (${toFa(cTimed)})</button>
+        <button type="button" class="btn small ${adminAttemptModeFilter === 'prep' ? 'primary' : ''}" onclick="setAdminAttemptModeFilter('prep')">📖 حالت آمادگی (${toFa(cPrep)})</button>
+      </div>
+      <div style="display:grid; gap:8px; max-height:360px; overflow:auto;">
+        ${filtered.length ? filtered.map(r => {
+          const isPrep = r.mode === 'prep';
           const vals = r.questionTags && typeof r.questionTags === 'object' ? Object.values(r.questionTags) : [];
           const badges = [];
           const cEasy = vals.filter(t => t && t.difficulty === 'easy').length;
@@ -5324,16 +5754,23 @@
           return `
             <div class="row between admin-list-row" style="flex-wrap:wrap; gap:8px;">
               <div>
-                <b>${esc(r.examTitle)}</b> ${r.scopeLabel ? `<span class="muted small">(${esc(r.scopeLabel)})</span>` : ''}
+                <div class="row" style="gap:6px; flex-wrap:wrap; align-items:center;">
+                  <b>${esc(r.examTitle)}</b>
+                  <span class="ex-mode-badge ${isPrep ? 'prep' : 'timed'}">${isPrep ? '📖 حالت آمادگی' : '⏱ زمان‌دار'}</span>
+                  ${r.scopeLabel ? `<span class="muted small">(${esc(r.scopeLabel)})</span>` : ''}
+                </div>
                 <div class="muted small" style="margin-top:3px;">
-                  کاربر: <b dir="ltr">${esc(r.userEmail || 'مهمان')}</b> · ${esc(r.dateLabel || '')} · صحیح: <b>${toFa(r.correct)}</b> · غلط: <b>${toFa(r.wrong)}</b> · تراز: <b>${toFa(r.netPct)}٪</b>
+                  کاربر: <b dir="ltr">${esc(r.userEmail || 'مهمان')}</b> · ${esc(r.dateLabel || '')} · صحیح: <b>${toFa(r.correct)}</b> · غلط: <b>${toFa(r.wrong)}</b> · نزده: <b>${toFa(r.blank)}</b> · خام: <b>${toFa(r.rawPct)}٪</b> · تراز: <b>${toFa(r.netPct)}٪</b>
                 </div>
                 ${badges.length ? `<div class="row" style="gap:4px; flex-wrap:wrap; margin-top:5px;">${badges.join('')}</div>` : ''}
               </div>
-              <button type="button" class="btn small danger" onclick="adminDeleteExamAttempt('${r.id}')">🗑 حذف نتیجه (بدون حذف نکات)</button>
+              <div class="row" style="gap:6px; flex-wrap:wrap;">
+                <button type="button" class="btn small primary" onclick="openAdminAttemptInspectModal('${r.id}')">👁 پاسخ‌های دانشجو</button>
+                <button type="button" class="btn small danger" onclick="adminDeleteExamAttempt('${r.id}')">🗑 حذف</button>
+              </div>
             </div>
           `;
-        }).join('')}
+        }).join('') : '<div class="muted small surface-box">موردی با این فیلتر یافت نشد.</div>'}
       </div>
     `;
   }
@@ -5399,28 +5836,51 @@
     return [...chSet];
   }
 
-  let examHubSection = 'exams'; // 'exams' | 'lessons' | 'notebook'
+  let examHubSection = 'exams'; // 'exams' (آزمون‌های کلی) | 'lessons' (آزمون‌های درس‌به‌درس) | 'notebook' (دفترچه نکات)
+  let selectedSubjectGroup = ''; // نام درس انتخاب‌شده در بخش درس‌به‌درس
   let examLessonSearch = '';
   let examNbGroupBy = 'subject'; // 'subject' | 'exam'
   let examNbFilter = 'all';      // 'all' | 'noted' | 'review' | 'noteworthy' | 'careless' | 'hard' | 'medium' | 'easy' | 'wrong'
   let examNbGroup = 'all';
   let examNbSearch = '';
   const examNbExpanded = {};
-  let examHubCat = 'all';      // نام دسته انتخاب‌شده یا 'all' برای نمای پوشه‌های اصلی
+  let examHubCat = 'all';
   let examHubFilterType = 'all';
   let examHubFilterYear = 'all';
   let examHubFilterChapter = 'all';
   let examHubQuery = '';
-  let examHubSubViewMode = 'auto'; // 'auto' | 'folders' | 'list'
+  let examHubSubViewMode = 'list';
 
   window.setExamHubSection = function(sec) {
     examHubSection = (sec === 'lessons' || sec === 'notebook') ? sec : 'exams';
+    if (sec !== 'lessons') selectedSubjectGroup = '';
+    window.renderExamsHub();
+  };
+
+  window.selectSubjectGroupEnc = function(encName) {
+    selectedSubjectGroup = decodeURIComponent(encName || '');
     window.renderExamsHub();
   };
 
   window.setExamLessonSearch = function(val) {
     examLessonSearch = String(val || '');
     window.renderExamsHub();
+  };
+
+  window.forceFullExamSync = async function() {
+    if (typeof toast === 'function') toast('در حال همگام‌سازی کامل با سرور...');
+    try {
+      if (window.BARAAT_PLANNER_API && window.me && window.BARAAT_PLANNER_API.pullAndMerge) {
+        await window.BARAAT_PLANNER_API.pullAndMerge();
+      }
+    } catch (e) {}
+    try {
+      if (window.syncAllFromSupabase) {
+        await window.syncAllFromSupabase(true);
+      }
+    } catch (e) {}
+    if (window.renderExamsHub) window.renderExamsHub();
+    if (typeof toast === 'function') toast('آزمون‌ها، نکات و برچسب‌های شما با سرور همگام شدند ✓');
   };
 
   window.setExamNbFilter = function(val) {
@@ -5606,13 +6066,14 @@
     stopExamTimer();
     const totalQ = rawSubjs.reduce((a, s) => a + s.questions.length, 0);
     const runMode = mode === 'exam' ? 'exam' : 'study';
-    const defaultSeconds = Math.max(300, totalQ * 75);
+    const defaultSeconds = calcExamDurationMin(totalQ) * 60;
 
     examSession = {
       exam: {
-        id: 'topic_' + Date.now(),
+        id: 'topic_' + cat + '_' + val,
         title: (cat !== 'all' ? cat + ' · ' : '') + val,
         category: cat,
+        examScope: 'general',
         examType: 'مبحثی / سرفصلی',
         negativeMarking: true
       },
@@ -5626,6 +6087,99 @@
       answers: {},
       revealed: {},
       flags: {},
+      sessionPrevPrep: Object.assign({}, getExamPrepHistoryMap()),
+      secondsLeft: defaultSeconds,
+      totalSeconds: defaultSeconds,
+      paused: false,
+      submitted: false,
+      reviewFilter: 'all'
+    };
+
+    const overlay = document.getElementById('examRunnerOverlay');
+    if (overlay) overlay.classList.remove('hidden');
+    document.body.style.overflow = 'hidden';
+    if (runMode === 'exam') startExamCountdown();
+    renderExamRunner();
+  };
+
+  // --- اجراکننده اختصاصی آزمون درس‌به‌درس (فقط سوالات فایل‌های بارگذاری‌شده زیر همان درس) ---
+  function getSubjectExamsOnly(subjectName) {
+    return getVisibleExams().filter(ex => ex.examScope === 'subject' && String(ex.subjectGroup || '').trim() === String(subjectName || '').trim());
+  }
+
+  function getSubjectChaptersBreakdown(subjectName) {
+    const subExams = getSubjectExamsOnly(subjectName);
+    const chMap = new Map();
+    subExams.forEach(ex => {
+      (ex.subjects || []).forEach(sb => {
+        (sb.questions || []).forEach(q => {
+          const chName = String(q.chapter || sb.name || 'سوالات عمومی درس').trim();
+          if (!chMap.has(chName)) chMap.set(chName, { name: chName, questions: [], hasPremium: false });
+          const entry = chMap.get(chName);
+          if (ex.isPremium) entry.hasPremium = true;
+          entry.questions.push(Object.assign({}, q, {
+            chapter: chName,
+            sourceLabel: q.sourceLabel || buildExamSourceLabel('', ex.examType, ex.year) || ex.title
+          }));
+        });
+      });
+    });
+    return [...chMap.values()];
+  }
+
+  window.openSubjectLessonRunner = function(encSubjectName, mode, encChapterName) {
+    const subjectName = decodeURIComponent(encSubjectName || '');
+    const chapterFilter = encChapterName ? decodeURIComponent(encChapterName) : '';
+    const subExams = getSubjectExamsOnly(subjectName);
+    if (!subExams.length) {
+      if (typeof toast === 'function') toast('هنوز فایلی زیر این درس بارگذاری نشده است.');
+      return;
+    }
+    const chapters = getSubjectChaptersBreakdown(subjectName).filter(ch => !chapterFilter || ch.name === chapterFilter);
+    if (!chapters.length) {
+      if (typeof toast === 'function') toast('سوالی در این سرفصل یافت نشد.');
+      return;
+    }
+    const requiresVip = chapters.some(ch => ch.hasPremium) && !isCurrentUserVip();
+    if (requiresVip) {
+      showVipLockModal(subjectName + (chapterFilter ? ' · ' + chapterFilter : ''));
+      return;
+    }
+
+    const rawSubjs = chapters.map((ch, idx) => ({
+      id: 'subch_' + idx,
+      name: ch.name,
+      questions: ch.questions
+    }));
+    const totalQ = rawSubjs.reduce((a, s) => a + s.questions.length, 0);
+    if (!totalQ) return;
+
+    stopExamTimer();
+    const runMode = mode === 'exam' ? 'exam' : 'study';
+    const defaultSeconds = calcExamDurationMin(totalQ) * 60;
+    const stableId = 'subj_' + subjectName + (chapterFilter ? '__' + chapterFilter : '');
+
+    examSession = {
+      exam: {
+        id: stableId,
+        title: chapterFilter ? (subjectName + ' · ' + chapterFilter) : ('آزمون درس: ' + subjectName),
+        category: subjectName,
+        examScope: 'subject',
+        subjectGroup: subjectName,
+        examType: chapterFilter ? 'سرفصل درس‌به‌درس' : 'درس‌به‌درس کامل',
+        negativeMarking: true
+      },
+      retryParams: { type: 'subjectLesson', encSubjectName, encChapterName: encChapterName || '' },
+      mode: runMode,
+      subjects: rawSubjs,
+      scopeLabel: chapterFilter ? ('درس ' + subjectName + ' · سرفصل: ' + chapterFilter) : ('درس: ' + subjectName),
+      activeSubjIdx: 0,
+      activeQIdx: 0,
+      viewMode: 'list',
+      answers: {},
+      revealed: {},
+      flags: {},
+      sessionPrevPrep: Object.assign({}, getExamPrepHistoryMap()),
       secondsLeft: defaultSeconds,
       totalSeconds: defaultSeconds,
       paused: false,
@@ -5698,13 +6252,15 @@
 
     stopExamTimer();
     const runMode = mode === 'exam' ? 'exam' : 'study';
-    const defaultSeconds = Math.max(300, totalQ * 75);
+    const defaultSeconds = calcExamDurationMin(totalQ) * 60;
 
     examSession = {
       exam: {
         id: 'lesson_' + Date.now(),
         title: 'مطالعه درس به درس: ' + lessonName,
         category: 'مطالعه درس به درس',
+        examScope: 'subject',
+        subjectGroup: lessonName,
         examType: onlyExamId ? rawSubjs[0].name : ('تجمیع ' + toFa(rawSubjs.length) + ' آزمون'),
         negativeMarking: true
       },
@@ -5718,6 +6274,7 @@
       answers: {},
       revealed: {},
       flags: {},
+      sessionPrevPrep: Object.assign({}, getExamPrepHistoryMap()),
       secondsLeft: defaultSeconds,
       totalSeconds: defaultSeconds,
       paused: false,
@@ -5894,12 +6451,13 @@
     }));
     stopExamTimer();
     const runMode = mode === 'exam' ? 'exam' : 'study';
-    const defaultSeconds = Math.max(300, playable.length * 75);
+    const defaultSeconds = calcExamDurationMin(playable.length) * 60;
     examSession = {
       exam: {
-        id: 'notebook_' + Date.now(),
+        id: 'notebook_' + (examNbGroup !== 'all' ? examNbGroup : 'all'),
         title: 'مرور هوشمند دفترچه نکات آزمونی' + (examNbGroup !== 'all' ? ' · ' + examNbGroup : ''),
         category: 'دفترچه نکات آزمونی',
+        examScope: 'general',
         examType: 'مرور شخصی‌سازی‌شده',
         negativeMarking: true
       },
@@ -5913,6 +6471,7 @@
       answers: {},
       revealed: {},
       flags: {},
+      sessionPrevPrep: Object.assign({}, getExamPrepHistoryMap()),
       secondsLeft: defaultSeconds,
       totalSeconds: defaultSeconds,
       paused: false,
@@ -5965,6 +6524,11 @@
 
   window.examRestartSession = function(newMode) {
     if (!examSession) return;
+    if (examSession.retryParams && examSession.retryParams.type === 'subjectLesson') {
+      const p = examSession.retryParams;
+      window.openSubjectLessonRunner(p.encSubjectName, newMode, p.encChapterName);
+      return;
+    }
     if (examSession.retryParams && examSession.retryParams.type === 'notebook') {
       window.openNotebookPracticeRunner(newMode);
       return;
@@ -5994,70 +6558,39 @@
       ? document.activeElement.selectionEnd
       : null;
 
-    const exams = getVisibleExams();
-    const allCats = [...new Set(exams.map(getExamCategory).filter(Boolean))];
-    const catExams = examHubCat === 'all' ? exams : exams.filter(e => getExamCategory(e) === examHubCat);
+    const allExams = getVisibleExams();
+    const generalExams = allExams.filter(ex => ex.examScope !== 'subject');
+    const subjectScopedExams = allExams.filter(ex => ex.examScope === 'subject');
+    const allDefinedSubjects = getExamSubjectsList();
+    // اگر درسی در آزمون‌های درس‌به‌درس وجود دارد که هنوز در لیست مدیر نیست، آن را هم نشان بده
+    const mergedSubjectNames = [...new Set([
+      ...allDefinedSubjects,
+      ...subjectScopedExams.map(ex => String(ex.subjectGroup || '').trim()).filter(Boolean)
+    ])];
 
-    const typeSet = [...new Set(catExams.map(getExamTypeLabel).filter(Boolean))];
+    const allCats = [...new Set(generalExams.map(getExamCategory).filter(Boolean))];
+    const catExams = examHubCat === 'all' ? generalExams : generalExams.filter(e => getExamCategory(e) === examHubCat);
     const yearSet = [...new Set(catExams.map(e => Number(e.year)).filter(Boolean))].sort((a, b) => b - a);
-    const chapterSet = [...new Set(catExams.flatMap(ex => getExamChapters(ex)))];
-    const subjectNamesInCat = [...new Set(catExams.flatMap(ex => (ex.subjects || []).filter(s => (s.questions || []).length > 0).map(s => s.name)))];
-
     const qNorm = examHubQuery.trim().toLowerCase();
-    const filtered = catExams.filter(e => {
-      if (examHubFilterType !== 'all' && getExamTypeLabel(e) !== examHubFilterType) return false;
+    const filteredGeneral = catExams.filter(e => {
       if (examHubFilterYear !== 'all' && String(e.year) !== String(examHubFilterYear)) return false;
-      if (examHubFilterChapter !== 'all') {
-        const hasCh = (e.subjects || []).some(s => (s.questions || []).some(q => (q.chapter || '').trim() === examHubFilterChapter));
-        if (!hasCh) return false;
-      }
       if (!qNorm) return true;
       return (
         (e.title || '').toLowerCase().includes(qNorm) ||
         getExamCategory(e).toLowerCase().includes(qNorm) ||
         getExamTypeLabel(e).toLowerCase().includes(qNorm) ||
-        String(e.year || '').includes(qNorm) ||
-        (e.subjects || []).some(s =>
-          (s.name || '').toLowerCase().includes(qNorm) ||
-          (s.questions || []).some(q => (q.chapter || '').toLowerCase().includes(qNorm))
-        )
+        String(e.year || '').includes(qNorm)
       );
     });
 
-    const showFolderRoot = examHubCat === 'all' && !qNorm && examHubFilterType === 'all' && examHubFilterYear === 'all' && examHubFilterChapter === 'all' && examHubSubViewMode !== 'list' && allCats.length > 0;
-    const isYearOriented = examHubCat !== 'all' && isYearFirstCategory(examHubCat);
-    const results = getExamResults();
-
-    // شمارش سوالات هر مبحث/فصل داخل دسته فعال (و در صورت نبود فصل، شمارش بر اساس درس)
-    const topicCounts = new Map();
-    const subjTopicCounts = new Map();
-    if (examHubCat !== 'all') {
-      catExams.forEach(ex => {
-        (ex.subjects || []).forEach(sb => {
-          const sName = String(sb.name || '').trim();
-          const qs = sb.questions || [];
-          if (sName && qs.length) {
-            subjTopicCounts.set(sName, (subjTopicCounts.get(sName) || 0) + qs.length);
-          }
-          qs.forEach(q => {
-            const ch = String(q.chapter || '').trim();
-            if (ch) topicCounts.set(ch, (topicCounts.get(ch) || 0) + 1);
-          });
-        });
-      });
-    }
-    const useChapterTopics = topicCounts.size > 0;
-    const topicCardsList = useChapterTopics
-      ? [...topicCounts.entries()].map(([name, cnt]) => ({ kind: 'chapter', name, cnt }))
-      : [...subjTopicCounts.entries()].map(([name, cnt]) => ({ kind: 'subject', name, cnt }));
-
-    const lessonGroups = getLessonGroupsAcrossAllExams();
-    const lessonQNorm = examLessonSearch.trim().toLowerCase();
-    const filteredLessons = lessonGroups.filter(ls => {
-      if (!lessonQNorm) return true;
-      return ls.name.toLowerCase().includes(lessonQNorm)
-        || [...ls.chapters].some(ch => ch.toLowerCase().includes(lessonQNorm))
-        || ls.exams.some(exRef => (exRef.examTitle || '').toLowerCase().includes(lessonQNorm));
+    const userIsVip = isCurrentUserVip();
+    const resultsAll = getExamResults();
+    const resultsTimedCount = resultsAll.filter(r => r.mode !== 'prep').length;
+    const resultsPrepCount = resultsAll.filter(r => r.mode === 'prep').length;
+    const resultsFiltered = resultsAll.filter(r => {
+      if (studentResultsModeFilter === 'timed') return r.mode !== 'prep';
+      if (studentResultsModeFilter === 'prep') return r.mode === 'prep';
+      return true;
     });
 
     const nbAll = buildStudentNotebookEntries();
@@ -6075,401 +6608,373 @@
     const nbFilteredObj = examHubSection === 'notebook' ? getFilteredNotebookEntries(nbAll) : { base: [], groups: [], visible: [] };
     const nbPlayableCount = nbFilteredObj.visible.filter(x => x.hasFullQuestion).length;
 
-    root.innerHTML = `
-      <div class="panel">
-        <div class="panel-head">
+    const lessonQNorm = examLessonSearch.trim().toLowerCase();
+    const filteredSubjectCards = mergedSubjectNames.filter(name => !lessonQNorm || name.toLowerCase().includes(lessonQNorm));
+
+    const renderExamCardHtml = (ex) => {
+      const totalQ = totalQuestionsCount(ex);
+      const autoMin = calcExamDurationMin(totalQ);
+      const hiddenByAdmin = ex.isPublished === false;
+      const lockedVip = ex.isPremium && !userIsVip;
+      return `
+        <article class="exam-card" style="${hiddenByAdmin ? 'opacity:.85; border:1.5px dashed var(--danger, #dc2626);' : ''}">
+          <div class="row between" style="gap:6px; flex-wrap:wrap;">
+            <div class="row" style="gap:6px; flex-wrap:wrap;">
+              <span class="art-tag">${esc(ex.examScope === 'subject' ? (ex.subjectGroup || getExamCategory(ex)) : getExamCategory(ex))}</span>
+              ${ex.isPremium ? `<span class="ex-vip-badge">⭐ ویژه VIP</span>` : ''}
+            </div>
+            <span class="pill ${totalQ ? 'done' : ''}">${ex.year ? 'سال ' + toFa(ex.year) + ' · ' : ''}${toFa(totalQ)} سوال · ${toFa(autoMin)} دقیقه</span>
+          </div>
+          ${hiddenByAdmin ? `<div class="ex-vis-badge hid" style="align-self:flex-start;">🙈 مخفی از کاربران (فقط مدیر)</div>` : ''}
           <div>
-            <h2>📚 بانک سوالات و آزمون‌های حقوقی</h2>
-            <div class="muted small">آزمون‌های جامع با پیمایش متوالی دروس · مطالعه درس به درس · دفترچه نکات و مرور آزمونی من</div>
+            <h3 style="margin:0 0 6px; font-size:16.5px; font-weight:800; color:var(--text);">${esc(ex.title)}</h3>
+            <div class="muted small">
+              ⏱ آزمون زمان‌دار (${toFa(autoMin)} دقیقه · ۲ دقیقه/سوال) · 📖 حالت آمادگی بدون تایمر با ثبت گزارش
+            </div>
+            ${ex.description ? `<p style="margin:6px 0 0; font-size:12.5px; color:var(--muted); line-height:1.7;">${esc(ex.description)}</p>` : ''}
           </div>
-          <div class="row" style="gap:8px; flex-wrap:wrap;">
-            ${window.isAdmin ? `<button type="button" class="btn primary" onclick="openExamMetaModal()">＋ ایجاد آزمون جدید</button>` : ''}
-            ${window.isAdmin ? `<button type="button" class="btn" onclick="openMultiExamFileImportModal()">📥 ورود کل آزمون از اکسل / CSV</button>` : ''}
-            <button type="button" class="btn" onclick="if(window.syncAllFromSupabase)syncAllFromSupabase(true).then(()=>{if(typeof toast==='function')toast('فهرست آزمون‌ها بروزرسانی شد.');})">🔄 بروزرسانی</button>
-          </div>
-        </div>
-
-        <div class="row" style="gap:8px; flex-wrap:wrap; margin:0 0 14px; padding:10px; border-radius:14px; background:var(--surface-2, rgba(15,118,110,.06)); border:1px solid var(--line);">
-          <button type="button" class="btn ${examHubSection === 'exams' ? 'primary' : ''}" onclick="setExamHubSection('exams')">
-            📂 آزمون‌های جامع و سنواتی (${toFa(exams.length)})
-          </button>
-          <button type="button" class="btn ${examHubSection === 'lessons' ? 'primary' : ''}" onclick="setExamHubSection('lessons')">
-            📚 مطالعه درس به درس سوالات (${toFa(lessonGroups.length)} درس)
-          </button>
-          <button type="button" class="btn ${examHubSection === 'notebook' ? 'primary' : ''}" onclick="setExamHubSection('notebook')">
-            📓 دفترچه نکات و مرور آزمونی (${toFa(nbCounts.all)})
-          </button>
-        </div>
-
-        ${examHubSection === 'notebook' ? `
-          <div class="surface-box" style="padding:14px; border-radius:14px; margin-bottom:14px;">
-            <div class="row between" style="gap:10px; flex-wrap:wrap; margin-bottom:12px;">
-              <div>
-                <h3 style="margin:0; font-size:15.5px; font-weight:800;">📓 دفترچه نکات و مرور آزمونی من</h3>
-                <div class="muted small" style="margin-top:4px;">همه نکات شخصی زیر سوالات همراه با متن همان سوال، تیک‌های سخت/مرور/نکته‌دار/بی‌دقتی و غلط‌های قبلی شما.</div>
-              </div>
-              <div class="row" style="gap:6px; flex-wrap:wrap;">
-                <button type="button" class="btn small primary" ${nbPlayableCount ? '' : 'disabled'} onclick="openNotebookPracticeRunner('study')">▶ شروع مرور از فیلتر (${toFa(nbPlayableCount)})</button>
-                <button type="button" class="btn small" ${nbPlayableCount ? '' : 'disabled'} onclick="openNotebookPracticeRunner('exam')">⏱ آزمون زمان‌دار</button>
-                <button type="button" class="btn small" ${nbFilteredObj.visible.length ? '' : 'disabled'} onclick="copyAllNotebookNotes()">📋 کپی یکجای جزوه</button>
-              </div>
-            </div>
-
-            <div class="cases-kpi-grid" style="margin:0 0 12px;">
-              <div class="cases-kpi-card" style="cursor:pointer;" onclick="setExamNbFilter('noted')"><div class="k-label">نکات نوشته‌شده من</div><div class="k-val" style="color:var(--main);">${toFa(nbCounts.noted)}</div></div>
-              <div class="cases-kpi-card" style="cursor:pointer;" onclick="setExamNbFilter('review')"><div class="k-label">نیاز به مرور</div><div class="k-val" style="color:#0284c7;">${toFa(nbCounts.review)}</div></div>
-              <div class="cases-kpi-card" style="cursor:pointer;" onclick="setExamNbFilter('hard')"><div class="k-label">سوالات سخت</div><div class="k-val" style="color:#e11d48;">${toFa(nbCounts.hard)}</div></div>
-              <div class="cases-kpi-card" style="cursor:pointer;" onclick="setExamNbFilter('wrong')"><div class="k-label">غلط‌های قبلی</div><div class="k-val" style="color:#d97706;">${toFa(nbCounts.wrong)}</div></div>
-            </div>
-
-            <div class="row" style="gap:6px; flex-wrap:wrap; margin-bottom:10px;">
-              ${[
-                ['all', 'همه (' + toFa(nbCounts.all) + ')'],
-                ['noted', 'دارای نکته من (' + toFa(nbCounts.noted) + ')'],
-                ['review', 'مرور (' + toFa(nbCounts.review) + ')'],
-                ['noteworthy', 'نکته‌دار (' + toFa(nbCounts.noteworthy) + ')'],
-                ['careless', 'بی‌دقتی (' + toFa(nbCounts.careless) + ')'],
-                ['hard', 'سخت (' + toFa(nbCounts.hard) + ')'],
-                ['medium', 'متوسط (' + toFa(nbCounts.medium) + ')'],
-                ['easy', 'آسان (' + toFa(nbCounts.easy) + ')'],
-                ['wrong', 'غلط‌های قبلی (' + toFa(nbCounts.wrong) + ')']
-              ].map(([id, lbl]) => `<button type="button" class="btn small ${examNbFilter === id ? 'primary' : ''}" onclick="setExamNbFilter('${id}')">${lbl}</button>`).join('')}
-            </div>
-
-            <div class="row between" style="gap:10px; flex-wrap:wrap;">
-              <div class="row" style="gap:6px; flex-wrap:wrap;">
-                <button type="button" class="btn small ${examNbGroupBy === 'subject' ? 'primary' : ''}" onclick="setExamNbGroupBy('subject')">📘 تفکیک بر اساس درس</button>
-                <button type="button" class="btn small ${examNbGroupBy === 'exam' ? 'primary' : ''}" onclick="setExamNbGroupBy('exam')">📂 تفکیک بر اساس آزمون</button>
-              </div>
-              <input id="examNbSearchInp" value="${esc(examNbSearch)}" placeholder="جستجو در متن سوال یا نکات شخصی..." style="min-width:220px; flex:1; max-width:320px;" oninput="setExamNbSearch(this.value)">
-            </div>
-
-            ${nbFilteredObj.groups.length ? `
-              <div class="row" style="gap:6px; flex-wrap:wrap; margin-top:10px;">
-                <button type="button" class="ex-crumb-btn ${examNbGroup === 'all' ? 'active' : ''}" onclick="setExamNbGroupEnc('all')">${examNbGroupBy === 'subject' ? 'همه دروس' : 'همه آزمون‌ها'} (${toFa(nbFilteredObj.base.length)})</button>
-                ${nbFilteredObj.groups.map(g => `<button type="button" class="ex-crumb-btn ${examNbGroup === g.name ? 'active' : ''}" onclick="setExamNbGroupEnc('${encodeURIComponent(g.name)}')">${esc(g.name)} (${toFa(g.count)})</button>`).join('')}
-              </div>
+          <div class="row between" style="gap:6px; flex-wrap:wrap; padding-top:12px; border-top:1px solid var(--line); margin-top:auto;">
+            <button type="button" class="btn primary" style="flex:1; justify-content:center;" ${totalQ ? `onclick="openExamRunner('${ex.id}', null, 'exam')"` : 'disabled'}>
+              ${lockedVip ? '🔒 ' : '⏱ '}آزمون زمان‌دار
+            </button>
+            <button type="button" class="btn" style="flex:1; justify-content:center;" ${totalQ ? `onclick="openExamRunner('${ex.id}', null, 'study')"` : 'disabled'}>
+              ${lockedVip ? '🔒 ' : '📖 '}حالت آمادگی
+            </button>
+            ${window.isAdmin ? `
+              <button type="button" class="btn small" onclick="toggleExamPublished('${ex.id}')" title="${hiddenByAdmin ? 'انتشار برای همه' : 'مخفی کردن از کاربران'}">${hiddenByAdmin ? '👁' : '🙈'}</button>
+              <button type="button" class="btn small" onclick="openExamQuestionsEditor('${ex.id}')" title="مدیریت و ویرایش تکی سوالات">✏️</button>
             ` : ''}
           </div>
+        </article>
+      `;
+    };
 
-          ${!nbFilteredObj.visible.length ? `
-            <div class="empty-glass-card" style="margin:24px auto;">
-              <div class="empty-icon">📓</div>
-              <h3>${nbAll.length ? 'موردی با این فیلتر پیدا نشد' : 'دفترچه نکات آزمونی شما هنوز خالی است'}</h3>
-              <p>${nbAll.length ? 'فیلتر یا عبارت جستجو را تغییر دهید.' : 'در آزمون‌ها زیر هر سوال نکته بنویسید یا تیک سخت / مرور / نکته‌دار / بی‌دقتی بزنید تا به‌صورت خودکار اینجا دسته‌بندی شوند.'}</p>
+    let mainBodyHtml = '';
+    if (examHubSection === 'notebook') {
+      mainBodyHtml = `
+        <div class="surface-box" style="padding:14px; border-radius:14px; margin-bottom:14px;">
+          <div class="row between" style="gap:10px; flex-wrap:wrap; margin-bottom:12px;">
+            <div>
+              <h3 style="margin:0; font-size:15.5px; font-weight:800;">📓 دفترچه نکات و مرور آزمونی من</h3>
+              <div class="muted small" style="margin-top:4px;">همه نکات شخصی زیر سوالات، تیک‌های سخت/متوسط/آسان/مرور/نکته‌دار/بی‌دقتی و غلط‌های قبلی شما (همگام در وب و اپ).</div>
             </div>
-          ` : `
-            <div style="display:grid; gap:14px;">
-              ${nbFilteredObj.visible.map((item, idx) => {
-                if (item.hasFullQuestion) registerCopyableQuestion(item, item.subjectName, item.qNumber || idx + 1);
-                const isExp = !!examNbExpanded[item.id];
-                const themeIdx = hashSubjectColorIdx(item.subjectName);
-                return `
-                  <article class="exam-q-card baraat-subj-theme-${themeIdx}">
-                    <div class="row between" style="gap:8px; flex-wrap:wrap; margin-bottom:8px;">
-                      <div class="row" style="gap:6px; flex-wrap:wrap;">
-                        <span class="art-tag">${esc(item.subjectName)}</span>
-                        <span class="pill">${esc(item.examTitle)}${item.qNumber ? ' · سوال ' + toFa(item.qNumber) : ''}</span>
-                        ${item.chapter ? `<span class="pill">سرفصل: ${esc(item.chapter)}</span>` : ''}
-                        ${formatExamSourceBadgeHtml(item.sourceLabel)}
-                        ${item.isWrong ? `<span class="pill bad">غلط در آزمون${item.wrongCount > 1 ? ' (' + toFa(item.wrongCount) + ' بار)' : ''}</span>` : ''}
-                      </div>
-                      ${item.hasFullQuestion ? `<button type="button" class="btn small" onclick="copyExamQuestionById('${item.id}', this)">📋 کپی سوال و نکته</button>` : ''}
-                    </div>
-                    <div class="muted small" style="font-weight:700; margin-bottom:4px;">متن سوال مرتبط:</div>
-                    <div class="exam-q-stem" style="margin-top:0;">${esc(item.q)}</div>
-                    ${renderQuestionNoteBoxHtml(item.id, 'nb')}
-                    ${renderQuestionTagBarHtml(item.id, item.examTitle, item.subjectName, item.q, 'nb')}
-                    ${item.hasFullQuestion ? `
-                      <div style="margin-top:10px;">
-                        <button type="button" class="btn small" onclick="toggleExamNbExpand('${item.id}')">
-                          ${isExp ? '▲ بستن گزینه‌ها و پاسخ تشریحی' : '▼ مشاهده گزینه‌ها و پاسخ تشریحی'}
-                        </button>
-                        ${isExp ? `
-                          <div class="exam-options-list" style="margin-top:10px;">
-                            ${(item.options || []).map((opt, oi) => {
-                              if (!opt) return '';
-                              const isRight = oi === Number(item.answer);
-                              const isWrongPick = item.isWrong && item.lastWrongPicked === oi && !isRight;
-                              return `
-                                <div class="exam-opt-btn ${isRight ? 'correct' : ''} ${isWrongPick ? 'wrong' : ''}" style="cursor:default;">
-                                  <span class="exam-opt-letter">${EXAM_LETTERS[oi] || toFa(oi + 1)}</span>
-                                  <span>${esc(opt)}${isRight ? ' <small style="font-weight:800;">✓ صحیح</small>' : ''}${isWrongPick ? ' <small style="font-weight:800;">✕ انتخاب قبلی</small>' : ''}</span>
-                                </div>
-                              `;
-                            }).join('')}
-                          </div>
-                          ${item.exp ? `<div class="exam-exp-box" style="margin-top:8px;"><b>💡 پاسخ تشریحی:</b> ${esc(item.exp)}</div>` : ''}
-                        ` : ''}
-                      </div>
-                    ` : ''}
-                  </article>
-                `;
-              }).join('')}
+            <div class="row" style="gap:6px; flex-wrap:wrap;">
+              <button type="button" class="btn small primary" ${nbPlayableCount ? '' : 'disabled'} onclick="openNotebookPracticeRunner('study')">📖 حالت آمادگی از فیلتر (${toFa(nbPlayableCount)})</button>
+              <button type="button" class="btn small" ${nbPlayableCount ? '' : 'disabled'} onclick="openNotebookPracticeRunner('exam')">⏱ آزمون زمان‌دار</button>
+              <button type="button" class="btn small" ${nbFilteredObj.visible.length ? '' : 'disabled'} onclick="copyAllNotebookNotes()">📋 کپی جزوه</button>
             </div>
-          `}
-        ` : examHubSection === 'lessons' ? `
-          <div class="field" style="margin-bottom:14px;">
-            <label>جستجو در بانک درس به درس</label>
-            <input id="examLessonSearchInp" value="${esc(examLessonSearch)}" placeholder="مثلاً: حقوق مدنی، تجارت، جزا، دادرسی..." oninput="setExamLessonSearch(this.value)">
           </div>
-          ${!filteredLessons.length ? `
+
+          <div class="cases-kpi-grid" style="margin:0 0 12px;">
+            <div class="cases-kpi-card" style="cursor:pointer;" onclick="setExamNbFilter('noted')"><div class="k-label">نکات نوشته‌شده من</div><div class="k-val" style="color:var(--main);">${toFa(nbCounts.noted)}</div></div>
+            <div class="cases-kpi-card" style="cursor:pointer;" onclick="setExamNbFilter('review')"><div class="k-label">نیاز به مرور</div><div class="k-val" style="color:#0284c7;">${toFa(nbCounts.review)}</div></div>
+            <div class="cases-kpi-card" style="cursor:pointer;" onclick="setExamNbFilter('hard')"><div class="k-label">سوالات سخت</div><div class="k-val" style="color:#e11d48;">${toFa(nbCounts.hard)}</div></div>
+            <div class="cases-kpi-card" style="cursor:pointer;" onclick="setExamNbFilter('wrong')"><div class="k-label">غلط‌های قبلی</div><div class="k-val" style="color:#d97706;">${toFa(nbCounts.wrong)}</div></div>
+          </div>
+
+          <div class="row" style="gap:6px; flex-wrap:wrap; margin-bottom:10px;">
+            ${[
+              ['all', 'همه (' + toFa(nbCounts.all) + ')'],
+              ['noted', 'دارای نکته (' + toFa(nbCounts.noted) + ')'],
+              ['review', 'مرور (' + toFa(nbCounts.review) + ')'],
+              ['noteworthy', 'نکته‌دار (' + toFa(nbCounts.noteworthy) + ')'],
+              ['careless', 'بی‌دقتی (' + toFa(nbCounts.careless) + ')'],
+              ['hard', 'سخت (' + toFa(nbCounts.hard) + ')'],
+              ['medium', 'متوسط (' + toFa(nbCounts.medium) + ')'],
+              ['easy', 'آسان (' + toFa(nbCounts.easy) + ')'],
+              ['wrong', 'غلط‌های قبلی (' + toFa(nbCounts.wrong) + ')']
+            ].map(([id, lbl]) => `<button type="button" class="btn small ${examNbFilter === id ? 'primary' : ''}" onclick="setExamNbFilter('${id}')">${lbl}</button>`).join('')}
+          </div>
+
+          <div class="row between" style="gap:10px; flex-wrap:wrap;">
+            <div class="row" style="gap:6px; flex-wrap:wrap;">
+              <button type="button" class="btn small ${examNbGroupBy === 'subject' ? 'primary' : ''}" onclick="setExamNbGroupBy('subject')">📘 تفکیک بر اساس درس</button>
+              <button type="button" class="btn small ${examNbGroupBy === 'exam' ? 'primary' : ''}" onclick="setExamNbGroupBy('exam')">📂 تفکیک بر اساس آزمون</button>
+            </div>
+            <input id="examNbSearchInp" value="${esc(examNbSearch)}" placeholder="جستجو در متن سوال یا نکات شخصی..." style="min-width:220px; flex:1; max-width:320px;" oninput="setExamNbSearch(this.value)">
+          </div>
+
+          ${nbFilteredObj.groups.length ? `
+            <div class="row" style="gap:6px; flex-wrap:wrap; margin-top:10px;">
+              <button type="button" class="ex-crumb-btn ${examNbGroup === 'all' ? 'active' : ''}" onclick="setExamNbGroupEnc('all')">${examNbGroupBy === 'subject' ? 'همه دروس' : 'همه آزمون‌ها'} (${toFa(nbFilteredObj.base.length)})</button>
+              ${nbFilteredObj.groups.map(g => `<button type="button" class="ex-crumb-btn ${examNbGroup === g.name ? 'active' : ''}" onclick="setExamNbGroupEnc('${encodeURIComponent(g.name)}')">${esc(g.name)} (${toFa(g.count)})</button>`).join('')}
+            </div>
+          ` : ''}
+        </div>
+
+        ${!nbFilteredObj.visible.length ? `
+          <div class="empty-glass-card" style="margin:24px auto;">
+            <div class="empty-icon">📓</div>
+            <h3>${nbAll.length ? 'موردی با این فیلتر پیدا نشد' : 'دفترچه نکات آزمونی شما هنوز خالی است'}</h3>
+            <p>${nbAll.length ? 'فیلتر یا عبارت جستجو را تغییر دهید.' : 'در آزمون‌ها زیر هر سوال نکته بنویسید یا تیک سخت / مرور / نکته‌دار / بی‌دقتی بزنید تا اینجا دسته‌بندی شوند.'}</p>
+          </div>
+        ` : `
+          <div style="display:grid; gap:14px;">
+            ${nbFilteredObj.visible.map((item, idx) => {
+              if (item.hasFullQuestion) registerCopyableQuestion(item, item.subjectName, item.qNumber || idx + 1);
+              const isExp = !!examNbExpanded[item.id];
+              const themeIdx = hashSubjectColorIdx(item.subjectName);
+              return `
+                <article class="exam-q-card baraat-subj-theme-${themeIdx}">
+                  <div class="row between" style="gap:8px; flex-wrap:wrap; margin-bottom:8px;">
+                    <div class="row" style="gap:6px; flex-wrap:wrap;">
+                      <span class="art-tag">${esc(item.subjectName)}</span>
+                      <span class="pill">${esc(item.examTitle)}${item.qNumber ? ' · سوال ' + toFa(item.qNumber) : ''}</span>
+                      ${item.chapter ? `<span class="pill">سرفصل: ${esc(item.chapter)}</span>` : ''}
+                      ${formatExamSourceBadgeHtml(item.sourceLabel)}
+                      ${item.isWrong ? `<span class="pill bad">غلط در آزمون${item.wrongCount > 1 ? ' (' + toFa(item.wrongCount) + ' بار)' : ''}</span>` : ''}
+                    </div>
+                    ${item.hasFullQuestion ? `<button type="button" class="btn small" onclick="copyExamQuestionById('${item.id}', this)">📋 کپی سوال و نکته</button>` : ''}
+                  </div>
+                  <div class="muted small" style="font-weight:700; margin-bottom:4px;">متن سوال مرتبط:</div>
+                  <div class="exam-q-stem" style="margin-top:0;">${esc(item.q)}</div>
+                  ${renderQuestionNoteBoxHtml(item.id, 'nb')}
+                  ${renderQuestionTagBarHtml(item.id, item.examTitle, item.subjectName, item.q, 'nb')}
+                  ${item.hasFullQuestion ? `
+                    <div style="margin-top:10px;">
+                      <button type="button" class="btn small" onclick="toggleExamNbExpand('${item.id}')">
+                        ${isExp ? '▲ بستن گزینه‌ها و پاسخ تشریحی' : '▼ مشاهده گزینه‌ها و پاسخ تشریحی'}
+                      </button>
+                      ${isExp ? `
+                        <div class="exam-options-list" style="margin-top:10px;">
+                          ${(item.options || []).map((opt, oi) => {
+                            if (!opt) return '';
+                            const isRight = oi === Number(item.answer);
+                            const isWrongPick = item.isWrong && item.lastWrongPicked === oi && !isRight;
+                            return `
+                              <div class="exam-opt-btn ${isRight ? 'correct' : ''} ${isWrongPick ? 'wrong' : ''}" style="cursor:default;">
+                                <span class="exam-opt-letter">${EXAM_LETTERS[oi] || toFa(oi + 1)}</span>
+                                <span>${esc(opt)}${isRight ? ' <small style="font-weight:800;">✓ صحیح</small>' : ''}${isWrongPick ? ' <small style="font-weight:800;">✕ انتخاب قبلی</small>' : ''}</span>
+                              </div>
+                            `;
+                          }).join('')}
+                        </div>
+                        ${item.exp ? `<div class="exam-exp-box" style="margin-top:8px;"><b>💡 پاسخ تشریحی:</b> ${esc(item.exp)}</div>` : ''}
+                      ` : ''}
+                    </div>
+                  ` : ''}
+                </article>
+              `;
+            }).join('')}
+          </div>
+        `}
+      `;
+    } else if (examHubSection === 'lessons') {
+      if (selectedSubjectGroup) {
+        const subExams = getSubjectExamsOnly(selectedSubjectGroup);
+        const chapters = getSubjectChaptersBreakdown(selectedSubjectGroup);
+        const totalSubjQ = chapters.reduce((s, c) => s + c.questions.length, 0);
+        const encSubj = encodeURIComponent(selectedSubjectGroup);
+        mainBodyHtml = `
+          <div class="ex-breadcrumb">
+            <button type="button" class="ex-crumb-btn" onclick="selectSubjectGroupEnc('')">→ بازگشت به فهرست دروس</button>
+            <span>›</span>
+            <span class="ex-crumb-btn active">📚 ${esc(selectedSubjectGroup)} (${toFa(totalSubjQ)} سوال · ${toFa(chapters.length)} سرفصل)</span>
+            ${window.isAdmin ? `<button type="button" class="btn small primary" style="margin-right:auto;" onclick="openMultiExamFileImportModal('${esc(selectedSubjectGroup)}')">📥 آپلود فایل زیر این درس</button>` : ''}
+          </div>
+
+          ${!totalSubjQ ? `
             <div class="empty-glass-card" style="margin:24px auto;">
               <div class="empty-icon">📚</div>
-              <h3>درسی با این عنوان پیدا نشد</h3>
-              <p>تمام دروس آزمون‌های بارگذاری‌شده در این بخش به صورت خودکار دسته‌بندی می‌شوند.</p>
+              <h3>هنوز فایلی زیر درس «${esc(selectedSubjectGroup)}» بارگذاری نشده است</h3>
+              <p>فقط فایل‌ها و سوالاتی که مدیر مستقیماً زیر این درس آپلود کند در اینجا نمایش داده می‌شوند.</p>
+              ${window.isAdmin ? `<div style="margin-top:14px;"><button type="button" class="btn primary" onclick="openMultiExamFileImportModal('${esc(selectedSubjectGroup)}')">📥 ورود فایل اکسل/CSV برای این درس</button></div>` : ''}
             </div>
           ` : `
-            <div class="exams-grid">
-              ${filteredLessons.map(ls => {
-                const encName = encodeURIComponent(ls.name);
-                return `
-                  <article class="exam-card">
-                    <div class="row between" style="gap:6px; flex-wrap:wrap;">
-                      <span class="art-tag">مطالعه درس به درس</span>
-                      <span class="pill done">${toFa(ls.totalQ)} سوال · ${toFa(ls.exams.length)} آزمون</span>
-                    </div>
-                    <div>
-                      <h3 style="margin:0 0 6px; font-size:17px; font-weight:800; color:var(--text);">📘 ${esc(ls.name)}</h3>
-                      <div class="muted small">تمام سوالات درس «${esc(ls.name)}» از همه آزمون‌های موجود یکجا قابل مشاهده و آزمون هستند.</div>
-                    </div>
-                    <div>
-                      <div style="font-size:12px; font-weight:700; color:var(--text); margin-bottom:7px;">آزمون‌های شامل این درس (کلیک برای مطالعه تک‌آزمون):</div>
-                      <div class="exam-subj-pills">
-                        ${ls.exams.map(exRef => `
-                          <button type="button" class="exam-subj-btn" onclick="openLessonAcrossExamsRunner('${encName}', 'study', '${exRef.examId}')">
-                            <span>${esc(exRef.examTitle)}</span>
-                            <small class="muted">(${toFa(exRef.qCount)})</small>
-                          </button>
-                        `).join('')}
-                      </div>
-                    </div>
-                    <div class="row between" style="gap:6px; flex-wrap:wrap; padding-top:12px; border-top:1px solid var(--line); margin-top:auto;">
-                      <button type="button" class="btn primary" style="flex:1; justify-content:center;" onclick="openLessonAcrossExamsRunner('${encName}', 'study')">
-                        👁 مشاهده سوالات و پاسخ (${toFa(ls.totalQ)})
-                      </button>
-                      <button type="button" class="btn small" onclick="openLessonAcrossExamsRunner('${encName}', 'exam')">
-                        ⏱ آزمون زمان‌دار
-                      </button>
-                    </div>
-                  </article>
-                `;
-              }).join('')}
-            </div>
-          `}
-        ` : `
-        <div class="ex-breadcrumb">
-          <button type="button" class="ex-crumb-btn ${examHubCat === 'all' && examHubSubViewMode !== 'list' ? 'active' : ''}" onclick="setExamHubFilters('view','auto');setExamHubFilters('cat','all')">📁 همه دسته‌بندی‌ها (${toFa(exams.length)})</button>
-          ${examHubCat !== 'all' ? `<span>›</span><button type="button" class="ex-crumb-btn ${examHubFilterYear === 'all' && examHubFilterChapter === 'all' ? 'active' : ''}" onclick="selectExamCategoryEnc('${encodeURIComponent(examHubCat)}')">📂 ${esc(examHubCat)}</button>` : ''}
-          ${examHubFilterYear !== 'all' ? `<span>›</span><span class="ex-crumb-btn active">📅 سال ${toFa(examHubFilterYear)}</span>` : ''}
-          ${examHubFilterChapter !== 'all' ? `<span>›</span><span class="ex-crumb-btn active">📑 سرفصل: ${esc(examHubFilterChapter)}</span>` : ''}
-          <button type="button" class="btn small" style="margin-right:auto;" onclick="setExamHubFilters('view', '${showFolderRoot ? 'list' : 'auto'}')">
-            ${showFolderRoot ? '📋 نمایش همه آزمون‌ها یکجا' : '📁 نمایش پوشه‌ای'}
-          </button>
-        </div>
-
-        <div class="form-grid" style="grid-template-columns:repeat(auto-fit, minmax(175px, 1fr)); gap:10px;">
-          <div class="field">
-            <label>جستجو (نام آزمون، سرفصل، تالیفی)</label>
-            <input id="examHubSearchInp" value="${esc(examHubQuery)}" placeholder="مثلاً: جزا، تالیفی، ارشد ۹۸، قصاص..." oninput="setExamHubFilters('q', this.value)">
-          </div>
-          <div class="field">
-            <label>دسته‌بندی / رشته / نهاد</label>
-            <select onchange="selectExamCategoryEnc(this.value)">
-              <option value="all" ${examHubCat === 'all' ? 'selected' : ''}>همه دسته‌ها (${toFa(exams.length)})</option>
-              ${allCats.map(o => `<option value="${encodeURIComponent(o)}" ${examHubCat === o ? 'selected' : ''}>${esc(o)}</option>`).join('')}
-            </select>
-          </div>
-          <div class="field">
-            <label>نوع آزمون (تالیفی / رسمی)</label>
-            <select onchange="selectExamTypeEnc(this.value)">
-              <option value="all" ${examHubFilterType === 'all' ? 'selected' : ''}>همه انواع</option>
-              ${typeSet.map(t => `<option value="${encodeURIComponent(t)}" ${examHubFilterType === t ? 'selected' : ''}>${esc(t)}</option>`).join('')}
-            </select>
-          </div>
-          <div class="field">
-            <label>سال برگزاری</label>
-            <select onchange="selectExamYearEnc(this.value)">
-              <option value="all" ${examHubFilterYear === 'all' ? 'selected' : ''}>همه سال‌ها</option>
-              ${yearSet.map(y => `<option value="${y}" ${String(examHubFilterYear) === String(y) ? 'selected' : ''}>سال ${toFa(y)}</option>`).join('')}
-            </select>
-          </div>
-          ${chapterSet.length ? `
-            <div class="field">
-              <label>سرفصل / مبحث سوال</label>
-              <select onchange="selectExamChapterEnc(this.value)">
-                <option value="all" ${examHubFilterChapter === 'all' ? 'selected' : ''}>همه سرفصل‌ها (${toFa(chapterSet.length)})</option>
-                ${chapterSet.map(ch => `<option value="${encodeURIComponent(ch)}" ${examHubFilterChapter === ch ? 'selected' : ''}>${esc(ch)}</option>`).join('')}
-              </select>
-            </div>
-          ` : ''}
-        </div>
-
-        ${showFolderRoot ? `
-          <div style="margin-top:16px;">
-            <div style="font-weight:800; font-size:14px; color:var(--text);">📂 پوشه دسته‌بندی آزمون‌ها و دروس (برای ورود روی هر بخش کلیک کنید):</div>
-            <div class="ex-folder-grid">
-              ${allCats.map(cat => {
-                const listInCat = exams.filter(e => getExamCategory(e) === cat);
-                const qTotal = listInCat.reduce((acc, e) => acc + totalQuestionsCount(e), 0);
-                const yearsInCat = [...new Set(listInCat.map(e => Number(e.year)).filter(Boolean))].sort((a, b) => b - a);
-                const chInCat = [...new Set(listInCat.flatMap(e => getExamChapters(e)))];
-                const subModeTxt = isYearFirstCategory(cat)
-                  ? (yearsInCat.length ? `بر اساس سال (${yearsInCat.slice(0, 3).map(toFa).join(' - ')})` : 'مرتب‌سازی بر اساس سال')
-                  : (chInCat.length ? `شامل ${toFa(chInCat.length)} سرفصل و مبحث` : 'بر اساس سرفصل، تالیفی و سال');
-                return `
-                  <button type="button" class="ex-folder-card" onclick="selectExamCategoryEnc('${encodeURIComponent(cat)}')">
-                    <div class="row between" style="width:100%;">
-                      <span class="ex-f-icon">${isYearFirstCategory(cat) ? '🏛️' : '📚'}</span>
-                      <span class="pill done">${toFa(listInCat.length)} آزمون · ${toFa(qTotal)} سوال</span>
-                    </div>
-                    <div class="ex-f-title">${esc(cat)}</div>
-                    <div class="ex-f-meta">${esc(subModeTxt)}</div>
-                  </button>
-                `;
-              }).join('')}
-            </div>
-          </div>
-        ` : ''}
-
-        ${(!showFolderRoot && examHubCat !== 'all') ? `
-          ${isYearOriented && yearSet.length ? `
-            <div class="surface-box" style="margin-top:14px; padding:12px;">
-              <div style="font-size:12.5px; font-weight:800; color:var(--text); margin-bottom:8px;">📅 انتخاب بر اساس سال در «${esc(examHubCat)}»:</div>
-              <div class="row" style="gap:6px; flex-wrap:wrap;">
-                <button type="button" class="btn small ${examHubFilterYear === 'all' ? 'primary' : ''}" onclick="setExamHubFilters('year','all')">همه سال‌ها (${toFa(catExams.length)})</button>
-                ${yearSet.map(y => {
-                  const cnt = catExams.filter(e => Number(e.year) === y).length;
-                  return `<button type="button" class="btn small ${String(examHubFilterYear) === String(y) ? 'primary' : ''}" onclick="setExamHubFilters('year','${y}')">سال ${toFa(y)} (${toFa(cnt)})</button>`;
-                }).join('')}
+            <div class="surface-box" style="padding:14px; border-radius:14px; margin-bottom:14px;">
+              <div class="row between" style="gap:10px; flex-wrap:wrap;">
+                <div>
+                  <b style="font-size:15px;">📘 کل سوالات درس «${esc(selectedSubjectGroup)}»</b>
+                  <div class="muted small" style="margin-top:3px;">${toFa(totalSubjQ)} سوال در ${toFa(chapters.length)} سرفصل · زمان آزمون کامل: ${toFa(calcExamDurationMin(totalSubjQ))} دقیقه</div>
+                </div>
+                <div class="row" style="gap:8px; flex-wrap:wrap;">
+                  <button type="button" class="btn primary" onclick="openSubjectLessonRunner('${encSubj}', 'exam', '')">⏱ آزمون زمان‌دار کل درس</button>
+                  <button type="button" class="btn" onclick="openSubjectLessonRunner('${encSubj}', 'study', '')">📖 حالت آمادگی کل درس</button>
+                </div>
               </div>
             </div>
-          ` : ''}
 
-          ${topicCardsList.length > 0 ? `
-            <div class="surface-box" style="margin-top:12px; padding:12px;">
-              <div class="row between" style="gap:8px; flex-wrap:wrap; margin-bottom:8px;">
-                <span style="font-size:12.5px; font-weight:800; color:var(--text);">📑 مرور و آزمون بر اساس ${useChapterTopics ? 'سرفصل / مبحث' : 'زیربخش / سرفصل'} در «${esc(examHubCat)}»:</span>
-                <span class="muted small">می‌توانید مستقیم وارد سوالات هر سرفصل شوید</span>
-              </div>
+            <div style="margin-bottom:16px;">
+              <div style="font-size:13.5px; font-weight:800; color:var(--text); margin-bottom:8px;">📑 سرفصل‌های درس «${esc(selectedSubjectGroup)}» (${toFa(chapters.length)} سرفصل):</div>
               <div class="ex-topic-grid">
-                ${topicCardsList.map(item => {
-                  const encCat = encodeURIComponent(examHubCat);
-                  const encVal = encodeURIComponent(item.name);
+                ${chapters.map(ch => {
+                  const encCh = encodeURIComponent(ch.name);
+                  const chMin = calcExamDurationMin(ch.questions.length);
+                  const chLocked = ch.hasPremium && !userIsVip;
                   return `
                     <div class="ex-topic-card">
                       <div class="row between" style="gap:6px;">
-                        <b style="font-size:13.5px; color:var(--text);">📑 ${esc(item.name)}</b>
-                        <span class="pill done">${toFa(item.cnt)} سوال</span>
+                        <b style="font-size:14px; color:var(--text);">📑 ${esc(ch.name)}</b>
+                        <span class="pill done">${toFa(ch.questions.length)} سوال · ${toFa(chMin)} د</span>
                       </div>
-                      <div class="row" style="gap:6px; flex-wrap:wrap;">
-                        ${item.kind === 'chapter' ? `<button type="button" class="btn small" style="flex:1;" onclick="setExamHubFilters('chapter', decodeURIComponent('${encVal}'))">🔍 فیلتر آزمون‌ها</button>` : ''}
-                        <button type="button" class="btn small primary" style="flex:1;" onclick="openTopicChapterRunner('${encCat}', '${item.kind}', '${encVal}', 'study')">👁 مشاهده سوالات و پاسخ</button>
-                        <button type="button" class="btn small" onclick="openTopicChapterRunner('${encCat}', '${item.kind}', '${encVal}', 'exam')">⏱ آزمون زمان‌دار</button>
+                      ${ch.hasPremium ? `<div><span class="ex-vip-badge">⭐ ویژه VIP</span></div>` : ''}
+                      <div class="row" style="gap:6px; flex-wrap:wrap; margin-top:auto;">
+                        <button type="button" class="btn small primary" style="flex:1; justify-content:center;" onclick="openSubjectLessonRunner('${encSubj}', 'exam', '${encCh}')">${chLocked ? '🔒 ' : '⏱ '}زمان‌دار</button>
+                        <button type="button" class="btn small" style="flex:1; justify-content:center;" onclick="openSubjectLessonRunner('${encSubj}', 'study', '${encCh}')">${chLocked ? '🔒 ' : '📖 '}حالت آمادگی</button>
                       </div>
                     </div>
                   `;
                 }).join('')}
               </div>
             </div>
-          ` : ''}
-        ` : ''}
 
-        ${!showFolderRoot ? (!filtered.length ? `
+            ${subExams.length > 1 || window.isAdmin ? `
+              <details ${window.isAdmin ? 'open' : ''} class="surface-box" style="padding:12px 14px; border-radius:14px;">
+                <summary style="cursor:pointer; font-weight:800; font-size:13px;">📂 فایل‌ها و آزمون‌های ثبت‌شده زیر این درس (${toFa(subExams.length)})</summary>
+                <div class="exams-grid" style="margin-top:12px;">
+                  ${subExams.map(renderExamCardHtml).join('')}
+                </div>
+              </details>
+            ` : ''}
+          `}
+        `;
+      } else {
+        mainBodyHtml = `
+          <div class="row between" style="gap:10px; flex-wrap:wrap; margin-bottom:14px;">
+            <input id="examLessonSearchInp" value="${esc(examLessonSearch)}" placeholder="جستجوی نام درس (مثلاً: حقوق مدنی، تجارت، جزا)..." style="min-width:220px; flex:1; max-width:360px;" oninput="setExamLessonSearch(this.value)">
+            ${window.isAdmin ? `<button type="button" class="btn small" onclick="go('admin');setTimeout(()=>setAdminExamsSubTab('subjects'),120)">⚙️ مدیریت دروس درس‌به‌درس</button>` : ''}
+          </div>
+          ${!filteredSubjectCards.length ? `
+            <div class="empty-glass-card" style="margin:24px auto;">
+              <div class="empty-icon">📚</div>
+              <h3>درسی با این عنوان پیدا نشد</h3>
+              <p>دروس درس‌به‌درس توسط مدیر تعریف می‌شوند و سوالات هر درس بر اساس سرفصل‌های فایل بارگذاری‌شده دسته‌بندی می‌گردند.</p>
+            </div>
+          ` : `
+            <div class="ex-folder-grid">
+              ${filteredSubjectCards.map(subjName => {
+                const subExs = getSubjectExamsOnly(subjName);
+                const chList = getSubjectChaptersBreakdown(subjName);
+                const qCnt = chList.reduce((sum, c) => sum + c.questions.length, 0);
+                const encName = encodeURIComponent(subjName);
+                return `
+                  <button type="button" class="ex-folder-card" onclick="selectSubjectGroupEnc('${encName}')">
+                    <div class="row between" style="width:100%;">
+                      <span class="ex-f-icon">📘</span>
+                      <span class="pill ${qCnt ? 'done' : ''}">${toFa(qCnt)} سوال · ${toFa(chList.length)} سرفصل</span>
+                    </div>
+                    <div class="ex-f-title">${esc(subjName)}</div>
+                    <div class="ex-f-meta">${subExs.length ? (toFa(subExs.length) + ' فایل بارگذاری‌شده · زمان‌دار و حالت آمادگی') : 'هنوز فایلی زیر این درس بارگذاری نشده'}</div>
+                  </button>
+                `;
+              }).join('')}
+            </div>
+          `}
+        `;
+      }
+    } else {
+      // بخش ۱: آزمون‌های کلی
+      mainBodyHtml = `
+        <div class="form-grid" style="grid-template-columns:repeat(auto-fit, minmax(185px, 1fr)); gap:10px; margin-bottom:14px;">
+          <div class="field">
+            <label>جستجو در آزمون‌های کلی</label>
+            <input id="examHubSearchInp" value="${esc(examHubQuery)}" placeholder="نام آزمون، دسته یا سال..." oninput="setExamHubFilters('q', this.value)">
+          </div>
+          ${allCats.length > 1 ? `
+            <div class="field">
+              <label>دسته‌بندی</label>
+              <select onchange="selectExamCategoryEnc(this.value)">
+                <option value="all" ${examHubCat === 'all' ? 'selected' : ''}>همه دسته‌ها (${toFa(generalExams.length)})</option>
+                ${allCats.map(o => `<option value="${encodeURIComponent(o)}" ${examHubCat === o ? 'selected' : ''}>${esc(o)}</option>`).join('')}
+              </select>
+            </div>
+          ` : ''}
+          ${yearSet.length > 1 ? `
+            <div class="field">
+              <label>سال</label>
+              <select onchange="selectExamYearEnc(this.value)">
+                <option value="all" ${examHubFilterYear === 'all' ? 'selected' : ''}>همه سال‌ها</option>
+                ${yearSet.map(y => `<option value="${y}" ${String(examHubFilterYear) === String(y) ? 'selected' : ''}>سال ${toFa(y)}</option>`).join('')}
+              </select>
+            </div>
+          ` : ''}
+        </div>
+
+        ${!filteredGeneral.length ? `
           <div class="empty-glass-card" style="margin:24px auto;">
             <div class="empty-icon">📝</div>
-            <h3>${exams.length ? 'آزمونی با این فیلتر پیدا نشد' : 'هنوز آزمونی بارگذاری نشده است'}</h3>
-            <p>${exams.length ? 'فیلتر دسته، نوع، سال یا مبحث را تغییر دهید.' : 'آزمون‌های حقوقی پس از بارگذاری توسط مدیر به صورت طبقه‌بندی‌شده در این بخش قرار می‌گیرند.'}</p>
+            <h3>${generalExams.length ? 'آزمونی با این فیلتر پیدا نشد' : 'هنوز آزمون کلی بارگذاری نشده است'}</h3>
+            <p>${generalExams.length ? 'عبارت جستجو یا فیلتر را تغییر دهید.' : 'آزمون‌های کلی پس از بارگذاری توسط مدیر اینجا نمایش داده می‌شوند.'}</p>
             ${window.isAdmin ? `<div style="margin-top:16px;"><button type="button" class="btn primary" onclick="openExamMetaModal()">＋ ایجاد اولین آزمون</button></div>` : ''}
           </div>
         ` : `
           <div class="exams-grid">
-            ${filtered.map(ex => {
-              const totalQ = totalQuestionsCount(ex);
-              const subjs = (ex.subjects || []).filter(s => (s.questions || []).length > 0);
-              const chapters = getExamChapters(ex);
-              const hiddenByAdmin = ex.isPublished === false;
-              return `
-                <article class="exam-card" style="${hiddenByAdmin ? 'opacity:.85; border:1.5px dashed var(--danger, #dc2626);' : ''}">
-                  <div class="row between" style="gap:6px; flex-wrap:wrap;">
-                    <div class="row" style="gap:6px; flex-wrap:wrap;">
-                      <span class="art-tag">${esc(getExamCategory(ex))}</span>
-                      <span class="pill">${esc(getExamTypeLabel(ex))}</span>
-                    </div>
-                    <span class="pill ${totalQ ? 'done' : ''}">سال ${toFa(ex.year || '۱۴۰۴')} · ${toFa(totalQ)} سوال</span>
-                  </div>
-                  ${hiddenByAdmin ? `<div class="ex-vis-badge hid" style="align-self:flex-start;">🙈 مخفی از کاربران (فقط مدیر می‌بیند)</div>` : ''}
-                  <div>
-                    <h3 style="margin:0 0 6px; font-size:17px; font-weight:800; color:var(--text);">${esc(ex.title)}</h3>
-                    <div class="muted small">
-                      📖 مرور با پاسخ و یادداشت زیر هر سوال · ⏱ زمان اختیاری: ${toFa(ex.durationMinutes || 60)} دقیقه
-                    </div>
-                    ${ex.description ? `<p style="margin:8px 0 0; font-size:13px; color:var(--muted); line-height:1.8;">${esc(ex.description)}</p>` : ''}
-                  </div>
-                  ${chapters.length ? `
-                    <div>
-                      <div style="font-size:11.5px; font-weight:700; color:var(--muted); margin-bottom:5px;">سرفصل‌ها / مباحث موجود:</div>
-                      <div class="row" style="gap:5px; flex-wrap:wrap;">
-                        ${chapters.slice(0, 6).map(ch => `<span class="pill">${esc(ch)}</span>`).join('')}
-                        ${chapters.length > 6 ? `<span class="muted small">+${toFa(chapters.length - 6)} سرفصل دیگر</span>` : ''}
-                      </div>
-                    </div>
-                  ` : ''}
-                  <div>
-                    <div style="font-size:12px; font-weight:700; color:var(--text); margin-bottom:7px;">درس‌ها به ترتیب در این آزمون (کلیک برای پرش مستقیم):</div>
-                    <div class="exam-subj-pills">
-                      ${subjs.length ? subjs.map(s => `
-                        <button type="button" class="exam-subj-btn" onclick="openExamRunner('${ex.id}', null, 'study', '${s.id}')">
-                          <span>${esc(s.name)}</span>
-                          <small class="muted">(${toFa((s.questions || []).length)})</small>
-                        </button>
-                      `).join('') : '<span class="muted small">هنوز سوالی ثبت نشده است</span>'}
-                    </div>
-                  </div>
-                  <div class="row between" style="gap:6px; flex-wrap:wrap; padding-top:12px; border-top:1px solid var(--line); margin-top:auto;">
-                    <button type="button" class="btn primary" style="flex:1; justify-content:center;" ${totalQ ? `onclick="openExamRunner('${ex.id}', null, 'study')"` : 'disabled'}>
-                      👁 مشاهده سوالات و پاسخ
-                    </button>
-                    <button type="button" class="btn small" ${totalQ ? `onclick="openExamRunner('${ex.id}', null, 'exam')"` : 'disabled'} title="آزمون زمان‌دار با ثبت کارنامه">
-                      ⏱ آزمون زمان‌دار
-                    </button>
-                    ${window.isAdmin ? `
-                      <button type="button" class="btn small" onclick="toggleExamPublished('${ex.id}')" title="${hiddenByAdmin ? 'انتشار برای همه' : 'مخفی کردن از کاربران'}">${hiddenByAdmin ? '👁 انتشار' : '🙈 مخفی'}</button>
-                      <button type="button" class="btn small" onclick="openExamQuestionsEditor('${ex.id}')" title="مدیریت سوالات">✏️</button>
-                    ` : ''}
-                  </div>
-                </article>
-              `;
-            }).join('')}
+            ${filteredGeneral.map(renderExamCardHtml).join('')}
           </div>
-        `) : ''}
         `}
+      `;
+    }
+
+    root.innerHTML = `
+      <div class="panel">
+        <div class="panel-head">
+          <div>
+            <h2>📝 سامانه آزمون‌های حقوقی</h2>
+            <div class="muted small">دو بخش منظم (آزمون‌های کلی و درس‌به‌درس) · دو حالت زمان‌دار (۲ دقیقه/سوال) و آمادگی بدون تایمر · همگام بین وب و اپ</div>
+          </div>
+          <div class="row" style="gap:8px; flex-wrap:wrap;">
+            <button type="button" class="btn small ${examHubSection === 'notebook' ? 'primary' : ''}" onclick="setExamHubSection('notebook')">📓 دفترچه نکات (${toFa(nbCounts.all)})</button>
+            ${window.isAdmin ? `<button type="button" class="btn small primary" onclick="openExamMetaModal()">＋ آزمون جدید</button>` : ''}
+            ${window.isAdmin ? `<button type="button" class="btn small" onclick="openMultiExamFileImportModal()">📥 ورود فایل اکسل/CSV</button>` : ''}
+            <button type="button" class="btn small" onclick="forceFullExamSync()">🔄 همگام‌سازی</button>
+          </div>
+        </div>
+
+        <div class="ex-section-tabs">
+          <button type="button" class="ex-section-tab-card ${examHubSection === 'exams' ? 'active' : ''}" onclick="setExamHubSection('exams')">
+            <div>
+              <b style="display:block; font-size:15px;">📋 آزمون‌های کلی</b>
+              <span class="muted small">آزمون‌های جامع و سنواتی با تایمر یا حالت آمادگی</span>
+            </div>
+            <span class="pill done">${toFa(generalExams.length)} آزمون</span>
+          </button>
+          <button type="button" class="ex-section-tab-card ${examHubSection === 'lessons' ? 'active' : ''}" onclick="setExamHubSection('lessons')">
+            <div>
+              <b style="display:block; font-size:15px;">📚 آزمون‌های درس‌به‌درس</b>
+              <span class="muted small">تفکیک‌شده به دروس و سرفصل‌های مستقل هر درس</span>
+            </div>
+            <span class="pill done">${toFa(mergedSubjectNames.length)} درس</span>
+          </button>
+        </div>
+
+        ${mainBodyHtml}
       </div>
 
-      ${results.length ? `
+      ${resultsAll.length ? `
         <div class="panel">
           <div class="panel-head">
             <div>
-              <h2>📊 کارنامه‌ها و سوابق آزمون‌های من</h2>
-              <div class="muted small">روی «مشاهده درست و غلط‌ها» بزنید تا پاسخ‌های انتخابی، کلید صحیح و نکات شخصی خود را ببینید (حذف سوابق فقط توسط مدیر مجاز است)</div>
+              <h2>📊 کارنامه‌ها و گزارش‌های من</h2>
+              <div class="muted small">شامل کارنامه آزمون‌های زمان‌دار و گزارش تصحیح‌شده حالت آمادگی (حذف سوابق فقط توسط مدیر مجاز است)</div>
+            </div>
+            <div class="row" style="gap:6px; flex-wrap:wrap;">
+              <button type="button" class="btn small ${studentResultsModeFilter === 'all' ? 'primary' : ''}" onclick="setStudentResultsModeFilter('all')">همه (${toFa(resultsAll.length)})</button>
+              <button type="button" class="btn small ${studentResultsModeFilter === 'timed' ? 'primary' : ''}" onclick="setStudentResultsModeFilter('timed')">⏱ زمان‌دار (${toFa(resultsTimedCount)})</button>
+              <button type="button" class="btn small ${studentResultsModeFilter === 'prep' ? 'primary' : ''}" onclick="setStudentResultsModeFilter('prep')">📖 حالت آمادگی (${toFa(resultsPrepCount)})</button>
             </div>
           </div>
           <div style="display:grid; gap:10px;">
-            ${results.slice(0, 20).map(r => `
-              <div class="row between surface-box" style="padding:12px 16px; border-radius:14px; flex-wrap:wrap; gap:10px;">
-                <div>
-                  <b style="font-size:14.5px; color:var(--text);">${esc(r.examTitle)} ${r.scopeLabel ? '· ' + esc(r.scopeLabel) : ''}</b>
-                  <div class="muted small" style="margin-top:3px;">
-                    ${esc(r.dateLabel || '')} · صحیح: <b>${toFa(r.correct)}</b> · غلط: <b>${toFa(r.wrong)}</b> · نزده: <b>${toFa(r.blank)}</b> از ${toFa(r.total)}
+            ${resultsFiltered.length ? resultsFiltered.slice(0, 25).map(r => {
+              const isPrep = r.mode === 'prep';
+              return `
+                <div class="row between surface-box" style="padding:12px 16px; border-radius:14px; flex-wrap:wrap; gap:10px;">
+                  <div>
+                    <div class="row" style="gap:6px; flex-wrap:wrap; align-items:center;">
+                      <b style="font-size:14.5px; color:var(--text);">${esc(r.examTitle)} ${r.scopeLabel ? '· ' + esc(r.scopeLabel) : ''}</b>
+                      <span class="ex-mode-badge ${isPrep ? 'prep' : 'timed'}">${isPrep ? '📖 حالت آمادگی' : '⏱ زمان‌دار'}</span>
+                    </div>
+                    <div class="muted small" style="margin-top:3px;">
+                      ${esc(r.dateLabel || '')} · صحیح: <b>${toFa(r.correct)}</b> · غلط: <b>${toFa(r.wrong)}</b> · نزده: <b>${toFa(r.blank)}</b> از ${toFa(r.total)}
+                    </div>
+                  </div>
+                  <div class="row" style="gap:8px; flex-wrap:wrap;">
+                    <span class="pill">خام: ${toFa(r.rawPct)}٪</span>
+                    <span class="pill done">تراز: ${toFa(r.netPct)}٪</span>
+                    <button type="button" class="btn small primary" onclick="openPastAttemptReview('${r.id}')">👁 پاسخ‌برگ (درست و غلط‌ها)</button>
                   </div>
                 </div>
-                <div class="row" style="gap:8px; flex-wrap:wrap;">
-                  <span class="pill">خام: ${toFa(r.rawPct)}٪</span>
-                  <span class="pill done">تراز با منفی: ${toFa(r.netPct)}٪</span>
-                  <button type="button" class="btn small primary" onclick="openPastAttemptReview('${r.id}')">👁 پاسخ‌برگ (درست و غلط‌ها)</button>
-                </div>
-              </div>
-            `).join('')}
+              `;
+            }).join('') : '<div class="muted small surface-box">موردی در این دسته‌بندی ثبت نشده است.</div>'}
           </div>
         </div>
       ` : ''}
@@ -6493,34 +6998,145 @@
     window.renderAdminExamsList();
   };
 
+  window.toggleExamPremium = async function(examId) {
+    if (!window.isAdmin) return;
+    const list = window.getExams();
+    const target = list.find(x => x.id === examId);
+    if (!target) return;
+    target.isPremium = !target.isPremium;
+    target.updatedAt = new Date().toISOString();
+    await persistExamsList(list, target.isPremium ? 'آزمون به حالت ویژه (VIP) تغییر یافت.' : 'آزمون به حالت رایگان تغییر یافت.');
+  };
+
+  window.adminAddGlobalSubject = async function() {
+    if (!window.isAdmin) return;
+    const inp = document.getElementById('admNewExamSubjInp');
+    const name = String(inp ? inp.value : '').trim();
+    if (!name) return alert('نام درس را وارد کنید.');
+    const cur = getExamSubjectsList();
+    if (cur.includes(name)) return alert('این درس قبلاً ثبت شده است.');
+    cur.push(name);
+    if (inp) inp.value = '';
+    await saveExamSubjectsList(cur, 'درس «' + name + '» به فهرست درس‌به‌درس اضافه شد.');
+  };
+
+  window.adminRenameGlobalSubject = async function(encOldName) {
+    if (!window.isAdmin) return;
+    const oldName = decodeURIComponent(encOldName || '');
+    const nextName = prompt('نام جدید درس:', oldName);
+    if (!nextName || !nextName.trim() || nextName.trim() === oldName) return;
+    const cleanNext = nextName.trim();
+    const cur = getExamSubjectsList().map(x => x === oldName ? cleanNext : x);
+    await saveExamSubjectsList(cur, 'نام درس ویرایش شد.');
+    const exams = window.getExams();
+    let changedEx = false;
+    exams.forEach(ex => {
+      if (ex.examScope === 'subject' && ex.subjectGroup === oldName) {
+        ex.subjectGroup = cleanNext;
+        changedEx = true;
+      }
+    });
+    if (changedEx) await persistExamsList(exams, 'آزمون‌های مرتبط به نام درس جدید منتقل شدند.');
+  };
+
+  window.adminDeleteGlobalSubject = async function(encName) {
+    if (!window.isAdmin) return;
+    const name = decodeURIComponent(encName || '');
+    if (!confirm('درس «' + name + '» از فهرست درس‌به‌درس حذف شود؟ (آزمون‌های موجود پاک نمی‌شوند)')) return;
+    const cur = getExamSubjectsList().filter(x => x !== name);
+    await saveExamSubjectsList(cur, 'درس از فهرست حذف شد.');
+  };
+
+  window.adminAddVipSubscriber = async function() {
+    if (!window.isAdmin) return;
+    const email = String(document.getElementById('admVipEmailInp')?.value || '').trim().toLowerCase();
+    const days = Number(toEn(document.getElementById('admVipDaysInp')?.value || '30')) || 30;
+    const note = String(document.getElementById('admVipNoteInp')?.value || '').trim();
+    if (!email || !email.includes('@')) return alert('ایمیل معتبر وارد کنید.');
+    const cfg = getVipSettings();
+    const expDate = days > 0 ? new Date(Date.now() + days * 86400000).toISOString() : '';
+    const existing = cfg.subscribers.find(s => String(s.email || '').toLowerCase() === email);
+    if (existing) {
+      existing.active = true;
+      existing.expiresAt = expDate;
+      if (note) existing.note = note;
+    } else {
+      cfg.subscribers.unshift({ email, active: true, expiresAt: expDate, note, addedAt: new Date().toISOString() });
+    }
+    await saveVipSettings(cfg, 'اشتراک ویژه برای ' + email + ' فعال شد.');
+  };
+
+  window.adminExtendVipSubscriber = async function(encEmail, addDays) {
+    if (!window.isAdmin) return;
+    const email = decodeURIComponent(encEmail || '').toLowerCase();
+    const cfg = getVipSettings();
+    const target = cfg.subscribers.find(s => String(s.email || '').toLowerCase() === email);
+    if (!target) return;
+    const baseMs = (target.expiresAt && Date.parse(target.expiresAt) > Date.now()) ? Date.parse(target.expiresAt) : Date.now();
+    target.expiresAt = new Date(baseMs + (Number(addDays) || 30) * 86400000).toISOString();
+    target.active = true;
+    await saveVipSettings(cfg, 'اشتراک ' + email + ' به مدت ' + toFa(addDays || 30) + ' روز تمدید شد.');
+  };
+
+  window.adminToggleVipSubscriber = async function(encEmail) {
+    if (!window.isAdmin) return;
+    const email = decodeURIComponent(encEmail || '').toLowerCase();
+    const cfg = getVipSettings();
+    const target = cfg.subscribers.find(s => String(s.email || '').toLowerCase() === email);
+    if (!target) return;
+    target.active = target.active === false;
+    await saveVipSettings(cfg, target.active ? 'اشتراک فعال شد.' : 'اشتراک غیرفعال شد.');
+  };
+
+  window.adminDeleteVipSubscriber = async function(encEmail) {
+    if (!window.isAdmin) return;
+    const email = decodeURIComponent(encEmail || '').toLowerCase();
+    if (!confirm('این کاربر از فهرست اشتراک ویژه حذف شود؟')) return;
+    const cfg = getVipSettings();
+    cfg.subscribers = cfg.subscribers.filter(s => String(s.email || '').toLowerCase() !== email);
+    await saveVipSettings(cfg, 'کاربر از فهرست VIP حذف شد.');
+  };
+
+  window.adminSaveVipMessage = async function() {
+    if (!window.isAdmin) return;
+    const cfg = getVipSettings();
+    cfg.upgradeMessage = String(document.getElementById('admVipMsgInp')?.value || '').trim();
+    cfg.supportContact = String(document.getElementById('admVipContactInp')?.value || '').trim();
+    await saveVipSettings(cfg, 'پیام و اطلاعات فعال‌سازی اشتراک ذخیره شد.');
+  };
+
   window.renderAdminExamsList = function() {
     injectExamUpgradeStyles();
     const box = document.getElementById('admExamsList');
     if (!box) return;
     const exams = window.getExams();
+    const globalSubjects = getExamSubjectsList();
+    const vipCfg = getVipSettings();
     const examsHtml = !exams.length
       ? '<div class="muted small surface-box">هنوز آزمونی ثبت نشده است. با دکمه «ایجاد آزمون جدید» یا ورود فایل اکسل آزمون بسازید.</div>'
       : `<div style="display:grid; gap:10px;">${exams.map(ex => {
           const qCount = totalQuestionsCount(ex);
-          const sCount = (ex.subjects || []).length;
+          const autoMin = calcExamDurationMin(qCount);
           const isPub = ex.isPublished !== false;
+          const isSubj = ex.examScope === 'subject';
           return `
             <div class="row between admin-list-row" style="flex-wrap:wrap; gap:8px;">
               <div>
                 <div class="row" style="gap:6px; flex-wrap:wrap; align-items:center;">
                   <b style="font-size:14px;">${esc(ex.title)}</b>
+                  <span class="pill">${isSubj ? ('📚 درس‌به‌درس: ' + esc(ex.subjectGroup || 'نامشخص')) : '📋 آزمون کلی'}</span>
+                  ${ex.isPremium ? `<span class="ex-vip-badge">⭐ ویژه VIP</span>` : `<span class="pill">رایگان</span>`}
                   <span class="ex-vis-badge ${isPub ? 'pub' : 'hid'}">${isPub ? 'منتشرشده' : 'مخفی (فقط مدیر)'}</span>
                 </div>
                 <div class="muted small" style="margin-top:4px;">
-                  دسته: <b>${esc(getExamCategory(ex))}</b> · نوع: <b>${esc(getExamTypeLabel(ex))}</b> · سال ${toFa(ex.year || '۱۴۰۴')} · ${toFa(sCount)} درس · ${toFa(qCount)} سوال
+                  دسته: <b>${esc(getExamCategory(ex))}</b> · سال ${toFa(ex.year || '۱۴۰۴')} · ${toFa(qCount)} سوال · ⏱ ${toFa(autoMin)} دقیقه خودکار
                 </div>
               </div>
               <div class="row" style="gap:6px; flex-wrap:wrap;">
-                <button type="button" class="btn small primary" onclick="openExamQuestionsEditor('${ex.id}')">📝 سوالات و ردیف CSV</button>
-                <button type="button" class="btn small ${isPub ? '' : 'primary'}" onclick="toggleExamPublished('${ex.id}')">
-                  ${isPub ? '🙈 مخفی' : '👁 انتشار'}
-                </button>
-                <button type="button" class="btn small" onclick="openExamBulkImportModal('${ex.id}')">📥 ورود گروهی</button>
+                <button type="button" class="btn small primary" onclick="openExamQuestionsEditor('${ex.id}')">📝 سوالات و ویرایش تکی</button>
+                <button type="button" class="btn small" onclick="toggleExamPremium('${ex.id}')">${ex.isPremium ? '⭐ ویژه' : '🆓 رایگان'}</button>
+                <button type="button" class="btn small ${isPub ? '' : 'primary'}" onclick="toggleExamPublished('${ex.id}')">${isPub ? '🙈 مخفی' : '👁 انتشار'}</button>
+                <button type="button" class="btn small" onclick="openExamBulkImportModal('${ex.id}')">📥 ورود فایل</button>
                 <button type="button" class="btn small" onclick="openExamMetaModal('${ex.id}')">✎ مشخصات</button>
                 <button type="button" class="btn small" onclick="exportExamJson('${ex.id}')">📤 JSON</button>
                 <button type="button" class="btn small danger" onclick="deleteExam('${ex.id}')">✕ حذف</button>
@@ -6532,7 +7148,9 @@
     const subTabsHtml = `
       <div class="adm-subtab-bar">
         <button type="button" class="adm-subtab-btn ${adminExamsSubTab === 'list' ? 'active' : ''}" onclick="setAdminExamsSubTab('list')">فهرست آزمون‌ها (${toFa(exams.length)})</button>
-        <button type="button" class="adm-subtab-btn ${adminExamsSubTab === 'attempts' ? 'active' : ''}" onclick="setAdminExamsSubTab('attempts')">کارنامه‌ها (${toFa(adminAttemptsCache.length)})</button>
+        <button type="button" class="adm-subtab-btn ${adminExamsSubTab === 'subjects' ? 'active' : ''}" onclick="setAdminExamsSubTab('subjects')">📚 دروس درس‌به‌درس (${toFa(globalSubjects.length)})</button>
+        <button type="button" class="adm-subtab-btn ${adminExamsSubTab === 'vip' ? 'active' : ''}" onclick="setAdminExamsSubTab('vip')">⭐ اشتراک ویژه (${toFa(vipCfg.subscribers.length)})</button>
+        <button type="button" class="adm-subtab-btn ${adminExamsSubTab === 'attempts' ? 'active' : ''}" onclick="setAdminExamsSubTab('attempts')">کارنامه‌ها و آمادگی (${toFa(adminAttemptsCache.length)})</button>
         <button type="button" class="adm-subtab-btn ${adminExamsSubTab === 'tags' ? 'active' : ''}" onclick="setAdminExamsSubTab('tags')">تیک‌های دانشجویان (${toFa(adminStudentTagsCache.length)})</button>
         <button type="button" class="adm-subtab-btn ${adminExamsSubTab === 'security' ? 'active' : ''}" onclick="setAdminExamsSubTab('security')">امنیت و ایمیل</button>
       </div>
@@ -6550,10 +7168,85 @@
         </div>
         ${examsHtml}
       `;
+    } else if (adminExamsSubTab === 'subjects') {
+      bodySection = `
+        <div class="surface-box" style="padding:12px; border-radius:12px; margin-bottom:12px;">
+          <div class="muted small" style="margin-bottom:8px;">دروس این بخش برای قسمت «آزمون‌های درس‌به‌درس» نمایش داده می‌شوند. هر فایلی که مستقیماً زیر یک درس آپلود شود بر اساس سرفصل‌های آن در همین درس قرار می‌گیرد.</div>
+          <div class="row" style="gap:8px; flex-wrap:wrap;">
+            <input id="admNewExamSubjInp" placeholder="نام درس جدید (مثلاً: حقوق ثبت، متون فقه)..." style="flex:1; min-width:200px;">
+            <button type="button" class="btn small primary" onclick="adminAddGlobalSubject()">＋ افزودن درس</button>
+          </div>
+        </div>
+        <div style="display:grid; gap:8px;">
+          ${globalSubjects.map(sName => {
+            const linked = exams.filter(ex => ex.examScope === 'subject' && ex.subjectGroup === sName);
+            const qCnt = linked.reduce((sum, ex) => sum + totalQuestionsCount(ex), 0);
+            const enc = encodeURIComponent(sName);
+            return `
+              <div class="row between admin-list-row" style="flex-wrap:wrap; gap:8px;">
+                <div>
+                  <b>📘 ${esc(sName)}</b>
+                  <div class="muted small" style="margin-top:2px;">${toFa(linked.length)} فایل آزمون · ${toFa(qCnt)} سوال</div>
+                </div>
+                <div class="row" style="gap:6px; flex-wrap:wrap;">
+                  <button type="button" class="btn small primary" onclick="openMultiExamFileImportModal('${esc(sName)}')">📥 ورود فایل برای این درس</button>
+                  <button type="button" class="btn small" onclick="adminRenameGlobalSubject('${enc}')">✎ تغییر نام</button>
+                  <button type="button" class="btn small danger" onclick="adminDeleteGlobalSubject('${enc}')">✕ حذف</button>
+                </div>
+              </div>
+            `;
+          }).join('')}
+        </div>
+      `;
+    } else if (adminExamsSubTab === 'vip') {
+      bodySection = `
+        <div class="surface-box" style="padding:12px; border-radius:12px; margin-bottom:12px;">
+          <b style="display:block; font-size:13px; margin-bottom:8px;">➕ افزودن یا تمدید عضو دارای اشتراک ویژه (VIP)</b>
+          <div class="form-grid" style="grid-template-columns:repeat(auto-fit, minmax(170px, 1fr)); gap:8px;">
+            <input id="admVipEmailInp" type="email" dir="ltr" placeholder="student@email.com">
+            <input id="admVipDaysInp" type="number" min="0" value="30" placeholder="مدت (روز - ۰ برای نامحدود)">
+            <input id="admVipNoteInp" placeholder="یادداشت (اختیاری)">
+            <button type="button" class="btn small primary" onclick="adminAddVipSubscriber()">✓ فعال‌سازی اشتراک</button>
+          </div>
+        </div>
+        <div style="display:grid; gap:8px; margin-bottom:14px;">
+          ${!vipCfg.subscribers.length ? '<div class="muted small surface-box">هنوز کاربری در فهرست اشتراک ویژه ثبت نشده است.</div>' : vipCfg.subscribers.map(sub => {
+            const enc = encodeURIComponent(sub.email || '');
+            const expTxt = sub.expiresAt ? formatJalaliFull(new Date(sub.expiresAt)).numericFa : 'نامحدود';
+            const expired = !!(sub.expiresAt && Date.parse(sub.expiresAt) < Date.now());
+            const isAct = sub.active !== false && !expired;
+            return `
+              <div class="row between admin-list-row" style="flex-wrap:wrap; gap:8px;">
+                <div>
+                  <b dir="ltr">${esc(sub.email)}</b>
+                  <span class="ex-vis-badge ${isAct ? 'pub' : 'hid'}" style="margin-right:6px;">${isAct ? 'فعال' : (expired ? 'منقضی' : 'غیرفعال')}</span>
+                  <div class="muted small" style="margin-top:2px;">اعتبار تا: <b>${esc(expTxt)}</b>${sub.note ? ' · ' + esc(sub.note) : ''}</div>
+                </div>
+                <div class="row" style="gap:6px; flex-wrap:wrap;">
+                  <button type="button" class="btn small" onclick="adminExtendVipSubscriber('${enc}', 30)">＋۳۰ روز</button>
+                  <button type="button" class="btn small" onclick="adminToggleVipSubscriber('${enc}')">${sub.active === false ? 'فعال‌سازی' : 'تعلیق'}</button>
+                  <button type="button" class="btn small danger" onclick="adminDeleteVipSubscriber('${enc}')">✕ حذف</button>
+                </div>
+              </div>
+            `;
+          }).join('')}
+        </div>
+        <div class="surface-box" style="padding:12px; border-radius:12px;">
+          <b style="display:block; font-size:13px; margin-bottom:8px;">💬 پیام قفل آزمون ویژه و راه ارتباطی</b>
+          <div class="field" style="margin-bottom:8px;">
+            <label>پیام نمایش داده‌شده به کاربران بدون اشتراک</label>
+            <textarea id="admVipMsgInp" rows="2">${esc(vipCfg.upgradeMessage)}</textarea>
+          </div>
+          <div class="row" style="gap:8px; flex-wrap:wrap;">
+            <input id="admVipContactInp" value="${esc(vipCfg.supportContact)}" placeholder="شماره تماس، آیدی تلگرام یا لینک پشتیبانی..." style="flex:1; min-width:200px;">
+            <button type="button" class="btn small primary" onclick="adminSaveVipMessage()">💾 ذخیره پیام</button>
+          </div>
+        </div>
+      `;
     } else if (adminExamsSubTab === 'attempts') {
       bodySection = `
         <div class="row between" style="gap:8px; flex-wrap:wrap; margin-bottom:10px;">
-          <div class="muted small">با حذف نتیجه، فقط کارنامه پاک می‌شود و نکات شخصی دانشجو حفظ خواهد شد.</div>
+          <div class="muted small">مشاهده کارنامه آزمون‌های زمان‌دار و گزارش تصحیح‌شده حالت آمادگی دانشجویان (با حذف کارنامه، نکات دانشجو حفظ می‌شود).</div>
           <button type="button" class="btn small" onclick="refreshAdminExamAttempts()">🔄 بروزرسانی</button>
         </div>
         <div id="admExamAttemptsBox">${renderAdminAttemptsInnerHtml()}</div>
@@ -6616,11 +7309,15 @@ WITH CHECK (key &lt;&gt; 'baraat_exams_private_v1' OR EXISTS (SELECT 1 FROM publ
   window.openExamMetaModal = function(examId) {
     if (!window.isAdmin) { if (typeof toast === 'function') toast('فقط مدیر مجاز به مدیریت آزمون‌هاست.'); return; }
     const existing = examId ? window.getExams().find(x => x.id === examId) : null;
+    const globalSubjects = getExamSubjectsList();
     const ex = existing || {
       id: 'ex_' + Date.now(),
       title: '',
       category: EXAM_ORGS[0],
       org: EXAM_ORGS[0],
+      examScope: 'general',
+      subjectGroup: globalSubjects[0] || 'حقوق مدنی',
+      isPremium: false,
       examType: EXAM_TYPES[0],
       year: 1404,
       durationMinutes: 120,
@@ -6639,6 +7336,7 @@ WITH CHECK (key &lt;&gt; 'baraat_exams_private_v1' OR EXISTS (SELECT 1 FROM publ
 
     const m = document.getElementById('modal');
     if (!m) return;
+    const isSubjScope = ex.examScope === 'subject';
     m.innerHTML = `
       <h2>${existing ? '✏️ ویرایش مشخصات آزمون' : '📝 ایجاد آزمون جدید'}</h2>
       <div class="form-grid">
@@ -6647,14 +7345,27 @@ WITH CHECK (key &lt;&gt; 'baraat_exams_private_v1' OR EXISTS (SELECT 1 FROM publ
           <input id="exMetaTitle" value="${esc(ex.title)}" placeholder="مثلاً: آزمون جزا - تالیفی ۱ یا آزمون وکالت کانون ۱۴۰۳">
         </div>
         <div class="field">
-          <label>دسته اصلی / رشته / نهاد (مثال: آزمون وکالت کانون، حقوق تجارت، حقوق جزا)</label>
+          <label>بخش نمایش در صفحه آزمون‌ها</label>
+          <select id="exMetaScope" onchange="document.getElementById('exMetaSubjGrpWrap').style.display=(this.value==='subject'?'':'none')">
+            <option value="general" ${!isSubjScope ? 'selected' : ''}>📋 آزمون‌های کلی</option>
+            <option value="subject" ${isSubjScope ? 'selected' : ''}>📚 آزمون‌های درس‌به‌درس</option>
+          </select>
+        </div>
+        <div class="field" id="exMetaSubjGrpWrap" style="${isSubjScope ? '' : 'display:none;'}">
+          <label>درس مرتبط (در بخش درس‌به‌درس)</label>
+          <select id="exMetaSubjGrp">
+            ${globalSubjects.map(s => `<option value="${esc(s)}" ${ex.subjectGroup === s ? 'selected' : ''}>${esc(s)}</option>`).join('')}
+          </select>
+        </div>
+        <div class="field">
+          <label>دسته اصلی / رشته / نهاد</label>
           <input id="exMetaOrg" list="exMetaCatList" value="${esc(getExamCategory(ex))}" placeholder="انتخاب یا تایپ دسته...">
           <datalist id="exMetaCatList">
             ${EXAM_ORGS.map(o => `<option value="${esc(o)}">`).join('')}
           </datalist>
         </div>
         <div class="field">
-          <label>نوع / منبع (تالیفی، سراسری، کانون، مبحثی...)</label>
+          <label>نوع / منبع (تالیفی، سراسری، کانون...)</label>
           <input id="exMetaType" list="exMetaTypeList" value="${esc(getExamTypeLabel(ex))}" placeholder="مثلاً: تالیفی یا سراسری">
           <datalist id="exMetaTypeList">
             ${EXAM_TYPES.map(t => `<option value="${esc(t)}">`).join('')}
@@ -6665,8 +7376,8 @@ WITH CHECK (key &lt;&gt; 'baraat_exams_private_v1' OR EXISTS (SELECT 1 FROM publ
           <input id="exMetaYear" type="number" min="1370" max="1420" value="${Number(ex.year || 1404)}">
         </div>
         <div class="field">
-          <label>مدت زمان استاندارد (دقیقه)</label>
-          <input id="exMetaDur" type="number" min="5" max="600" value="${Number(ex.durationMinutes || 120)}">
+          <label>مدت زمان (محاسبه خودکار: ۲ دقیقه به ازای هر سوال)</label>
+          <input id="exMetaDur" type="number" min="2" max="600" value="${Number(ex.durationMinutes || 60)}" disabled>
         </div>
         <div class="field" style="justify-content:end;">
           <label class="check" style="margin:0; cursor:pointer;">
@@ -6675,6 +7386,12 @@ WITH CHECK (key &lt;&gt; 'baraat_exams_private_v1' OR EXISTS (SELECT 1 FROM publ
           </label>
         </div>
         <div class="field" style="justify-content:end;">
+          <label class="check" style="margin:0; cursor:pointer;">
+            <input type="checkbox" id="exMetaVip" ${ex.isPremium ? 'checked' : ''}>
+            <span>⭐ آزمون ویژه (فقط کاربران دارای اشتراک VIP)</span>
+          </label>
+        </div>
+        <div class="field" style="grid-column:1/-1;">
           <label class="check" style="margin:0; cursor:pointer;">
             <input type="checkbox" id="exMetaPub" ${ex.isPublished !== false ? 'checked' : ''}>
             <span>نمایش این آزمون برای همه کاربران (در غیر این صورت فقط مدیر می‌بیند)</span>
@@ -6698,22 +7415,32 @@ WITH CHECK (key &lt;&gt; 'baraat_exams_private_v1' OR EXISTS (SELECT 1 FROM publ
     if (!window.isAdmin) return;
     const title = (document.getElementById('exMetaTitle')?.value || '').trim();
     if (!title) return alert('عنوان آزمون را وارد کنید.');
-    const cat = (document.getElementById('exMetaOrg')?.value || '').trim() || EXAM_ORGS[0];
+    const examScope = (document.getElementById('exMetaScope')?.value === 'subject') ? 'subject' : 'general';
+    const subjectGroup = examScope === 'subject' ? (document.getElementById('exMetaSubjGrp')?.value || '').trim() : '';
+    const cat = (document.getElementById('exMetaOrg')?.value || '').trim() || (subjectGroup || EXAM_ORGS[0]);
     const examType = (document.getElementById('exMetaType')?.value || '').trim() || 'تالیفی';
     const year = Number(toEn(document.getElementById('exMetaYear')?.value || '1404')) || 1404;
-    const durationMinutes = Math.max(5, Number(toEn(document.getElementById('exMetaDur')?.value || '120')) || 120);
     const negativeMarking = !!document.getElementById('exMetaNeg')?.checked;
+    const isPremium = !!document.getElementById('exMetaVip')?.checked;
     const isPublished = !!document.getElementById('exMetaPub')?.checked;
     const description = (document.getElementById('exMetaDesc')?.value || '').trim();
 
     const list = window.getExams();
     if (isEdit) {
       const target = list.find(x => x.id === examId);
-      if (target) Object.assign(target, { title, org: cat, category: cat, examType, year, durationMinutes, negativeMarking, isPublished, description, updatedAt: new Date().toISOString() });
+      if (target) {
+        const qTot = totalQuestionsCount(target);
+        Object.assign(target, {
+          title, org: cat, category: cat, examScope, subjectGroup, isPremium,
+          examType, year, durationMinutes: calcExamDurationMin(qTot),
+          negativeMarking, isPublished, description, updatedAt: new Date().toISOString()
+        });
+      }
     } else {
       const created = Object.assign({}, window.__tmpNewExamPreset || { id: examId, subjects: [] }, {
         id: examId,
-        title, org: cat, category: cat, examType, year, durationMinutes, negativeMarking, isPublished, description,
+        title, org: cat, category: cat, examScope, subjectGroup, isPremium,
+        examType, year, durationMinutes: 60, negativeMarking, isPublished, description,
         updatedAt: new Date().toISOString()
       });
       list.unshift(created);
@@ -7108,23 +7835,39 @@ WITH CHECK (key &lt;&gt; 'baraat_exams_private_v1' OR EXISTS (SELECT 1 FROM publ
     document.getElementById('modalBack').classList.add('show');
   };
 
-  window.openMultiExamFileImportModal = function() {
+  window.openMultiExamFileImportModal = function(presetSubject) {
     if (!window.isAdmin) return;
     const m = document.getElementById('modal');
     if (!m) return;
+    const globalSubjects = getExamSubjectsList();
+    const isSubjPreset = Boolean(presetSubject && String(presetSubject).trim());
+    const chosenSubj = isSubjPreset ? String(presetSubject).trim() : (globalSubjects[0] || 'حقوق مدنی');
     m.innerHTML = `
-      <h2>📥 بارگذاری آزمون و طبقه‌بندی هوشمند از فایل CSV / اکسل</h2>
+      <h2>📥 بارگذاری آزمون از فایل CSV / اکسل</h2>
       <p class="muted small" style="line-height:1.9;">
-        اگر فایل شما دارای ستون <b>سرفصل</b> باشد، سوالات به صورت خودکار بر اساس سرفصل طبقه‌بندی می‌شوند. ستون‌های <b>منبع سوال</b> (مثلاً تالیفی، آزمون وکلا، ارشد، مرکز وکلا) و <b>سال</b> نیز روی تک‌تک سوالات ذخیره می‌شوند تا هنگام امتحان جلوی هر سوال (مثل «ارشد ۹۸» یا «وکالت ۴۰۳») نمایش داده شوند.
+        مشخص کنید این فایل مربوط به <b>آزمون‌های کلی</b> است یا زیر یکی از دروس <b>آزمون‌های درس‌به‌درس</b> قرار بگیرد. اگر ستون <b>سرفصل</b> در فایل باشد سوالات به صورت خودکار بر اساس سرفصل دسته‌بندی می‌شوند و زمان آزمون خودکار ۲ دقیقه به ازای هر سوال محاسبه می‌شود.
       </p>
       <div class="form-grid" style="margin-top:10px; gap:10px;">
+        <div class="field">
+          <label>بخش مقصد آزمون</label>
+          <select id="mImpScope" onchange="document.getElementById('mImpSubjGrpWrap').style.display=(this.value==='subject'?'':'none')">
+            <option value="general" ${!isSubjPreset ? 'selected' : ''}>📋 آزمون‌های کلی</option>
+            <option value="subject" ${isSubjPreset ? 'selected' : ''}>📚 آزمون‌های درس‌به‌درس</option>
+          </select>
+        </div>
+        <div class="field" id="mImpSubjGrpWrap" style="${isSubjPreset ? '' : 'display:none;'}">
+          <label>درس مقصد (در بخش درس‌به‌درس)</label>
+          <select id="mImpSubjGrp">
+            ${globalSubjects.map(s => `<option value="${esc(s)}" ${chosenSubj === s ? 'selected' : ''}>${esc(s)}</option>`).join('')}
+          </select>
+        </div>
         <div class="field" style="grid-column:1/-1;">
           <label>نام آزمون (اختیاری — در صورت خالی بودن از نام فایل یا ستون «اسم آزمون» استفاده می‌شود)</label>
-          <input id="mImpDefTitle" value="" placeholder="مثلاً: آزمون جامع حقوق جزا">
+          <input id="mImpDefTitle" value="" placeholder="مثلاً: آزمون جامع حقوق جزا یا سرفصل قصاص">
         </div>
         <div class="field">
-          <label>دسته اصلی (اختیاری — در صورت خالی بودن از نام فایل یا دسته داخل فایل استفاده می‌شود)</label>
-          <input id="mImpDefCat" list="mImpCatList" value="" placeholder="مثلاً: آزمون وکالت یا نام فایل">
+          <label>دسته اصلی (اختیاری)</label>
+          <input id="mImpDefCat" list="mImpCatList" value="${isSubjPreset ? esc(chosenSubj) : ''}" placeholder="مثلاً: آزمون وکالت یا نام درس">
           <datalist id="mImpCatList">${EXAM_ORGS.map(o => `<option value="${esc(o)}">`).join('')}</datalist>
         </div>
         <div class="field">
@@ -7134,11 +7877,17 @@ WITH CHECK (key &lt;&gt; 'baraat_exams_private_v1' OR EXISTS (SELECT 1 FROM publ
         </div>
         <div class="field">
           <label>سال پیش‌فرض (اختیاری)</label>
-          <input id="mImpDefYear" type="number" value="" placeholder="مثلاً: 1403">
+          <input id="mImpDefYear" type="number" value="" placeholder="مثلاً: 1404">
         </div>
         <div class="field">
           <label>درس پیش‌فرض (فقط در نبود سرفصل)</label>
-          <input id="mImpDefSubj" value="" placeholder="اختیاری">
+          <input id="mImpDefSubj" value="${isSubjPreset ? esc(chosenSubj) : ''}" placeholder="اختیاری">
+        </div>
+        <div class="field" style="grid-column:1/-1;">
+          <label class="check" style="margin:0; cursor:pointer;">
+            <input type="checkbox" id="mImpVip">
+            <span>⭐ آزمون ویژه (فقط کاربران دارای اشتراک VIP)</span>
+          </label>
         </div>
       </div>
       <div class="surface-box" style="margin-top:12px;">
@@ -7515,27 +8264,36 @@ WITH CHECK (key &lt;&gt; 'baraat_exams_private_v1' OR EXISTS (SELECT 1 FROM publ
 
       if (!parsedRows.length) return alert('سوال معتبری در فایل اکسل/CSV یافت نشد.');
 
+      const impScope = isAutoMode && document.getElementById('mImpScope')?.value === 'subject' ? 'subject' : 'general';
+      const impSubjGrp = impScope === 'subject' ? (document.getElementById('mImpSubjGrp')?.value || defSubj || '').trim() : '';
+      const impIsPremium = isAutoMode ? !!document.getElementById('mImpVip')?.checked : false;
+
       const distinctExplicitSubjects = new Set(parsedRows.map(x => x.rowSub).filter(Boolean));
       const hasChapters = parsedRows.some(x => Boolean(x.chName));
-      const useChapterAsBucket = hasChapters && distinctExplicitSubjects.size <= 1;
+      const useChapterAsBucket = impScope === 'subject' || (hasChapters && distinctExplicitSubjects.size <= 1);
 
       let added = 0;
       parsedRows.forEach(item => {
         const bucketName = useChapterAsBucket
-          ? (item.chName || item.rowSub || defSubj || 'سوالات آزمون')
+          ? (item.chName || item.rowSub || defSubj || impSubjGrp || 'سوالات آزمون')
           : (item.rowSub || item.chName || defSubj || 'سوالات آزمون');
 
         let destExam = targetSingleExam;
         if (isAutoMode) {
           const examTitle = item.rowTitle || fileBaseTitle;
-          const examCat = item.rowCat || defCat || (distinctExplicitSubjects.size === 1 ? [...distinctExplicitSubjects][0] : examTitle);
-          destExam = list.find(x => x.title === examTitle);
+          const examCat = impScope === 'subject'
+            ? (impSubjGrp || item.rowCat || defCat || examTitle)
+            : (item.rowCat || defCat || (distinctExplicitSubjects.size === 1 ? [...distinctExplicitSubjects][0] : examTitle));
+          destExam = list.find(x => x.title === examTitle && x.examScope === impScope && (impScope !== 'subject' || x.subjectGroup === impSubjGrp));
           if (!destExam) {
             destExam = normalizeExamRecord({
               id: 'ex_' + Date.now() + '_' + Math.random().toString(36).slice(2, 6),
               title: examTitle,
               category: examCat,
               org: examCat,
+              examScope: impScope,
+              subjectGroup: impSubjGrp,
+              isPremium: impIsPremium,
               examType: defType || item.rowType || 'تالیفی',
               year: defYear || item.rowYear || '',
               durationMinutes: 60,
@@ -7556,7 +8314,7 @@ WITH CHECK (key &lt;&gt; 'baraat_exams_private_v1' OR EXISTS (SELECT 1 FROM publ
         targetSubj.questions.push({
           id: 'eq_' + Date.now() + '_' + Math.random().toString(36).slice(2, 6),
           q: item.qText,
-          chapter: item.chName,
+          chapter: item.chName || (impScope === 'subject' ? bucketName : ''),
           sourceLabel: item.sourceLabel,
           csvQuestionNum: item.csvQuestionNum,
           csvRowIndex: item.csvRowIndex,
@@ -7568,7 +8326,7 @@ WITH CHECK (key &lt;&gt; 'baraat_exams_private_v1' OR EXISTS (SELECT 1 FROM publ
         added++;
       });
 
-      await persistExamsList(list, toFa(added) + ' سوال با دسته‌بندی سرفصل و منبع از فایل وارد شد.');
+      await persistExamsList(list, toFa(added) + ' سوال با دسته‌بندی سرفصل و زمان خودکار (۲ دقیقه/سوال) از فایل وارد شد.');
       if (isAutoMode) closeModal();
       else window.openExamQuestionsEditor(examId);
     } catch (e) {
@@ -7614,10 +8372,143 @@ WITH CHECK (key &lt;&gt; 'baraat_exams_private_v1' OR EXISTS (SELECT 1 FROM publ
     }, 1000);
   }
 
+  let prepSaveTimer = null;
+
+  function findQuestionInSession(qId) {
+    if (!examSession || !qId) return null;
+    let runningG = 0;
+    for (let sIdx = 0; sIdx < (examSession.subjects || []).length; sIdx++) {
+      const subj = examSession.subjects[sIdx];
+      const qs = subj.questions || [];
+      for (let qIdx = 0; qIdx < qs.length; qIdx++) {
+        runningG++;
+        if (qs[qIdx] && qs[qIdx].id === qId) {
+          return { subj, sIdx, qObj: qs[qIdx], qIdx, subjTotal: qs.length, globalIdx: runningG };
+        }
+      }
+    }
+    return null;
+  }
+
+  function computePrepLiveStats(s) {
+    let total = 0, answered = 0, correct = 0, wrong = 0;
+    (s.subjects || []).forEach(sb => {
+      (sb.questions || []).forEach(q => {
+        total++;
+        const picked = s.answers[q.id];
+        if (picked !== undefined && picked !== null) {
+          answered++;
+          if (Number(picked) === Number(q.answer)) correct++;
+          else wrong++;
+        }
+      });
+    });
+    const pct = answered ? Math.round((correct / answered) * 100) : 0;
+    return { total, answered, correct, wrong, pct };
+  }
+
+  function buildPrepReportRecord(s) {
+    if (!s || s.mode !== 'study') return null;
+    const ansKeys = Object.keys(s.answers || {});
+    if (!ansKeys.length) return null;
+    const stats = computeExamScorecard(s);
+    const snapshot = [];
+    (s.subjects || []).forEach(sb => {
+      (sb.questions || []).forEach(q => {
+        snapshot.push({
+          id: q.id,
+          subjName: sb.name,
+          chapter: q.chapter || '',
+          sourceLabel: q.sourceLabel || '',
+          csvQuestionNum: q.csvQuestionNum || '',
+          csvRowIndex: q.csvRowIndex || undefined,
+          csvFileName: q.csvFileName || '',
+          q: q.q,
+          options: q.options || [],
+          answer: Number(q.answer || 0),
+          exp: q.exp || ''
+        });
+      });
+    });
+    const allTagMap = getExamTagsMap();
+    const attemptTagsSnap = {};
+    snapshot.forEach(item => {
+      const tg = allTagMap[item.id];
+      if (tg && (tg.difficulty || getTagFlagsArr(tg).length)) {
+        attemptTagsSnap[item.id] = tg;
+      }
+    });
+    const nowIso = new Date().toISOString();
+    if (!s.prepReportId) {
+      s.prepReportId = 'prep_' + Date.now() + '_' + Math.random().toString(36).slice(2, 6);
+      s.prepCreatedAt = nowIso;
+    }
+    const live = computePrepLiveStats(s);
+    return {
+      id: s.prepReportId,
+      examId: s.exam.id,
+      examTitle: s.exam.title,
+      scopeLabel: s.scopeLabel,
+      mode: 'prep',
+      examScope: s.exam.examScope || 'general',
+      subjectGroup: s.exam.subjectGroup || '',
+      userId: (window.me && window.me.id) || '',
+      userEmail: (window.me && window.me.email) || '',
+      dateLabel: formatJalaliFull(new Date()).numericFa,
+      correct: stats.correct,
+      wrong: stats.wrong,
+      blank: stats.blank,
+      total: stats.total,
+      rawPct: live.pct,
+      netPct: stats.netPct,
+      answers: Object.assign({}, s.answers),
+      questionTags: attemptTagsSnap,
+      questionsSnapshot: snapshot,
+      createdAt: s.prepCreatedAt || nowIso,
+      updatedAt: nowIso
+    };
+  }
+
+  async function flushPrepReportSave(showToast, sessOverride) {
+    if (prepSaveTimer) {
+      clearTimeout(prepSaveTimer);
+      prepSaveTimer = null;
+    }
+    const targetSess = sessOverride || examSession;
+    if (!targetSess || targetSess.mode !== 'study') return false;
+    const rec = buildPrepReportRecord(targetSess);
+    if (!rec) {
+      if (showToast && typeof toast === 'function') toast('ابتدا حداقل به یک سوال پاسخ دهید تا گزارش آمادگی ثبت شود.');
+      return false;
+    }
+    await saveExamResultRecord(rec);
+    if (showToast && typeof toast === 'function') {
+      toast('گزارش حالت آمادگی با موفقیت ثبت و برای شما و مدیر ذخیره شد.');
+    }
+    return true;
+  }
+
+  function schedulePrepReportSave() {
+    if (prepSaveTimer) clearTimeout(prepSaveTimer);
+    prepSaveTimer = setTimeout(() => {
+      prepSaveTimer = null;
+      flushPrepReportSave(false).catch(() => {});
+    }, 1200);
+  }
+
+  window.examSavePrepReportNow = async function() {
+    const ok = await flushPrepReportSave(true);
+    if (ok && window.renderExamsHub) window.renderExamsHub();
+  };
+
   window.openExamRunner = function(examId, singleSubjId, mode, jumpToSubjId) {
     const ex = getVisibleExams().find(x => x.id === examId);
     if (!ex) {
       if (typeof toast === 'function') toast('این آزمون در دسترس نیست.');
+      return;
+    }
+    if (ex.isPremium && !isCurrentUserVip()) {
+      showVipLockModal(ex.title || 'آزمون ویژه');
       return;
     }
     const rawSubjs = (ex.subjects || []).filter(s => (s.questions || []).length > 0 && (!singleSubjId || s.id === singleSubjId));
@@ -7629,9 +8520,7 @@ WITH CHECK (key &lt;&gt; 'baraat_exams_private_v1' OR EXISTS (SELECT 1 FROM publ
     stopExamTimer();
     const runMode = mode === 'exam' ? 'exam' : 'study';
     const totalQ = rawSubjs.reduce((a, s) => a + s.questions.length, 0);
-    const defaultSeconds = singleSubjId
-      ? Math.max(300, Math.round((Number(ex.durationMinutes || 60) * 60 * totalQ) / Math.max(totalQ, totalQuestionsCount(ex))))
-      : (Number(ex.durationMinutes || 60) * 60);
+    const defaultSeconds = calcExamDurationMin(totalQ) * 60;
     const jumpIdx = jumpToSubjId ? Math.max(0, rawSubjs.findIndex(s => s.id === jumpToSubjId)) : 0;
 
     examSession = {
@@ -7645,6 +8534,7 @@ WITH CHECK (key &lt;&gt; 'baraat_exams_private_v1' OR EXISTS (SELECT 1 FROM publ
       answers: {},
       revealed: {},
       flags: {},
+      sessionPrevPrep: Object.assign({}, getExamPrepHistoryMap()),
       secondsLeft: defaultSeconds,
       totalSeconds: defaultSeconds,
       paused: false,
@@ -7673,6 +8563,8 @@ WITH CHECK (key &lt;&gt; 'baraat_exams_private_v1' OR EXISTS (SELECT 1 FROM publ
     if (!force && examSession && examSession.mode === 'exam' && !examSession.submitted) {
       if (!confirm('آزمون زمان‌دار هنوز تصحیح نشده است. مطمئن هستید که می‌خواهید خارج شوید؟')) return;
     }
+    const closingSession = examSession;
+    const shouldSavePrep = !!(closingSession && closingSession.mode === 'study' && Object.keys(closingSession.answers || {}).length > 0);
     stopExamTimer();
     examSession = null;
     const overlay = document.getElementById('examRunnerOverlay');
@@ -7681,6 +8573,11 @@ WITH CHECK (key &lt;&gt; 'baraat_exams_private_v1' OR EXISTS (SELECT 1 FROM publ
       overlay.innerHTML = '';
     }
     document.body.style.overflow = '';
+    if (shouldSavePrep) {
+      flushPrepReportSave(false, closingSession).then(() => {
+        if (window.renderExamsHub) window.renderExamsHub();
+      }).catch(() => {});
+    }
   };
 
   window.examSwitchSubj = function(idx) {
@@ -7731,15 +8628,203 @@ WITH CHECK (key &lt;&gt; 'baraat_exams_private_v1' OR EXISTS (SELECT 1 FROM publ
     renderExamRunner();
   };
 
+  function buildStudyCardHtml(s, qObj, qIdx, subjName, subjTotal, globalIdx) {
+    registerCopyableQuestion(qObj, subjName, qIdx + 1);
+    const picked = s.answers[qObj.id];
+    const isRev = !!s.revealed[qObj.id];
+    const rightIdx = Number(qObj.answer || 0);
+    const rightOptText = (qObj.options || [])[rightIdx] || '';
+    const isPickedCorrect = picked !== undefined && Number(picked) === rightIdx;
+    const prevRec = (isRev && s.sessionPrevPrep && s.sessionPrevPrep[qObj.id]) ? s.sessionPrevPrep[qObj.id] : null;
+    const prevLetter = (prevRec && typeof prevRec.lastChoice === 'number' && EXAM_LETTERS[prevRec.lastChoice]) ? EXAM_LETTERS[prevRec.lastChoice] : '';
+    return `
+      <div class="exam-q-card" id="exq-${qObj.id}">
+        <div class="row between" style="gap:8px; flex-wrap:wrap;">
+          <div class="row" style="gap:6px; flex-wrap:wrap;">
+            <span class="art-tag">${esc(subjName)} · سوال ${toFa(qIdx + 1)} از ${toFa(subjTotal)}</span>
+            ${qObj.chapter ? `<span class="pill">سرفصل: ${esc(qObj.chapter)}</span>` : ''}
+            ${formatExamSourceBadgeHtml(qObj.sourceLabel)}
+            ${formatAdminCsvBadgeHtml(qObj, globalIdx)}
+          </div>
+          <div class="row" style="gap:6px; flex-wrap:wrap;">
+            <button type="button" class="btn small" onclick="copyExamQuestionById('${qObj.id}', this)">📋 کپی سوال و جواب</button>
+            ${picked !== undefined ? `<button type="button" class="btn small" onclick="examClearAnswer('${qObj.id}')">پاک کردن انتخاب</button>` : ''}
+          </div>
+        </div>
+        <div class="exam-q-stem">${esc(qObj.q)}</div>
+        <div class="exam-options-list">
+          ${(qObj.options || []).map((opt, oi) => {
+            if (!opt) return '';
+            let cls = '';
+            if (isRev) {
+              if (oi === rightIdx) cls = 'correct';
+              else if (picked === oi) cls = 'wrong';
+            } else if (picked === oi) {
+              cls = 'selected';
+            }
+            return `
+              <button type="button" class="exam-opt-btn ${cls}" onclick="examPickOption('${qObj.id}', ${oi})">
+                <span class="exam-opt-letter">${EXAM_LETTERS[oi]}</span>
+                <span>${esc(opt)}</span>
+              </button>
+            `;
+          }).join('')}
+        </div>
+
+        <div class="exam-ans-toggle-wrap">
+          <button type="button" class="exam-reveal-btn ${isRev ? 'open' : ''}" onclick="examToggleReveal('${qObj.id}')">
+            ${isRev ? '🙈 بستن پاسخ و تشریح' : '💡 مشاهده پاسخ صحیح و تشریح'}
+          </button>
+          ${isRev ? `
+            <div class="exam-exp-box">
+              <div>
+                ${picked !== undefined
+                  ? (isPickedCorrect ? '<b style="color:var(--ok,#16a34a);">✅ پاسخ شما صحیح بود!</b> · ' : '<b style="color:var(--danger,#dc2626);">❌ پاسخ شما اشتباه بود.</b> · ')
+                  : ''}
+                <b>پاسخ صحیح: گزینه ${EXAM_LETTERS[rightIdx]}</b>${rightOptText ? ` — ${esc(rightOptText)}` : ''}
+              </div>
+              ${qObj.exp ? `<div style="margin-top:8px;"><b>📖 تشریح و مستند قانونی:</b> ${esc(qObj.exp)}</div>` : ''}
+            </div>
+            ${prevRec ? `
+              <div class="ex-prev-history-box ${prevRec.isCorrect ? 'ok' : 'bad'}">
+                <b>📌 سابقه قبلی شما در این سوال:</b>
+                دفعه قبل پاسخ <b>${prevRec.isCorrect ? 'صحیح ✅' : 'اشتباه ❌'}</b> داده بودید${prevLetter ? ` (گزینه ${prevLetter})` : ''}
+                · تعداد تمرین قبلی: <b>${toFa(prevRec.attempts || 1)}</b> بار (${toFa(prevRec.correctRuns || 0)} صحیح / ${toFa(prevRec.wrongRuns || 0)} غلط)
+              </div>
+            ` : ''}
+          ` : ''}
+        </div>
+        ${renderQuestionTagBarHtml(qObj.id, s.exam.title || '', subjName || '', qObj.q || '', 'study')}
+        ${renderQuestionNoteBoxHtml(qObj.id, 'study')}
+      </div>
+    `;
+  }
+
+  function buildTimedCardHtml(s, qObj, qIdx, subjName, subjTotal, sIdx) {
+    registerCopyableQuestion(qObj, subjName, qIdx + 1);
+    const picked = s.answers[qObj.id];
+    const flagged = !!s.flags[qObj.id];
+    let prevSubjQ = 0;
+    for (let i = 0; i < sIdx; i++) prevSubjQ += ((s.subjects[i] && s.subjects[i].questions) || []).length;
+    const globalIdx = prevSubjQ + qIdx + 1;
+    return `
+      <div class="exam-q-card" id="exq-${qObj.id}">
+        <div class="row between" style="gap:8px; flex-wrap:wrap;">
+          <div class="row" style="gap:6px; flex-wrap:wrap;">
+            <span class="art-tag">${esc(subjName)} · سوال ${toFa(qIdx + 1)} از ${toFa(subjTotal)}</span>
+            ${qObj.chapter ? `<span class="pill">سرفصل: ${esc(qObj.chapter)}</span>` : ''}
+            ${formatExamSourceBadgeHtml(qObj.sourceLabel)}
+            ${formatAdminCsvBadgeHtml(qObj, globalIdx)}
+          </div>
+          <div class="row" style="gap:6px; flex-wrap:wrap;">
+            <button type="button" class="btn small" onclick="copyExamQuestionById('${qObj.id}', this)">📋 کپی سوال و جواب</button>
+            ${picked !== undefined ? `<button type="button" class="btn small" onclick="examClearAnswer('${qObj.id}')">پاک کردن گزینه</button>` : ''}
+            <button type="button" class="btn small ${flagged ? 'primary' : ''}" onclick="examToggleFlag('${qObj.id}')">${flagged ? '🔖 نشان‌دار' : '🏷 نشان‌گذاری'}</button>
+          </div>
+        </div>
+        <div class="exam-q-stem">${esc(qObj.q)}</div>
+        <div class="exam-options-list">
+          ${(qObj.options || []).map((opt, oi) => opt ? `
+            <button type="button" class="exam-opt-btn ${picked === oi ? 'selected' : ''}" onclick="examPickOption('${qObj.id}', ${oi})">
+              <span class="exam-opt-letter">${EXAM_LETTERS[oi]}</span>
+              <span>${esc(opt)}</span>
+            </button>
+          ` : '').join('')}
+        </div>
+        ${renderQuestionTagBarHtml(qObj.id, s.exam.title || '', subjName || '', qObj.q || '', 'ex')}
+        ${renderQuestionNoteBoxHtml(qObj.id, 'ex')}
+        ${s.viewMode === 'single' ? `
+          <div class="row between" style="margin-top:20px; padding-top:14px; border-top:1px solid var(--line);">
+            <button type="button" class="btn" ${qIdx > 0 ? `onclick="examSelectQ(${qIdx - 1})"` : (sIdx > 0 ? `onclick="examSelectSubjQ(${sIdx - 1}, ${(s.subjects[sIdx - 1].questions || []).length - 1})"` : 'disabled')}>→ سوال / درس قبلی</button>
+            <button type="button" class="btn primary" ${qIdx < subjTotal - 1 ? `onclick="examSelectQ(${qIdx + 1})"` : (sIdx < s.subjects.length - 1 ? `onclick="examSelectSubjQ(${sIdx + 1}, 0)"` : `onclick="finishExamRunner(false)"`)}>
+              ${qIdx < subjTotal - 1 ? 'سوال بعدی ←' : (sIdx < s.subjects.length - 1 ? 'درس بعدی ←' : 'پایان و مشاهده کارنامه ✓')}
+            </button>
+          </div>
+        ` : ''}
+      </div>
+    `;
+  }
+
+  function updateExamHeaderAndNavStats(qId) {
+    if (!examSession) return;
+    const s = examSession;
+    const info = qId ? findQuestionInSession(qId) : null;
+    if (info) {
+      const dot = document.querySelector(`#examRunnerOverlay .exam-q-dot[data-qid="${qId}"]`);
+      if (dot) {
+        const picked = s.answers[qId];
+        const isPicked = picked !== undefined && picked !== null;
+        if (s.mode === 'study') {
+          const isRev = !!s.revealed[qId];
+          const isRight = isPicked && Number(picked) === Number(info.qObj.answer);
+          const isWrong = isPicked && Number(picked) !== Number(info.qObj.answer);
+          dot.classList.toggle('res-ok', isRight || (!isPicked && isRev));
+          dot.classList.toggle('res-bad', isWrong);
+          dot.classList.toggle('answered', isPicked && !isRev);
+        } else {
+          dot.classList.toggle('answered', isPicked);
+          dot.classList.toggle('flagged', !!s.flags[qId]);
+        }
+      }
+      if (s.mode === 'exam') {
+        const tabBtn = document.getElementById('exSubjTab-' + info.sIdx);
+        if (tabBtn) {
+          const sb = s.subjects[info.sIdx];
+          const ansCnt = (sb.questions || []).filter(q => s.answers[q.id] !== undefined).length;
+          tabBtn.textContent = `${sb.name} (${toFa(ansCnt)}/${toFa((sb.questions || []).length)})`;
+        }
+      }
+    }
+
+    if (s.mode === 'study') {
+      const liveEl = document.getElementById('exPrepLiveStats');
+      if (liveEl) {
+        const st = computePrepLiveStats(s);
+        liveEl.innerHTML = `${esc(s.scopeLabel)} · ${toFa(st.total)} سوال · پاسخ‌داده‌شده: <b>${toFa(st.answered)}</b> · <span style="color:var(--ok,#16a34a);font-weight:700;">✅ ${toFa(st.correct)}</span> · <span style="color:var(--danger,#dc2626);font-weight:700;">❌ ${toFa(st.wrong)}</span>${st.answered ? ` · درصد: <b>${toFa(st.pct)}٪</b>` : ''}`;
+      }
+    } else {
+      const cntEl = document.getElementById('exTimedAnsweredCount');
+      if (cntEl) {
+        const totalAnsweredAll = Object.keys(s.answers || {}).length;
+        const totalQAll = s.subjects.reduce((acc, sb) => acc + (sb.questions || []).length, 0);
+        cntEl.textContent = `${s.scopeLabel} · پاسخ‌داده‌شده: ${toFa(totalAnsweredAll)} از ${toFa(totalQAll)}`;
+      }
+    }
+  }
+
+  function updateExamCardInDom(qId) {
+    if (!examSession) return;
+    const s = examSession;
+    if (s.submitted || s.paused) {
+      renderExamRunner();
+      return;
+    }
+    const cardEl = document.getElementById('exq-' + qId);
+    const info = findQuestionInSession(qId);
+    if (!cardEl || !info) {
+      renderExamRunner();
+      return;
+    }
+    const existingTa = cardEl.querySelector('textarea');
+    const draftNoteVal = existingTa ? existingTa.value : null;
+    if (s.mode === 'study') {
+      cardEl.outerHTML = buildStudyCardHtml(s, info.qObj, info.qIdx, info.subj.name, info.subjTotal, info.globalIdx);
+    } else {
+      cardEl.outerHTML = buildTimedCardHtml(s, info.qObj, info.qIdx, info.subj.name, info.subjTotal, info.sIdx);
+    }
+    if (draftNoteVal !== null) {
+      const nextCard = document.getElementById('exq-' + qId);
+      const nextTa = nextCard ? nextCard.querySelector('textarea') : null;
+      if (nextTa && nextTa.value !== draftNoteVal) nextTa.value = draftNoteVal;
+    }
+    updateExamHeaderAndNavStats(qId);
+  }
+
   window.examToggleReveal = function(qId) {
     if (!examSession) return;
-    const bodyEl = document.querySelector('#examRunnerOverlay .exam-runner-body');
-    const prevScroll = bodyEl ? bodyEl.scrollTop : 0;
     if (examSession.revealed[qId]) delete examSession.revealed[qId];
     else examSession.revealed[qId] = true;
-    renderExamRunner();
-    const nextBodyEl = document.querySelector('#examRunnerOverlay .exam-runner-body');
-    if (nextBodyEl) nextBodyEl.scrollTop = prevScroll;
+    updateExamCardInDom(qId);
   };
 
   window.examToggleRevealAll = function() {
@@ -7760,12 +8845,16 @@ WITH CHECK (key &lt;&gt; 'baraat_exams_private_v1' OR EXISTS (SELECT 1 FROM publ
   window.examSwitchSessionMode = function(newMode) {
     if (!examSession) return;
     const target = newMode === 'exam' ? 'exam' : 'study';
+    if (examSession.mode === 'study' && target === 'exam' && Object.keys(examSession.answers || {}).length > 0) {
+      flushPrepReportSave(false).catch(() => {});
+    }
     if (target === 'exam') {
       stopExamTimer();
       examSession.mode = 'exam';
       examSession.submitted = false;
       examSession.paused = false;
       examSession.revealed = {};
+      examSession.answers = {};
       examSession.secondsLeft = examSession.totalSeconds;
       examSession.viewMode = 'list';
       examSession.activeQIdx = 0;
@@ -7775,6 +8864,7 @@ WITH CHECK (key &lt;&gt; 'baraat_exams_private_v1' OR EXISTS (SELECT 1 FROM publ
       examSession.mode = 'study';
       examSession.submitted = false;
       examSession.paused = false;
+      examSession.sessionPrevPrep = Object.assign({}, getExamPrepHistoryMap());
       examSession.viewMode = 'list';
     }
     renderExamRunner();
@@ -7782,40 +8872,38 @@ WITH CHECK (key &lt;&gt; 'baraat_exams_private_v1' OR EXISTS (SELECT 1 FROM publ
 
   window.examPickOption = function(qId, optIdx) {
     if (!examSession || examSession.submitted) return;
-    const bodyEl = document.querySelector('#examRunnerOverlay .exam-runner-body');
-    const prevScroll = bodyEl ? bodyEl.scrollTop : 0;
+    if (examSession.mode === 'study') {
+      const info = findQuestionInSession(qId);
+      examSession.answers[qId] = optIdx;
+      examSession.revealed[qId] = true;
+      if (info && info.qObj) {
+        const isCorrect = Number(optIdx) === Number(info.qObj.answer);
+        recordExamPrepAnswer(qId, optIdx, isCorrect);
+      }
+      schedulePrepReportSave();
+      updateExamCardInDom(qId);
+      return;
+    }
     if (examSession.answers[qId] === optIdx) delete examSession.answers[qId];
     else examSession.answers[qId] = optIdx;
-    renderExamRunner();
-    if (examSession.mode === 'study' || examSession.viewMode === 'list') {
-      const nextBodyEl = document.querySelector('#examRunnerOverlay .exam-runner-body');
-      if (nextBodyEl) nextBodyEl.scrollTop = prevScroll;
-    }
+    updateExamCardInDom(qId);
   };
 
   window.examClearAnswer = function(qId) {
     if (!examSession || examSession.submitted) return;
-    const bodyEl = document.querySelector('#examRunnerOverlay .exam-runner-body');
-    const prevScroll = bodyEl ? bodyEl.scrollTop : 0;
     delete examSession.answers[qId];
-    renderExamRunner();
-    if (examSession.mode === 'study' || examSession.viewMode === 'list') {
-      const nextBodyEl = document.querySelector('#examRunnerOverlay .exam-runner-body');
-      if (nextBodyEl) nextBodyEl.scrollTop = prevScroll;
+    if (examSession.mode === 'study') {
+      delete examSession.revealed[qId];
+      schedulePrepReportSave();
     }
+    updateExamCardInDom(qId);
   };
 
   window.examToggleFlag = function(qId) {
     if (!examSession) return;
-    const bodyEl = document.querySelector('#examRunnerOverlay .exam-runner-body');
-    const prevScroll = bodyEl ? bodyEl.scrollTop : 0;
     if (examSession.flags[qId]) delete examSession.flags[qId];
     else examSession.flags[qId] = true;
-    renderExamRunner();
-    if (examSession.mode === 'study' || examSession.viewMode === 'list') {
-      const nextBodyEl = document.querySelector('#examRunnerOverlay .exam-runner-body');
-      if (nextBodyEl) nextBodyEl.scrollTop = prevScroll;
-    }
+    updateExamCardInDom(qId);
   };
 
   window.examSetReviewFilter = function(flt) {
@@ -7859,11 +8947,15 @@ WITH CHECK (key &lt;&gt; 'baraat_exams_private_v1' OR EXISTS (SELECT 1 FROM publ
       }
     });
 
+    const nowIso = new Date().toISOString();
     await saveExamResultRecord({
       id: 'res_' + Date.now() + '_' + Math.random().toString(36).slice(2, 6),
       examId: examSession.exam.id,
       examTitle: examSession.exam.title,
       scopeLabel: examSession.scopeLabel,
+      mode: 'timed',
+      examScope: examSession.exam.examScope || 'general',
+      subjectGroup: examSession.exam.subjectGroup || '',
       userId: (window.me && window.me.id) || '',
       userEmail: (window.me && window.me.email) || '',
       dateLabel: formatJalaliFull(new Date()).numericFa,
@@ -7876,7 +8968,8 @@ WITH CHECK (key &lt;&gt; 'baraat_exams_private_v1' OR EXISTS (SELECT 1 FROM publ
       answers: Object.assign({}, examSession.answers),
       questionTags: attemptTagsSnap,
       questionsSnapshot: snapshot,
-      createdAt: new Date().toISOString()
+      createdAt: nowIso,
+      updatedAt: nowIso
     });
     if (window.renderExamsHub) window.renderExamsHub();
     renderExamRunner();
@@ -7939,7 +9032,7 @@ WITH CHECK (key &lt;&gt; 'baraat_exams_private_v1' OR EXISTS (SELECT 1 FROM publ
             <div class="muted small">${esc(s.scopeLabel)} · ${toFa(sc.total)} سوال</div>
           </div>
           <div class="row" style="gap:8px; flex-wrap:wrap;">
-            <button type="button" class="btn small" onclick="examRestartSession('study')">📖 مرور سوالات</button>
+            <button type="button" class="btn small" onclick="examRestartSession('study')">📖 حالت آمادگی</button>
             <button type="button" class="btn small" onclick="examRestartSession('exam')">🔄 آزمون مجدد</button>
             <button type="button" class="btn primary small" onclick="closeExamRunner(true)">✕ بستن و بازگشت</button>
           </div>
@@ -8044,74 +9137,24 @@ WITH CHECK (key &lt;&gt; 'baraat_exams_private_v1' OR EXISTS (SELECT 1 FROM publ
     if (s.mode === 'study') {
       const allQs = s.subjects.flatMap(sb => sb.questions || []);
       const allRevealedInExam = allQs.length > 0 && allQs.every(q => !!s.revealed[q.id]);
-      const renderStudyCard = (qObj, qIdx, subjName, subjTotal, globalIdx) => {
-        registerCopyableQuestion(qObj, subjName, qIdx + 1);
-        const picked = s.answers[qObj.id];
-        const isRev = !!s.revealed[qObj.id];
-        const rightIdx = Number(qObj.answer || 0);
-        const rightOptText = (qObj.options || [])[rightIdx] || '';
-        return `
-          <div class="exam-q-card" id="exq-${qObj.id}">
-            <div class="row between" style="gap:8px; flex-wrap:wrap;">
-              <div class="row" style="gap:6px; flex-wrap:wrap;">
-                <span class="art-tag">${esc(subjName)} · سوال ${toFa(qIdx + 1)} از ${toFa(subjTotal)}</span>
-                ${qObj.chapter ? `<span class="pill">سرفصل: ${esc(qObj.chapter)}</span>` : ''}
-                ${formatExamSourceBadgeHtml(qObj.sourceLabel)}
-                ${formatAdminCsvBadgeHtml(qObj, globalIdx)}
-              </div>
-              <div class="row" style="gap:6px; flex-wrap:wrap;">
-                <button type="button" class="btn small" onclick="copyExamQuestionById('${qObj.id}', this)">📋 کپی سوال و جواب</button>
-                ${picked !== undefined ? `<button type="button" class="btn small" onclick="examClearAnswer('${qObj.id}')">پاک کردن انتخاب</button>` : ''}
-              </div>
-            </div>
-            <div class="exam-q-stem">${esc(qObj.q)}</div>
-            <div class="exam-options-list">
-              ${(qObj.options || []).map((opt, oi) => {
-                if (!opt) return '';
-                let cls = '';
-                if (isRev) {
-                  if (oi === rightIdx) cls = 'correct';
-                  else if (picked === oi) cls = 'wrong';
-                } else if (picked === oi) {
-                  cls = 'selected';
-                }
-                return `
-                  <button type="button" class="exam-opt-btn ${cls}" onclick="examPickOption('${qObj.id}', ${oi})">
-                    <span class="exam-opt-letter">${EXAM_LETTERS[oi]}</span>
-                    <span>${esc(opt)}</span>
-                  </button>
-                `;
-              }).join('')}
-            </div>
-
-            <div class="exam-ans-toggle-wrap">
-              <button type="button" class="exam-reveal-btn ${isRev ? 'open' : ''}" onclick="examToggleReveal('${qObj.id}')">
-                ${isRev ? '🙈 بستن پاسخ و تشریح' : '💡 مشاهده پاسخ صحیح و تشریح'}
-              </button>
-              ${isRev ? `
-                <div class="exam-exp-box">
-                  <div><b>✅ پاسخ صحیح: گزینه ${EXAM_LETTERS[rightIdx]}</b>${rightOptText ? ` — ${esc(rightOptText)}` : ''}</div>
-                  ${qObj.exp ? `<div style="margin-top:8px;"><b>📖 تشریح و مستند قانونی:</b> ${esc(qObj.exp)}</div>` : ''}
-                </div>
-              ` : ''}
-            </div>
-            ${renderQuestionTagBarHtml(qObj.id, s.exam.title || '', subjName || '', qObj.q || '', 'study')}
-            ${renderQuestionNoteBoxHtml(qObj.id, 'study')}
-          </div>
-        `;
-      };
+      const prepStats = computePrepLiveStats(s);
 
       overlay.innerHTML = `
         <div class="exam-runner-head">
           <div>
-            <b style="font-size:15.5px; color:var(--text);">👁 ${esc(s.exam.title)}</b>
-            <div class="muted small">مشاهده سوالات و پاسخ (پیوسته بین همه دروس با اسکرول، بدون تایمر) · ${toFa(allQs.length)} سوال</div>
+            <b style="font-size:15.5px; color:var(--text);">📖 حالت آمادگی (بدون تایمر): ${esc(s.exam.title)}</b>
+            <div class="muted small" id="exPrepLiveStats">
+              ${esc(s.scopeLabel)} · ${toFa(prepStats.total)} سوال · پاسخ‌داده‌شده: <b>${toFa(prepStats.answered)}</b> · <span style="color:var(--ok,#16a34a);font-weight:700;">✅ ${toFa(prepStats.correct)}</span> · <span style="color:var(--danger,#dc2626);font-weight:700;">❌ ${toFa(prepStats.wrong)}</span>${prepStats.answered ? ` · درصد: <b>${toFa(prepStats.pct)}٪</b>` : ''}
+            </div>
           </div>
           <div class="row" style="gap:8px; flex-wrap:wrap;">
+            <button type="button" class="btn small" onclick="examSavePrepReportNow()" title="ثبت فوری گزارش آمادگی در کارنامه شما و پنل مدیر">
+              💾 ثبت گزارش آمادگی
+            </button>
             <button type="button" class="btn small" onclick="examToggleRevealAll()">
               ${allRevealedInExam ? '🙈 بستن همه پاسخ‌ها' : '👁 نمایش همه پاسخ‌ها'}
             </button>
-            <button type="button" class="btn small" onclick="examSwitchSessionMode('exam')" title="تغییر به آزمون زمان‌دار با کارنامه">
+            <button type="button" class="btn small" onclick="examSwitchSessionMode('exam')" title="تغییر به آزمون زمان‌دار با تایمر و کارنامه">
               ⏱ آزمون زمان‌دار
             </button>
             <button type="button" class="btn primary small" onclick="closeExamRunner(true)">✕ بستن</button>
@@ -8141,7 +9184,7 @@ WITH CHECK (key &lt;&gt; 'baraat_exams_private_v1' OR EXISTS (SELECT 1 FROM publ
                       </div>
                       ${sQs.map((q, qi) => {
                         runningG++;
-                        return renderStudyCard(q, qi, sb.name, sQs.length, runningG);
+                        return buildStudyCardHtml(s, q, qi, sb.name, sQs.length, runningG);
                       }).join('')}
                     </section>
                   `;
@@ -8151,7 +9194,7 @@ WITH CHECK (key &lt;&gt; 'baraat_exams_private_v1' OR EXISTS (SELECT 1 FROM publ
 
             <aside class="exam-palette-card">
               <b style="font-size:14px; color:var(--text);">ناوبری سریع سوالات (${toFa(allQs.length)})</b>
-              <div class="muted small" style="margin-top:4px;">این بخش اسکرول جداگانه دارد · روی هر شماره کلیک کنید</div>
+              <div class="muted small" style="margin-top:4px;">انتخاب هر گزینه = تصحیح فوری و ثبت در گزارش آمادگی</div>
               <div style="display:grid; gap:12px; margin-top:12px;">
                 ${s.subjects.map(sb => {
                   const sQs = sb.questions || [];
@@ -8160,12 +9203,16 @@ WITH CHECK (key &lt;&gt; 'baraat_exams_private_v1' OR EXISTS (SELECT 1 FROM publ
                       <div style="font-size:11.5px; font-weight:800; color:var(--main); margin-bottom:6px;">${esc(sb.name)} (${toFa(sQs.length)})</div>
                       <div class="exam-palette-grid" style="margin-top:0;">
                         ${sQs.map((q, qi) => {
+                          const picked = s.answers[q.id];
+                          const isPicked = picked !== undefined && picked !== null;
                           const isRev = !!s.revealed[q.id];
-                          const isPicked = s.answers[q.id] !== undefined;
+                          const isRight = isPicked && Number(picked) === Number(q.answer);
+                          const isWrong = isPicked && Number(picked) !== Number(q.answer);
+                          const stCls = isWrong ? 'res-bad' : ((isRight || isRev) ? 'res-ok' : (isPicked ? 'answered' : ''));
                           const qTg = window.getExamQuestionTag(q.id);
                           const hasTg = !!(qTg && (qTg.difficulty || getTagFlagsArr(qTg).length));
                           const tgCls = hasTg ? ('has-tag' + (qTg.difficulty ? ' tag-' + qTg.difficulty : '')) : '';
-                          return `<button type="button" data-qid="${q.id}" class="exam-q-dot ${isRev ? 'res-ok' : (isPicked ? 'answered' : '')} ${tgCls}" onclick="examJumpToQ('${q.id}')">${toFa(qi + 1)}</button>`;
+                          return `<button type="button" data-qid="${q.id}" class="exam-q-dot ${stCls} ${tgCls}" onclick="examJumpToQ('${q.id}')">${toFa(qi + 1)}</button>`;
                         }).join('')}
                       </div>
                     </div>
@@ -8173,8 +9220,9 @@ WITH CHECK (key &lt;&gt; 'baraat_exams_private_v1' OR EXISTS (SELECT 1 FROM publ
                 }).join('')}
               </div>
               <div style="margin-top:16px; padding-top:12px; border-top:1px solid var(--line); display:grid; gap:6px; font-size:12px; color:var(--muted);">
-                <div>💡 زیر هر سوال روی «مشاهده پاسخ» بزنید تا پاسخ و تشریح باز شود.</div>
-                <div>📝 یادداشت شخصی شما زیر هر سوال فقط برای حساب خودتان ذخیره می‌شود.</div>
+                <div>🟢 سبز: پاسخ صحیح · 🔴 قرمز: پاسخ اشتباه</div>
+                <div>💡 پاسخ‌های شما در حالت آمادگی به‌صورت خودکار برای شما و مدیر ثبت و تصحیح می‌شود.</div>
+                <div>📝 یادداشت و سطح سختی زیر هر سوال بین اپلیکیشن و وب همگام می‌ماند.</div>
               </div>
             </aside>
           </div>
@@ -8183,56 +9231,11 @@ WITH CHECK (key &lt;&gt; 'baraat_exams_private_v1' OR EXISTS (SELECT 1 FROM publ
       return;
     }
 
-    const renderQuestionBlock = (qObj, qIdx, subjName, subjTotal, sIdx) => {
-      registerCopyableQuestion(qObj, subjName, qIdx + 1);
-      const picked = s.answers[qObj.id];
-      const flagged = !!s.flags[qObj.id];
-      let prevSubjQ = 0;
-      for (let i = 0; i < sIdx; i++) prevSubjQ += ((s.subjects[i] && s.subjects[i].questions) || []).length;
-      const globalIdx = prevSubjQ + qIdx + 1;
-      return `
-        <div class="exam-q-card" id="exq-${qObj.id}">
-          <div class="row between" style="gap:8px; flex-wrap:wrap;">
-            <div class="row" style="gap:6px; flex-wrap:wrap;">
-              <span class="art-tag">${esc(subjName)} · سوال ${toFa(qIdx + 1)} از ${toFa(subjTotal)}</span>
-              ${qObj.chapter ? `<span class="pill">سرفصل: ${esc(qObj.chapter)}</span>` : ''}
-              ${formatExamSourceBadgeHtml(qObj.sourceLabel)}
-              ${formatAdminCsvBadgeHtml(qObj, globalIdx)}
-            </div>
-            <div class="row" style="gap:6px; flex-wrap:wrap;">
-              <button type="button" class="btn small" onclick="copyExamQuestionById('${qObj.id}', this)">📋 کپی سوال و جواب</button>
-              ${picked !== undefined ? `<button type="button" class="btn small" onclick="examClearAnswer('${qObj.id}')">پاک کردن گزینه</button>` : ''}
-              <button type="button" class="btn small ${flagged ? 'primary' : ''}" onclick="examToggleFlag('${qObj.id}')">${flagged ? '🔖 نشان‌دار' : '🏷 نشان‌گذاری'}</button>
-            </div>
-          </div>
-          <div class="exam-q-stem">${esc(qObj.q)}</div>
-          <div class="exam-options-list">
-            ${(qObj.options || []).map((opt, oi) => opt ? `
-              <button type="button" class="exam-opt-btn ${picked === oi ? 'selected' : ''}" onclick="examPickOption('${qObj.id}', ${oi})">
-                <span class="exam-opt-letter">${EXAM_LETTERS[oi]}</span>
-                <span>${esc(opt)}</span>
-              </button>
-            ` : '').join('')}
-          </div>
-          ${renderQuestionTagBarHtml(qObj.id, s.exam.title || '', subjName || '', qObj.q || '', 'ex')}
-          ${renderQuestionNoteBoxHtml(qObj.id, 'ex')}
-          ${s.viewMode === 'single' ? `
-            <div class="row between" style="margin-top:20px; padding-top:14px; border-top:1px solid var(--line);">
-              <button type="button" class="btn" ${qIdx > 0 ? `onclick="examSelectQ(${qIdx - 1})"` : (sIdx > 0 ? `onclick="examSelectSubjQ(${sIdx - 1}, ${(s.subjects[sIdx - 1].questions || []).length - 1})"` : 'disabled')}>→ سوال / درس قبلی</button>
-              <button type="button" class="btn primary" ${qIdx < subjTotal - 1 ? `onclick="examSelectQ(${qIdx + 1})"` : (sIdx < s.subjects.length - 1 ? `onclick="examSelectSubjQ(${sIdx + 1}, 0)"` : `onclick="finishExamRunner(false)"`)}>
-                ${qIdx < subjTotal - 1 ? 'سوال بعدی ←' : (sIdx < s.subjects.length - 1 ? 'درس بعدی ←' : 'پایان و مشاهده کارنامه ✓')}
-              </button>
-            </div>
-          ` : ''}
-        </div>
-      `;
-    };
-
     overlay.innerHTML = `
       <div class="exam-runner-head">
         <div>
           <b style="font-size:15.5px; color:var(--text);">📝 آزمون زمان‌دار: ${esc(s.exam.title)}</b>
-          <div class="muted small">${esc(s.scopeLabel)} · پاسخ‌داده‌شده: ${toFa(totalAnsweredAll)} از ${toFa(totalQAll)}</div>
+          <div class="muted small" id="exTimedAnsweredCount">${esc(s.scopeLabel)} · پاسخ‌داده‌شده: ${toFa(totalAnsweredAll)} از ${toFa(totalQAll)}</div>
         </div>
         <div class="row" style="gap:8px; flex-wrap:wrap;">
           <div class="exam-timer-box ${s.secondsLeft <= 300 ? 'low' : ''}">
@@ -8240,7 +9243,7 @@ WITH CHECK (key &lt;&gt; 'baraat_exams_private_v1' OR EXISTS (SELECT 1 FROM publ
             <span id="exTimerDisplay">${formatMmSs(s.secondsLeft)}</span>
             <button type="button" class="btn small" style="padding:2px 8px; font-size:11px;" onclick="examTogglePause()">${s.paused ? '▶ ادامه' : '⏸ توقف'}</button>
           </div>
-          <button type="button" class="btn small" onclick="examSwitchSessionMode('study')">👁 مشاهده سوالات و پاسخ</button>
+          <button type="button" class="btn small" onclick="examSwitchSessionMode('study')">📖 حالت آمادگی</button>
           <button type="button" class="btn small" onclick="examToggleViewMode('${s.viewMode === 'single' ? 'list' : 'single'}')">
             ${s.viewMode === 'single' ? '☰ نمای لیستی' : '🎯 تک‌سوالی'}
           </button>
@@ -8253,7 +9256,7 @@ WITH CHECK (key &lt;&gt; 'baraat_exams_private_v1' OR EXISTS (SELECT 1 FROM publ
         ${s.subjects.map((sb, idx) => {
           const ansCnt = (sb.questions || []).filter(q => s.answers[q.id] !== undefined).length;
           return `
-            <button type="button" class="exam-subj-tab ${idx === s.activeSubjIdx ? 'active' : ''}" onclick="examSwitchSubj(${idx})">
+            <button type="button" id="exSubjTab-${idx}" class="exam-subj-tab ${idx === s.activeSubjIdx ? 'active' : ''}" onclick="examSwitchSubj(${idx})">
               ${esc(sb.name)} (${toFa(ansCnt)}/${toFa((sb.questions || []).length)})
             </button>
           `;
@@ -8271,7 +9274,7 @@ WITH CHECK (key &lt;&gt; 'baraat_exams_private_v1' OR EXISTS (SELECT 1 FROM publ
                 <div style="margin-top:16px;"><button type="button" class="btn primary" onclick="examTogglePause()">▶ ادامه آزمون</button></div>
               </div>
             ` : (s.viewMode === 'single'
-                ? renderQuestionBlock(curQ, s.activeQIdx, curSubj.name, qs.length, s.activeSubjIdx)
+                ? buildTimedCardHtml(s, curQ, s.activeQIdx, curSubj.name, qs.length, s.activeSubjIdx)
                 : s.subjects.map((sb, sIdx) => {
                     const sQs = sb.questions || [];
                     return `
@@ -8280,7 +9283,7 @@ WITH CHECK (key &lt;&gt; 'baraat_exams_private_v1' OR EXISTS (SELECT 1 FROM publ
                           <span>📚 ${esc(sb.name)}</span>
                           <span class="pill done">${toFa(sQs.length)} سوال</span>
                         </div>
-                        ${sQs.map((q, qi) => renderQuestionBlock(q, qi, sb.name, sQs.length, sIdx)).join('')}
+                        ${sQs.map((q, qi) => buildTimedCardHtml(s, q, qi, sb.name, sQs.length, sIdx)).join('')}
                       </section>
                     `;
                   }).join(''))}
