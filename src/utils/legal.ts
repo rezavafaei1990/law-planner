@@ -861,6 +861,8 @@ export interface ExamImportDefaults {
   examType?: string;
   year?: string;
   subject?: string;
+  examScope?: 'general' | 'subject';
+  subjectGroup?: string;
   durationMin?: number;
   isPublished?: boolean;
   isPremium?: boolean;
@@ -1002,6 +1004,8 @@ export async function parseExamSpreadsheetFile(
           category: ex.category || defaults.category || '',
           examType: ex.examType || defaults.examType || '',
           year: ex.year ? toEn(ex.year) : defaults.year ? toEn(defaults.year) : '',
+          examScope: ex.examScope || defaults.examScope || 'general',
+          subjectGroup: ex.subjectGroup || defaults.subjectGroup || undefined,
           isPublished: ex.isPublished ?? defaults.isPublished ?? true,
           isPremium: ex.isPremium ?? defaults.isPremium ?? false,
           subjects,
@@ -1196,13 +1200,16 @@ export async function parseExamSpreadsheetFile(
   for (const [, grp] of examGroups.entries()) {
     const explicitSubjects = new Set(grp.rows.filter((r) => r.hasExplicitSubject && r.subject).map((r) => r.subject!));
     const hasChapters = grp.rows.some((r) => Boolean(r.chapter));
-    const useChapterBuckets = hasChapters && explicitSubjects.size <= 1;
+    const isSubjectScoped = defaults.examScope === 'subject';
+    const useChapterBuckets = isSubjectScoped ? hasChapters : hasChapters && explicitSubjects.size <= 1;
 
     const bySubject = new Map<string, ExamQuestion[]>();
     grp.rows.forEach((row, idx) => {
       const bucketName = useChapterBuckets
-        ? row.chapter || (row.hasExplicitSubject ? row.subject : '') || defaults.subject || 'سوالات آزمون'
-        : (row.hasExplicitSubject ? row.subject : row.chapter) || defaults.subject || 'سوالات آزمون';
+        ? row.chapter || (isSubjectScoped ? (defaults.title || fileBase) : (row.hasExplicitSubject ? row.subject : '') || defaults.subject || 'سوالات آزمون')
+        : isSubjectScoped
+          ? row.chapter || defaults.title || fileBase || defaults.subjectGroup || 'سرفصل اصلی'
+          : (row.hasExplicitSubject ? row.subject : row.chapter) || defaults.subject || 'سوالات آزمون';
       if (!bySubject.has(bucketName)) bySubject.set(bucketName, []);
       bySubject.get(bucketName)!.push({
         id: `q_${baseStamp}_${eIdx}_${idx}_${Math.random().toString(36).slice(2, 6)}`,
@@ -1210,7 +1217,7 @@ export async function parseExamSpreadsheetFile(
         options: row.options,
         answer: row.answer,
         exp: row.exp || '',
-        chapter: row.chapter || '',
+        chapter: row.chapter || (isSubjectScoped ? bucketName : ''),
         sourceLabel: row.sourceLabel || undefined,
         csvQuestionNum: row.csvQuestionNum,
         csvRowIndex: row.csvRowIndex,
@@ -1236,6 +1243,8 @@ export async function parseExamSpreadsheetFile(
       category: grp.meta.category || undefined,
       examType: grp.meta.examType || undefined,
       year: grp.meta.year || undefined,
+      examScope: defaults.examScope || 'general',
+      subjectGroup: defaults.subjectGroup || undefined,
       isPublished: defaults.isPublished ?? true,
       isPremium: defaults.isPremium ?? false,
       subjects,
