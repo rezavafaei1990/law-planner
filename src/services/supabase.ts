@@ -9,7 +9,10 @@ import type {
   AboutInfo,
   ContactInfo,
   LegalExam,
+  ExamSubjectFolder,
   ExamAttemptResult,
+  ExamQuestionTagState,
+  ExamPrepRecord,
   LegalCase,
   QuestionReplyItem,
   PlannerState,
@@ -43,9 +46,19 @@ export const META_KEYS = {
   REPORTS: 'baraat_student_reports_v1',
   EXAMS: 'baraat_exams_v1',
   EXAMS_PRIVATE: 'baraat_exams_private_v1',
+  EXAM_SUBJECTS: 'baraat_exam_subjects_v1',
   EXAM_ATTEMPTS: 'baraat_exam_attempts_v1',
   VIP_SUBSCRIPTIONS: 'baraat_vip_subscriptions_v1',
 } as const;
+
+export const DEFAULT_EXAM_SUBJECTS: ExamSubjectFolder[] = [
+  { id: 'esub_civil', name: 'حقوق مدنی', desc: 'قواعد عمومی قراردادها، عقود معین، اموال، ارث و خانواده', order: 1 },
+  { id: 'esub_civ_proc', name: 'آیین دادرسی مدنی', desc: 'صلاحیت، ادله اثبات، طرق شکایت از آرا و اجرای احکام', order: 2 },
+  { id: 'esub_commerce', name: 'حقوق تجارت', desc: 'شرکت‌ها، اسناد تجاری، چک، ورشکستگی و قراردادهای تجاری', order: 3 },
+  { id: 'esub_criminal', name: 'حقوق جزا', desc: 'حقوق جزای عمومی و اختصاصی (حدود، قصاص، دیات و تعزیرات)', order: 4 },
+  { id: 'esub_crim_proc', name: 'آیین دادرسی کیفری', desc: 'کشف جرم، تعقیب، تحقیقات مقدماتی، دادگاه‌ها و تجدیدنظر', order: 5 },
+  { id: 'esub_usool', name: 'اصول فقه', desc: 'مباحث الفاظ، حجج و امارات، اصول عملیه و تعارض ادله', order: 6 },
+];
 
 export const DEFAULT_VIP_SETTINGS: VipSettings = {
   subscribers: [],
@@ -124,10 +137,11 @@ async function fetchPaged<T>(table: string, cols: string, orders: string[]): Pro
 export async function fetchFullLawDatabase(force = false): Promise<LawDbBundle> {
   const cached = await idbGet<LawDbBundle>('db');
   if (!force && cached && Array.isArray(cached.laws) && cached.articles?.length > 0) {
+    const needsEnrich = cached.articles.some((a) => !a.norm || a.tn === undefined);
     return {
       ver: cached.ver || null,
       laws: cached.laws,
-      articles: cached.articles.map(enrichArticle),
+      articles: needsEnrich ? cached.articles.map((a) => (a.norm && a.tn !== undefined ? a : enrichArticle(a))) : cached.articles,
       decisions: cached.decisions || [],
     };
   }
@@ -173,10 +187,11 @@ export async function fetchFullLawDatabase(force = false): Promise<LawDbBundle> 
     return bundle;
   } catch (err) {
     if (cached && Array.isArray(cached.laws)) {
+      const needsEnrich = cached.articles.some((a) => !a.norm || a.tn === undefined);
       return {
         ver: cached.ver || null,
         laws: cached.laws,
-        articles: cached.articles.map(enrichArticle),
+        articles: needsEnrich ? cached.articles.map((a) => (a.norm && a.tn !== undefined ? a : enrichArticle(a))) : cached.articles,
         decisions: cached.decisions || [],
       };
     }
@@ -230,6 +245,7 @@ export interface SiteMetaBundle {
   about: AboutInfo;
   contact: ContactInfo;
   exams: LegalExam[];
+  examSubjects: ExamSubjectFolder[];
   examAttempts: ExamAttemptResult[];
   questions: Record<string, QuestionReplyItem>;
   vipSettings: VipSettings;
@@ -276,6 +292,7 @@ export function loadLocalSiteMeta(isAdminUser = false): SiteMetaBundle {
     about: get<AboutInfo>(META_KEYS.ABOUT, DEFAULT_ABOUT),
     contact: get<ContactInfo>(META_KEYS.CONTACT, DEFAULT_CONTACT),
     exams: mergedExams,
+    examSubjects: get<ExamSubjectFolder[]>(META_KEYS.EXAM_SUBJECTS, DEFAULT_EXAM_SUBJECTS),
     examAttempts: get<ExamAttemptResult[]>(META_KEYS.EXAM_ATTEMPTS, []),
     questions: get<Record<string, QuestionReplyItem>>(META_KEYS.QUESTIONS, {}),
     vipSettings: get<VipSettings>(META_KEYS.VIP_SUBSCRIPTIONS, DEFAULT_VIP_SETTINGS),
@@ -301,6 +318,7 @@ export async function fetchSiteMetaFromSupabase(isAdminUser = false): Promise<Si
     META_KEYS.ABOUT,
     META_KEYS.CONTACT,
     META_KEYS.EXAMS,
+    META_KEYS.EXAM_SUBJECTS,
     META_KEYS.EXAM_ATTEMPTS,
     META_KEYS.QUESTIONS,
     META_KEYS.VIP_SUBSCRIPTIONS,
@@ -365,6 +383,11 @@ export async function fetchSiteMetaFromSupabase(isAdminUser = false): Promise<Si
     about: parseMetaVal<AboutInfo>(map[META_KEYS.ABOUT], local.about),
     contact: parseMetaVal<ContactInfo>(map[META_KEYS.CONTACT], local.contact),
     exams: finalExams,
+    examSubjects: Array.isArray(parseMetaVal(map[META_KEYS.EXAM_SUBJECTS], null))
+      ? parseMetaVal<ExamSubjectFolder[]>(map[META_KEYS.EXAM_SUBJECTS], DEFAULT_EXAM_SUBJECTS)
+      : local.examSubjects?.length
+        ? local.examSubjects
+        : DEFAULT_EXAM_SUBJECTS,
     examAttempts: Array.isArray(parseMetaVal(map[META_KEYS.EXAM_ATTEMPTS], null))
       ? parseMetaVal<ExamAttemptResult[]>(map[META_KEYS.EXAM_ATTEMPTS], local.examAttempts)
       : local.examAttempts,
@@ -379,6 +402,7 @@ export async function fetchSiteMetaFromSupabase(isAdminUser = false): Promise<Si
     localStorage.setItem(META_KEYS.ABOUT, JSON.stringify(next.about));
     localStorage.setItem(META_KEYS.CONTACT, JSON.stringify(next.contact));
     localStorage.setItem(META_KEYS.EXAMS, JSON.stringify(cleanPubExams));
+    localStorage.setItem(META_KEYS.EXAM_SUBJECTS, JSON.stringify(next.examSubjects));
     localStorage.setItem(META_KEYS.EXAM_ATTEMPTS, JSON.stringify(next.examAttempts));
     localStorage.setItem(META_KEYS.QUESTIONS, JSON.stringify(next.questions));
     localStorage.setItem(META_KEYS.VIP_SUBSCRIPTIONS, JSON.stringify(next.vipSettings));
@@ -500,50 +524,393 @@ export async function getSignedAttachmentUrl(path: string): Promise<string | nul
   return res.error ? null : res.data.signedUrl;
 }
 
-export async function saveUserPlanner(userId: string, email: string | undefined, state: PlannerState): Promise<boolean> {
-  const next = { ...state, _userEmail: email || state._userEmail };
-  try {
-    localStorage.setItem(`planner_${userId}`, JSON.stringify(next));
-  } catch {
-    // ignore
-  }
-  const r = await supabase.from('planner').upsert({
-    user_id: userId,
-    data: next,
-    updated_at: new Date().toISOString(),
-  });
-  return !r.error;
+function parseTagTs(tg?: ExamQuestionTagState): number {
+  if (!tg?.updatedAt) return 0;
+  const t = new Date(tg.updatedAt).getTime();
+  return Number.isNaN(t) ? 0 : t;
 }
 
-export async function loadUserPlanner(userId: string, email?: string): Promise<PlannerState | null> {
-  try {
-    const r = await supabase.from('planner').select('data').eq('user_id', userId).maybeSingle();
-    let state = (r.data?.data as PlannerState | undefined) || null;
-    if (!state) {
-      const localRaw = localStorage.getItem(`planner_${userId}`);
-      if (localRaw) state = JSON.parse(localRaw) as PlannerState;
+/**
+ * Conflict-free cross-device merge for PlannerState (PWA <-> Web <-> Android).
+ * Preserves all notes, difficulty/review tags, prep history, and article marks
+ * by comparing per-item timestamps & tombstones so one device never wipes another.
+ */
+export function mergePlannerStates(local: PlannerState, remote: PlannerState | null): PlannerState {
+  if (!remote) return local;
+
+  // 1. Merge examNotes with per-question update & deletion timestamps
+  const mergedNotes: Record<string, string> = {};
+  const mergedNotesUpdated: Record<string, number> = {};
+  const mergedNotesDeleted: Record<string, number> = {};
+  const allNoteIds = new Set([
+    ...Object.keys(local.examNotes || {}),
+    ...Object.keys(remote.examNotes || {}),
+    ...Object.keys(local.examNotesDeletedAt || {}),
+    ...Object.keys(remote.examNotesDeletedAt || {}),
+  ]);
+  for (const qId of allNoteIds) {
+    const lVal = (local.examNotes?.[qId] || '').trim();
+    const rVal = (remote.examNotes?.[qId] || '').trim();
+    const lUpd = local.examNotesUpdatedAt?.[qId] || (lVal ? 1 : 0);
+    const rUpd = remote.examNotesUpdatedAt?.[qId] || (rVal ? 1 : 0);
+    const lDel = local.examNotesDeletedAt?.[qId] || 0;
+    const rDel = remote.examNotesDeletedAt?.[qId] || 0;
+    const maxDel = Math.max(lDel, rDel);
+    const maxUpd = Math.max(lUpd, rUpd);
+
+    if (maxDel > 0) mergedNotesDeleted[qId] = maxDel;
+    if (maxDel > maxUpd) {
+      // Deleted more recently than last edit
+      continue;
     }
-    if (state && email) {
-      // Check if admin assigned a plan update for this user email
+    if (lVal && !rVal) {
+      if (lUpd >= maxDel) {
+        mergedNotes[qId] = local.examNotes![qId];
+        if (lUpd > 1) mergedNotesUpdated[qId] = lUpd;
+      }
+    } else if (rVal && !lVal) {
+      if (rUpd >= maxDel) {
+        mergedNotes[qId] = remote.examNotes![qId];
+        if (rUpd > 1) mergedNotesUpdated[qId] = rUpd;
+      }
+    } else if (lVal && rVal) {
+      if (lUpd >= rUpd) {
+        mergedNotes[qId] = local.examNotes![qId];
+        if (lUpd > 1) mergedNotesUpdated[qId] = lUpd;
+      } else {
+        mergedNotes[qId] = remote.examNotes![qId];
+        if (rUpd > 1) mergedNotesUpdated[qId] = rUpd;
+      }
+    }
+  }
+
+  // 2. Merge examTags with per-question updatedAt & deletion tombstones
+  const mergedTags: Record<string, ExamQuestionTagState> = {};
+  const mergedTagsDeleted: Record<string, number> = {};
+  const allTagIds = new Set([
+    ...Object.keys(local.examTags || {}),
+    ...Object.keys(remote.examTags || {}),
+    ...Object.keys(local.examTagsDeletedAt || {}),
+    ...Object.keys(remote.examTagsDeletedAt || {}),
+  ]);
+  for (const qId of allTagIds) {
+    const lTg = local.examTags?.[qId];
+    const rTg = remote.examTags?.[qId];
+    const lHas = Boolean(lTg && (lTg.difficulty || (lTg.tags && lTg.tags.length > 0)));
+    const rHas = Boolean(rTg && (rTg.difficulty || (rTg.tags && rTg.tags.length > 0)));
+    const lTs = lHas ? Math.max(1, parseTagTs(lTg)) : 0;
+    const rTs = rHas ? Math.max(1, parseTagTs(rTg)) : 0;
+    const maxDel = Math.max(local.examTagsDeletedAt?.[qId] || 0, remote.examTagsDeletedAt?.[qId] || 0);
+    const maxTs = Math.max(lTs, rTs);
+
+    if (maxDel > 0) mergedTagsDeleted[qId] = maxDel;
+    if (maxDel > maxTs) continue;
+    if (lHas && !rHas) {
+      mergedTags[qId] = lTg!;
+    } else if (rHas && !lHas) {
+      mergedTags[qId] = rTg!;
+    } else if (lHas && rHas) {
+      mergedTags[qId] = lTs >= rTs ? lTg! : rTg!;
+    }
+  }
+
+  // 3. Merge examPrepHistory per question by updatedAt / attempts
+  const mergedPrep: Record<string, ExamPrepRecord> = {};
+  const allPrepIds = new Set([
+    ...Object.keys(local.examPrepHistory || {}),
+    ...Object.keys(remote.examPrepHistory || {}),
+  ]);
+  for (const qId of allPrepIds) {
+    const lP = local.examPrepHistory?.[qId];
+    const rP = remote.examPrepHistory?.[qId];
+    if (lP && !rP) mergedPrep[qId] = lP;
+    else if (rP && !lP) mergedPrep[qId] = rP;
+    else if (lP && rP) {
+      const newer = (lP.updatedAt || 0) >= (rP.updatedAt || 0) ? lP : rP;
+      mergedPrep[qId] = {
+        ...newer,
+        attempts: Math.max(lP.attempts || 0, rP.attempts || 0),
+        correctRuns: Math.max(lP.correctRuns || 0, rP.correctRuns || 0),
+        wrongRuns: Math.max(lP.wrongRuns || 0, rP.wrongRuns || 0),
+      };
+    }
+  }
+
+  // 4. Merge article marks by timestamp
+  const mergedMarks = { ...(remote.marks || {}) };
+  for (const [k, v] of Object.entries(local.marks || {})) {
+    if (!mergedMarks[k] || (v?.t || 0) >= (mergedMarks[k]?.t || 0)) {
+      mergedMarks[k] = v;
+    }
+  }
+
+  // Pick fresher planner schedule (days/sections) by _summary.updatedAt
+  const localSchedTs = local._summary?.updatedAt ? new Date(local._summary.updatedAt).getTime() : 0;
+  const remoteSchedTs = remote._summary?.updatedAt ? new Date(remote._summary.updatedAt).getTime() : 0;
+  const baseSched = localSchedTs >= remoteSchedTs && (local.days?.length || local.subjectSections?.length || !remote.days?.length)
+    ? local
+    : remote;
+
+  return {
+    ...baseSched,
+    subjects: baseSched.subjects?.length ? baseSched.subjects : remote.subjects?.length ? remote.subjects : local.subjects,
+    marks: mergedMarks,
+    examNotes: mergedNotes,
+    examNotesUpdatedAt: mergedNotesUpdated,
+    examNotesDeletedAt: mergedNotesDeleted,
+    examTags: mergedTags,
+    examTagsDeletedAt: mergedTagsDeleted,
+    examPrepHistory: mergedPrep,
+    _userEmail: local._userEmail || remote._userEmail,
+    _lastAssignedAt: local._lastAssignedAt || remote._lastAssignedAt,
+  };
+}
+
+export async function saveUserPlanner(
+  userId: string,
+  email: string | undefined,
+  state: PlannerState,
+  options: { mergeRemoteFirst?: boolean } = {}
+): Promise<{ ok: boolean; state: PlannerState; error?: string }> {
+  let next: PlannerState = { ...state, _userEmail: email || state._userEmail };
+
+  const persistLocal = (s: PlannerState) => {
+    try {
+      localStorage.setItem(`planner_${userId}`, JSON.stringify(s));
+      localStorage.setItem(`baraat_exam_notes_v1_${userId}`, JSON.stringify(s.examNotes || {}));
+      localStorage.setItem(`baraat_exam_tags_v1_${userId}`, JSON.stringify(s.examTags || {}));
+    } catch {
+      // ignore storage quota
+    }
+  };
+
+  persistLocal(next);
+
+  if (typeof navigator !== 'undefined' && !navigator.onLine) {
+    try {
+      localStorage.setItem(`baraat_planner_dirty_${userId}`, '1');
+    } catch {
+      // ignore
+    }
+    return { ok: false, state: next, error: 'offline' };
+  }
+
+  try {
+    if (options.mergeRemoteFirst !== false) {
+      const existing = await supabase.from('planner').select('data').eq('user_id', userId).maybeSingle();
+      if (!existing.error && existing.data?.data) {
+        next = mergePlannerStates(next, existing.data.data as PlannerState);
+        next._userEmail = email || next._userEmail;
+      }
+    }
+
+    const r = await supabase
+      .from('planner')
+      .upsert(
+        {
+          user_id: userId,
+          data: next,
+          updated_at: new Date().toISOString(),
+        },
+        { onConflict: 'user_id' }
+      );
+
+    if (r.error) {
+      try {
+        localStorage.setItem(`baraat_planner_dirty_${userId}`, '1');
+      } catch {
+        // ignore
+      }
+      return { ok: false, state: next, error: r.error.message };
+    }
+
+    persistLocal(next);
+    try {
+      localStorage.removeItem(`baraat_planner_dirty_${userId}`);
+    } catch {
+      // ignore
+    }
+    return { ok: true, state: next };
+  } catch (err) {
+    try {
+      localStorage.setItem(`baraat_planner_dirty_${userId}`, '1');
+    } catch {
+      // ignore
+    }
+    return { ok: false, state: next, error: err instanceof Error ? err.message : 'network_error' };
+  }
+}
+
+export async function loadUserPlanner(userId: string, email?: string): Promise<{ state: PlannerState | null; needsPush: boolean }> {
+  let localState: PlannerState | null = null;
+  try {
+    const localRaw = localStorage.getItem(`planner_${userId}`);
+    if (localRaw) localState = JSON.parse(localRaw) as PlannerState;
+  } catch {
+    localState = null;
+  }
+
+  // Also gather legacy per-user localStorage notes/tags & any guest notes/tags waiting to migrate
+  const readJson = <T,>(k: string): T | null => {
+    try {
+      const raw = localStorage.getItem(k);
+      return raw ? (JSON.parse(raw) as T) : null;
+    } catch {
+      return null;
+    }
+  };
+  const legacyUserNotes = readJson<Record<string, string>>(`baraat_exam_notes_v1_${userId}`) || {};
+  const legacyUserTags = readJson<Record<string, ExamQuestionTagState>>(`baraat_exam_tags_v1_${userId}`) || {};
+  const guestNotes = readJson<Record<string, string>>('baraat_exam_notes_v1_guest') || {};
+  const guestTags = readJson<Record<string, ExamQuestionTagState>>('baraat_exam_tags_v1_guest') || {};
+  const guestPrep = readJson<Record<string, ExamPrepRecord>>('baraat_exam_prep_v1_guest') || {};
+  const wasDirty = (() => {
+    try {
+      return localStorage.getItem(`baraat_planner_dirty_${userId}`) === '1';
+    } catch {
+      return false;
+    }
+  })();
+
+  const hasGuestData =
+    Object.keys(guestNotes).length > 0 ||
+    Object.keys(guestTags).length > 0 ||
+    Object.keys(guestPrep).length > 0;
+
+  let remoteState: PlannerState | null = null;
+  try {
+    if (typeof navigator === 'undefined' || navigator.onLine) {
+      const r = await supabase.from('planner').select('data').eq('user_id', userId).maybeSingle();
+      if (!r.error && r.data?.data) {
+        remoteState = r.data.data as PlannerState;
+      }
+    }
+  } catch {
+    remoteState = null;
+  }
+
+  // Build combined local snapshot (preserving legacy & guest notes/tags so PWA local notes never vanish)
+  const localCombined: PlannerState | null =
+    localState || Object.keys(legacyUserNotes).length > 0 || Object.keys(legacyUserTags).length > 0 || hasGuestData
+      ? {
+          subjects: localState?.subjects || [],
+          days: localState?.days || [],
+          subjectSections: localState?.subjectSections || [],
+          marks: localState?.marks || {},
+          imports: localState?.imports || [],
+          ...localState,
+          examNotes: {
+            ...guestNotes,
+            ...legacyUserNotes,
+            ...(localState?.examNotes || {}),
+          },
+          examTags: {
+            ...guestTags,
+            ...legacyUserTags,
+            ...(localState?.examTags || {}),
+          },
+          examPrepHistory: {
+            ...guestPrep,
+            ...(localState?.examPrepHistory || {}),
+          },
+        }
+      : null;
+
+  let merged: PlannerState | null = null;
+  if (localCombined && remoteState) {
+    merged = mergePlannerStates(localCombined, remoteState);
+  } else {
+    merged = remoteState || localCombined;
+  }
+
+  let needsPush = wasDirty || hasGuestData;
+  if (merged && !remoteState && localCombined) {
+    needsPush = true;
+  } else if (merged && remoteState) {
+    // Check if merged has notes/tags/prep that remote didn't have yet (e.g. stuck on PWA before!)
+    const rNotes = remoteState.examNotes || {};
+    const mNotes = merged.examNotes || {};
+    for (const [k, v] of Object.entries(mNotes)) {
+      if (v && rNotes[k] !== v) {
+        needsPush = true;
+        break;
+      }
+    }
+    if (!needsPush) {
+      const rTags = remoteState.examTags || {};
+      const mTags = merged.examTags || {};
+      for (const [k, v] of Object.entries(mTags)) {
+        if (JSON.stringify(rTags[k] || null) !== JSON.stringify(v || null)) {
+          needsPush = true;
+          break;
+        }
+      }
+    }
+    if (!needsPush) {
+      const rPrep = remoteState.examPrepHistory || {};
+      const mPrep = merged.examPrepHistory || {};
+      for (const [k, v] of Object.entries(mPrep)) {
+        if ((rPrep[k]?.updatedAt || 0) < (v?.updatedAt || 0)) {
+          needsPush = true;
+          break;
+        }
+      }
+    }
+  }
+
+  // Check if admin assigned a plan update for this user email (preserve notes, tags, AND prep history!)
+  if (merged && email && (typeof navigator === 'undefined' || navigator.onLine)) {
+    try {
       const ar = await supabase.from('meta').select('value').eq('key', META_KEYS.ASSIGNED_PLANS).maybeSingle();
       if (ar.data?.value) {
         const map = parseMetaVal<Record<string, AssignedPlanEntry>>(ar.data.value, {});
         const entry = map[email.trim().toLowerCase()];
-        if (entry && entry.updatedAt && state._lastAssignedAt !== entry.updatedAt && entry.jsonState) {
-          state = {
+        if (entry && entry.updatedAt && merged._lastAssignedAt !== entry.updatedAt && entry.jsonState) {
+          merged = {
             ...entry.jsonState,
-            examNotes: state.examNotes,
+            examNotes: merged.examNotes,
+            examNotesUpdatedAt: merged.examNotesUpdatedAt,
+            examNotesDeletedAt: merged.examNotesDeletedAt,
+            examTags: merged.examTags,
+            examTagsDeletedAt: merged.examTagsDeletedAt,
+            examPrepHistory: merged.examPrepHistory,
+            marks: merged.marks,
             _userEmail: email,
             _lastAssignedAt: entry.updatedAt,
           };
-          await saveUserPlanner(userId, email, state);
+          needsPush = true;
         }
       }
+    } catch {
+      // ignore offline
     }
-    return state;
-  } catch {
-    return null;
   }
+
+  if (merged) {
+    try {
+      localStorage.setItem(`planner_${userId}`, JSON.stringify(merged));
+      localStorage.setItem(`baraat_exam_notes_v1_${userId}`, JSON.stringify(merged.examNotes || {}));
+      localStorage.setItem(`baraat_exam_tags_v1_${userId}`, JSON.stringify(merged.examTags || {}));
+    } catch {
+      // ignore
+    }
+  }
+
+  if (needsPush && merged) {
+    const pushRes = await saveUserPlanner(userId, email, merged, { mergeRemoteFirst: false });
+    if (pushRes.ok && hasGuestData) {
+      try {
+        localStorage.removeItem('baraat_exam_notes_v1_guest');
+        localStorage.removeItem('baraat_exam_tags_v1_guest');
+        localStorage.removeItem('baraat_exam_prep_v1_guest');
+      } catch {
+        // ignore
+      }
+    }
+    return { state: pushRes.state, needsPush: !pushRes.ok };
+  }
+
+  return { state: merged, needsPush: false };
 }
 
 export async function appendExamAttemptToServer(
