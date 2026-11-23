@@ -987,7 +987,7 @@ let state=fresh();
 const SUB_CID="__sub__";
 let activeSubjectPlanFilter="all";
 const subjGroupOpen={};
-function fresh(){return {subjects:defaultSubjects.map((x,i)=>({id:"s"+i,name:x[0],laws:x[1].map(n=>({name:n,count:COUNTS[n]||0,unit:UNITS[n]||"ماده"}))})),days:[],subjectSections:[],marks:{},imports:[],examResults:[]}}
+function fresh(){return {subjects:defaultSubjects.map((x,i)=>({id:"s"+i,name:x[0],laws:x[1].map(n=>({name:n,count:COUNTS[n]||0,unit:UNITS[n]||"ماده"}))})),days:[],subjectSections:[],marks:{},imports:[],examResults:[],examNotes:{},examNotesUpdatedAt:{},examNotesDeletedAt:{},examTags:{},examTagsDeletedAt:{},examPrepHistory:{}}}
 function normBlockItem(b){
  if(!b)return;
  if(!Array.isArray(b.checks))b.checks=Array(CHECKS.length).fill(false);
@@ -995,8 +995,178 @@ function normBlockItem(b){
  b.refs=b.refs||[];b.title=b.title||"";
  if(!b.items){b.spec=b.from===b.to?String(b.from):b.from+"-"+b.to;b.items=(typeof expand==="function")?expand(b.spec):[]}
 }
-function norm(s){if(!s||typeof s!=="object")s=fresh();if(!Array.isArray(s.subjects))s=fresh();if(!Array.isArray(s.days))s.days=[];if(!Array.isArray(s.subjectSections))s.subjectSections=[];s.subjects.forEach(u=>{if(u&&Array.isArray(u.laws)){u.laws=u.laws.map(l=>typeof l==="string"?{name:l,count:COUNTS[l]||0}:l);u.laws.forEach(l=>{if(l&&l.topics)l.count=l.topics.length})}else if(u){u.laws=[]}});s.days.forEach(d=>{if(d&&Array.isArray(d.blocks)){d.blocks.forEach(normBlockItem)}else if(d){d.blocks=[]}});s.subjectSections.forEach(normBlockItem);s.marks=s.marks||{};s.imports=s.imports||[];if(!Array.isArray(s.examResults))s.examResults=[];return s}
-function persist(){if(ready)cloudSave()}
+function norm(s){if(!s||typeof s!=="object")s=fresh();if(!Array.isArray(s.subjects))s=fresh();if(!Array.isArray(s.days))s.days=[];if(!Array.isArray(s.subjectSections))s.subjectSections=[];s.subjects.forEach(u=>{if(u&&Array.isArray(u.laws)){u.laws=u.laws.map(l=>typeof l==="string"?{name:l,count:COUNTS[l]||0}:l);u.laws.forEach(l=>{if(l&&l.topics)l.count=l.topics.length})}else if(u){u.laws=[]}});s.days.forEach(d=>{if(d&&Array.isArray(d.blocks)){d.blocks.forEach(normBlockItem)}else if(d){d.blocks=[]}});s.subjectSections.forEach(normBlockItem);s.marks=s.marks||{};s.imports=s.imports||[];if(!Array.isArray(s.examResults))s.examResults=[];if(!s.examNotes||typeof s.examNotes!=="object")s.examNotes={};if(!s.examNotesUpdatedAt||typeof s.examNotesUpdatedAt!=="object")s.examNotesUpdatedAt={};if(!s.examNotesDeletedAt||typeof s.examNotesDeletedAt!=="object")s.examNotesDeletedAt={};if(!s.examTags||typeof s.examTags!=="object")s.examTags={};if(!s.examTagsDeletedAt||typeof s.examTagsDeletedAt!=="object")s.examTagsDeletedAt={};if(!s.examPrepHistory||typeof s.examPrepHistory!=="object")s.examPrepHistory={};return s}
+function _tsMs(v){if(!v)return 0;if(typeof v==="number")return v;const p=Date.parse(String(v));return isNaN(p)?0:p;}
+function _mergeExamFieldsInto(target,src){
+ if(!target||!src||typeof src!=="object")return false;
+ let changed=false;
+ target.examNotes=target.examNotes||{};
+ target.examNotesUpdatedAt=target.examNotesUpdatedAt||{};
+ target.examNotesDeletedAt=target.examNotesDeletedAt||{};
+ const sNotes=(src.examNotes&&typeof src.examNotes==="object")?src.examNotes:{};
+ const sNoteUpd=(src.examNotesUpdatedAt&&typeof src.examNotesUpdatedAt==="object")?src.examNotesUpdatedAt:{};
+ const sNoteDel=(src.examNotesDeletedAt&&typeof src.examNotesDeletedAt==="object")?src.examNotesDeletedAt:{};
+ const allNoteIds=new Set([...Object.keys(target.examNotes),...Object.keys(sNotes),...Object.keys(target.examNotesDeletedAt),...Object.keys(sNoteDel)]);
+ allNoteIds.forEach(qid=>{
+  const tVal=String(target.examNotes[qid]||"").trim();
+  const sVal=String(sNotes[qid]||"").trim();
+  const tUpd=_tsMs(target.examNotesUpdatedAt[qid]);
+  const sUpd=_tsMs(sNoteUpd[qid]);
+  const tDel=_tsMs(target.examNotesDeletedAt[qid]);
+  const sDel=_tsMs(sNoteDel[qid]);
+  const maxDel=Math.max(tDel,sDel);
+  if(maxDel>0&&maxDel>=Math.max(tUpd,sUpd)){
+   if(target.examNotes[qid]){delete target.examNotes[qid];changed=true;}
+   if(maxDel>tDel){target.examNotesDeletedAt[qid]=new Date(maxDel).toISOString();changed=true;}
+   return;
+  }
+  if(sVal&&(!tVal||(sUpd>tUpd)||(sUpd===tUpd&&sVal.length>tVal.length))){
+   target.examNotes[qid]=sVal;
+   if(sUpd>tUpd)target.examNotesUpdatedAt[qid]=sNoteUpd[qid];
+   changed=true;
+  }
+ });
+
+ target.examTags=target.examTags||{};
+ target.examTagsDeletedAt=target.examTagsDeletedAt||{};
+ const sTags=(src.examTags&&typeof src.examTags==="object")?src.examTags:{};
+ const sTagDel=(src.examTagsDeletedAt&&typeof src.examTagsDeletedAt==="object")?src.examTagsDeletedAt:{};
+ const allTagIds=new Set([...Object.keys(target.examTags),...Object.keys(sTags),...Object.keys(target.examTagsDeletedAt),...Object.keys(sTagDel)]);
+ allTagIds.forEach(qid=>{
+  const tTag=target.examTags[qid];
+  const sTag=sTags[qid];
+  const tUpd=_tsMs(tTag&&tTag.updatedAt);
+  const sUpd=_tsMs(sTag&&sTag.updatedAt);
+  const tDel=_tsMs(target.examTagsDeletedAt[qid]);
+  const sDel=_tsMs(sTagDel[qid]);
+  const maxDel=Math.max(tDel,sDel);
+  if(maxDel>0&&maxDel>=Math.max(tUpd,sUpd)){
+   if(target.examTags[qid]){delete target.examTags[qid];changed=true;}
+   if(maxDel>tDel){target.examTagsDeletedAt[qid]=new Date(maxDel).toISOString();changed=true;}
+   return;
+  }
+  if(sTag&&(!tTag||sUpd>tUpd)){
+   target.examTags[qid]=Object.assign({},sTag);
+   changed=true;
+  }
+ });
+
+ target.examPrepHistory=target.examPrepHistory||{};
+ const sPrep=(src.examPrepHistory&&typeof src.examPrepHistory==="object")?src.examPrepHistory:{};
+ Object.entries(sPrep).forEach(([qid,sp])=>{
+  if(!sp||typeof sp!=="object")return;
+  const tp=target.examPrepHistory[qid];
+  if(!tp){target.examPrepHistory[qid]=Object.assign({},sp);changed=true;return;}
+  const tUpd=_tsMs(tp.updatedAt);
+  const sUpd=_tsMs(sp.updatedAt);
+  const nextAtt=Math.max(Number(tp.attempts||0),Number(sp.attempts||0));
+  const nextCor=Math.max(Number(tp.correctRuns||0),Number(sp.correctRuns||0));
+  const nextWrg=Math.max(Number(tp.wrongRuns||0),Number(sp.wrongRuns||0));
+  if(sUpd>tUpd||nextAtt!==Number(tp.attempts||0)||nextCor!==Number(tp.correctRuns||0)||nextWrg!==Number(tp.wrongRuns||0)){
+   target.examPrepHistory[qid]=Object.assign({},sUpd>=tUpd?sp:tp,{attempts:nextAtt,correctRuns:nextCor,wrongRuns:nextWrg});
+   changed=true;
+  }
+ });
+
+ const resMap=new Map();
+ (Array.isArray(target.examResults)?target.examResults:[]).forEach(r=>{if(r&&r.id)resMap.set(r.id,r);});
+ (Array.isArray(src.examResults)?src.examResults:[]).forEach(r=>{
+  if(!r||!r.id)return;
+  const ex=resMap.get(r.id);
+  if(!ex){resMap.set(r.id,r);changed=true;}
+  else if(_tsMs(r.updatedAt||r.createdAt)>_tsMs(ex.updatedAt||ex.createdAt)){resMap.set(r.id,r);changed=true;}
+ });
+ if(resMap.size!==(target.examResults||[]).length||changed){
+  target.examResults=[...resMap.values()].sort((a,b)=>String(b.updatedAt||b.createdAt||"").localeCompare(String(a.updatedAt||a.createdAt||""))).slice(0,80);
+ }
+
+ target.marks=target.marks||{};
+ if(src.marks&&typeof src.marks==="object"){
+  Object.entries(src.marks).forEach(([k,mv])=>{
+   if(!mv)return;
+   const tv=target.marks[k];
+   if(!tv||_tsMs(mv.t)>_tsMs(tv.t)){target.marks[k]=Object.assign({},mv);changed=true;}
+  });
+ }
+ return changed;
+}
+function _userExamStorageKeys(){
+ const keys=[];
+ if(me&&me.id)keys.push(String(me.id).toLowerCase());
+ if(me&&me.email)keys.push(String(me.email).toLowerCase());
+ keys.push("guest");
+ return [...new Set(keys)];
+}
+function _readLocalExamExtras(){
+ const out={examNotes:{},examNotesUpdatedAt:{},examNotesDeletedAt:{},examTags:{},examTagsDeletedAt:{},examPrepHistory:{},examResults:[]};
+ const suffixes=_userExamStorageKeys();
+ suffixes.forEach(suf=>{
+  try{
+   const nRaw=localStorage.getItem("baraat_exam_notes_v1_"+suf);
+   const nObj=nRaw?JSON.parse(nRaw):null;
+   if(nObj&&typeof nObj==="object"){
+    Object.entries(nObj).forEach(([k,v])=>{if(v&&String(v).trim()&&!out.examNotes[k])out.examNotes[k]=String(v).trim();});
+   }
+  }catch(e){}
+  try{
+   const mRaw=localStorage.getItem("baraat_exam_notes_meta_v1_"+suf);
+   const mObj=mRaw?JSON.parse(mRaw):null;
+   if(mObj&&typeof mObj==="object"){
+    if(mObj.updatedAt)Object.assign(out.examNotesUpdatedAt,mObj.updatedAt);
+    if(mObj.deletedAt)Object.assign(out.examNotesDeletedAt,mObj.deletedAt);
+   }
+  }catch(e){}
+  try{
+   const tRaw=localStorage.getItem("baraat_exam_tags_v1_"+suf);
+   const tObj=tRaw?JSON.parse(tRaw):null;
+   if(tObj&&typeof tObj==="object"){
+    Object.entries(tObj).forEach(([k,v])=>{
+     if(!v||typeof v!=="object")return;
+     const ex=out.examTags[k];
+     if(!ex||_tsMs(v.updatedAt)>_tsMs(ex.updatedAt))out.examTags[k]=v;
+    });
+   }
+  }catch(e){}
+  try{
+   const tdRaw=localStorage.getItem("baraat_exam_tags_del_v1_"+suf);
+   const tdObj=tdRaw?JSON.parse(tdRaw):null;
+   if(tdObj&&typeof tdObj==="object")Object.assign(out.examTagsDeletedAt,tdObj);
+  }catch(e){}
+  try{
+   const pRaw=localStorage.getItem("baraat_exam_prep_v1_"+suf);
+   const pObj=pRaw?JSON.parse(pRaw):null;
+   if(pObj&&typeof pObj==="object"){
+    Object.entries(pObj).forEach(([k,v])=>{
+     if(!v||typeof v!=="object")return;
+     const ex=out.examPrepHistory[k];
+     if(!ex||_tsMs(v.updatedAt)>_tsMs(ex.updatedAt))out.examPrepHistory[k]=v;
+    });
+   }
+  }catch(e){}
+  try{
+   const rRaw=localStorage.getItem("baraat_exam_results_v1_"+suf);
+   const rArr=rRaw?JSON.parse(rRaw):null;
+   if(Array.isArray(rArr))out.examResults.push(...rArr);
+  }catch(e){}
+ });
+ return out;
+}
+function _writeLocalExamExtrasFromState(st){
+ if(!st||!me)return;
+ const uidKey=String(me.id||me.email||"guest").toLowerCase();
+ try{localStorage.setItem("baraat_exam_notes_v1_"+uidKey,JSON.stringify(st.examNotes||{}));}catch(e){}
+ try{localStorage.setItem("baraat_exam_notes_meta_v1_"+uidKey,JSON.stringify({updatedAt:st.examNotesUpdatedAt||{},deletedAt:st.examNotesDeletedAt||{}}));}catch(e){}
+ try{localStorage.setItem("baraat_exam_tags_v1_"+uidKey,JSON.stringify(st.examTags||{}));}catch(e){}
+ try{localStorage.setItem("baraat_exam_tags_del_v1_"+uidKey,JSON.stringify(st.examTagsDeletedAt||{}));}catch(e){}
+ try{localStorage.setItem("baraat_exam_prep_v1_"+uidKey,JSON.stringify(st.examPrepHistory||{}));}catch(e){}
+ if(Array.isArray(st.examResults)){
+  try{localStorage.setItem("baraat_exam_results_v1_"+uidKey,JSON.stringify(st.examResults.slice(0,80)));}catch(e){}
+ }
+}
+function _plannerDirtyKey(){return me&&me.id?("baraat_planner_dirty_v1_"+me.id):"";}
+function _markPlannerDirty(v){const k=_plannerDirtyKey();if(!k)return;try{if(v)localStorage.setItem(k,"1");else localStorage.removeItem(k);}catch(e){}}
+function _isPlannerDirty(){const k=_plannerDirtyKey();if(!k)return false;try{return localStorage.getItem(k)==="1";}catch(e){return false;}}
+function persist(){if(ready){_markPlannerDirty(true);cloudSave();}}
 function save(){persist();render();toast("تغییرات ذخیره شد")}
 function toast(t){let e=document.getElementById("toast");e.textContent=t;e.classList.add("show");setTimeout(()=>e.classList.remove("show"),1800)}
 function allBlocks(){return [...state.days.flatMap(d=>d.blocks),...(state.subjectSections||[])]}
@@ -1459,10 +1629,34 @@ window.BARAAT_PLANNER_API={
   saveImmediate:async()=>{
     if(!me||!sb)return false;
     if(!ready)await loadPlanner();
-    if(me&&me.email)state._userEmail=me.email;
-    state._summary=buildProgressSnapshot(state);
-    const r=await sb.from("planner").upsert({user_id:me.id,data:state,updated_at:new Date().toISOString()});
-    return !r.error;
+    if(!ready)return false;
+    _markPlannerDirty(true);
+    return await flushCloudSave();
+  },
+  pullAndMerge:async()=>{
+    if(!me||!sb||!navigator.onLine)return false;
+    if(!ready){await loadPlanner();return ready;}
+    try{
+      const r=await sb.from("planner").select("data").eq("user_id",me.id).maybeSingle();
+      if(r.error||!r.data)return false;
+      const remote=r.data.data?norm(r.data.data):null;
+      let localChanged=false;
+      if(remote){
+        localChanged=_mergeExamFieldsInto(state,remote);
+      }
+      const localExtras=_readLocalExamExtras();
+      const extraChanged=_mergeExamFieldsInto(state,localExtras);
+      _writeLocalExamExtrasFromState(state);
+      if(extraChanged||_isPlannerDirty()){
+        await flushCloudSave();
+      }
+      if(localChanged||extraChanged){
+        if(window.renderExamsHub&&(!document.getElementById("examRunnerOverlay")||document.getElementById("examRunnerOverlay").classList.contains("hidden"))){
+          window.renderExamsHub();
+        }
+      }
+      return true;
+    }catch(e){return false;}
   },
   save,
   persist,
@@ -1779,6 +1973,16 @@ async function applyAdminAssignedPlans(currentState){
     if (!entry || !entry.updatedAt || currentState._lastAssignedAt === entry.updatedAt) {
       return { state: currentState, updated: false };
     }
+    const preservedExam={
+      examNotes:currentState.examNotes||{},
+      examNotesUpdatedAt:currentState.examNotesUpdatedAt||{},
+      examNotesDeletedAt:currentState.examNotesDeletedAt||{},
+      examTags:currentState.examTags||{},
+      examTagsDeletedAt:currentState.examTagsDeletedAt||{},
+      examPrepHistory:currentState.examPrepHistory||{},
+      examResults:Array.isArray(currentState.examResults)?currentState.examResults:[],
+      marks:currentState.marks||{}
+    };
     let next = entry.mode === "replace" ? fresh() : currentState;
     if (entry.planKind === "json" && entry.jsonState) {
       if (entry.mode === "replace") {
@@ -1860,6 +2064,7 @@ async function applyAdminAssignedPlans(currentState){
         });
       }
     }
+    _mergeExamFieldsInto(next, preservedExam);
     next._lastAssignedAt = entry.updatedAt;
     next._lastAssignedNote = entry.note || "";
     return { state: next, updated: true, note: entry.note || "" };
@@ -1874,34 +2079,55 @@ window.refreshAssignedPlannerForMe = async function(){
   if (res.updated) {
     state = res.state;
     if (window.LAWDB) LAWDB.autoLink();
-    await sb.from("planner").upsert({ user_id: me.id, data: state, updated_at: new Date().toISOString() });
+    await flushCloudSave();
     if (ready) { showView("dashboard"); render(); }
     toast("برنامه مطالعاتی جدید از طرف مدیر برای شما فعال شد" + (res.note ? ": " + res.note : ""));
   }
 };
+let _loadPlannerPromise=null;
 async function loadPlanner(){
-  const r=await sb.from("planner").select("data").eq("user_id",me.id).maybeSingle();
-  if(r.error){document.getElementById("plannerApp").innerHTML='<div class="panel">خطا در دریافت برنامه: '+esc(r.error.message)+"</div>";return}
-  let payload=null;if(r.data){if(r.data.data!==undefined&&r.data.data!==null)payload=r.data.data;else if(r.data.subjects||r.data.days)payload=r.data;}
-  state=payload?norm(payload):fresh();
-  if(payload && payload._lastAssignedAt) state._lastAssignedAt = payload._lastAssignedAt;
-  const restoredNotes=restoreNotesDraftLocal(state);
-  const assignedRes = await applyAdminAssignedPlans(state);
-  if(assignedRes.updated){
-    state = assignedRes.state;
-    if(window.LAWDB) LAWDB.autoLink();
-    await sb.from("planner").upsert({user_id:me.id,data:state,updated_at:new Date().toISOString()});
-    toast("برنامه مطالعاتی جدید از طرف مدیر برای شما بارگذاری شد");
-  }
-  ready=true;
-  if(restoredNotes) cloudSave();
-  if(window.LAWDB)LAWDB.autoLink();
-  showView("dashboard");
-  render();
-  updateAuthUI();
-  if(window.renderCases) window.renderCases();
-  if(window.renderStudentProgressView) window.renderStudentProgressView();
-  if(window.renderExamsHub) window.renderExamsHub();
+  if(!me||!sb)return;
+  if(_loadPlannerPromise)return _loadPlannerPromise;
+  _loadPlannerPromise=(async()=>{
+    try{
+      const r=await sb.from("planner").select("data").eq("user_id",me.id).maybeSingle();
+      if(r.error){
+        const localExtras=_readLocalExamExtras();
+        if(!ready){state=norm(state);_mergeExamFieldsInto(state,localExtras);}
+        const pa=document.getElementById("plannerApp");
+        if(pa&&!ready)pa.innerHTML='<div class="panel">خطا در دریافت برنامه: '+esc(r.error.message)+"</div>";
+        return;
+      }
+      let payload=null;if(r.data){if(r.data.data!==undefined&&r.data.data!==null)payload=r.data.data;else if(r.data.subjects||r.data.days)payload=r.data;}
+      state=payload?norm(payload):fresh();
+      if(payload && payload._lastAssignedAt) state._lastAssignedAt = payload._lastAssignedAt;
+      const restoredNotes=restoreNotesDraftLocal(state);
+      const localExtras=_readLocalExamExtras();
+      const mergedLocalExam=_mergeExamFieldsInto(state,localExtras);
+      _writeLocalExamExtrasFromState(state);
+      const assignedRes = await applyAdminAssignedPlans(state);
+      if(assignedRes.updated){
+        state = assignedRes.state;
+        if(window.LAWDB) LAWDB.autoLink();
+        await sb.from("planner").upsert({user_id:me.id,data:state,updated_at:new Date().toISOString()},{onConflict:"user_id"});
+        toast("برنامه مطالعاتی جدید از طرف مدیر برای شما بارگذاری شد");
+      }
+      ready=true;
+      if(restoredNotes||mergedLocalExam||_isPlannerDirty()){
+        flushCloudSave();
+      }
+      if(window.LAWDB)LAWDB.autoLink();
+      showView("dashboard");
+      render();
+      updateAuthUI();
+      if(window.renderCases) window.renderCases();
+      if(window.renderStudentProgressView) window.renderStudentProgressView();
+      if(window.renderExamsHub) window.renderExamsHub();
+    }finally{
+      _loadPlannerPromise=null;
+    }
+  })();
+  return _loadPlannerPromise;
 }
 function buildProgressSnapshot(s){
   const bs=[...(s.days||[]).flatMap(d=>d.blocks||[]),...(s.subjectSections||[])];
@@ -1937,20 +2163,32 @@ async function flushCloudSave(){
   saveInFlight=true;
   let ok=false;
   try{
+    if(navigator.onLine){
+      try{
+        const curRemote=await sb.from("planner").select("data").eq("user_id",me.id).maybeSingle();
+        if(curRemote&&!curRemote.error&&curRemote.data&&curRemote.data.data){
+          _mergeExamFieldsInto(state,norm(curRemote.data.data));
+        }
+      }catch(eMerge){}
+    }
+    _writeLocalExamExtrasFromState(state);
     if(me&&me.email)state._userEmail=me.email;
     state._summary=buildProgressSnapshot(state);
-    const r=await sb.from("planner").upsert({user_id:me.id,data:state,updated_at:new Date().toISOString()});
+    const r=await sb.from("planner").upsert({user_id:me.id,data:state,updated_at:new Date().toISOString()},{onConflict:"user_id"});
     if(r.error){
+      _markPlannerDirty(true);
       toast("ذخیره روی سرور ناموفق بود");
       dirtyNoteIds.forEach(bid=>setNoteStatusUI(bid,"offline","ذخیره در دستگاه (خطای سرور)"));
     }else{
       ok=true;
+      _markPlannerDirty(false);
       clearNotesDraftLocal();
       dirtyNoteIds.forEach(bid=>setNoteStatusUI(bid,"saved","ذخیره شد ✓"));
       dirtyNoteIds.clear();
     }
     if(window.syncStudentSnapshotToReport && me) window.syncStudentSnapshotToReport(me, state);
   }catch(e){
+    _markPlannerDirty(true);
     dirtyNoteIds.forEach(bid=>setNoteStatusUI(bid,"offline","ذخیره در دستگاه (آفلاین)"));
   }finally{
     saveInFlight=false;
@@ -1959,8 +2197,34 @@ async function flushCloudSave(){
   return ok;
 }
 function cloudSave(){clearTimeout(saveT);saveT=setTimeout(()=>{flushCloudSave();},450)}
-window.addEventListener("pagehide",()=>{if(saveT||dirtyNoteIds.size)flushCloudSave();});
-document.addEventListener("visibilitychange",()=>{if(document.visibilityState==="hidden"&&(saveT||dirtyNoteIds.size))flushCloudSave();});
+let _lastForegroundSyncAt=0;
+async function triggerForegroundSync(force){
+  if(!navigator.onLine)return;
+  const now=Date.now();
+  if(!force&&now-_lastForegroundSyncAt<10000)return;
+  _lastForegroundSyncAt=now;
+  try{
+    if(window.BARAAT_PLANNER_API&&me){
+      await window.BARAAT_PLANNER_API.pullAndMerge();
+    }
+  }catch(e){}
+  try{
+    if(typeof window.syncAllFromSupabase==="function"){
+      await window.syncAllFromSupabase(!!force);
+    }
+  }catch(e){}
+}
+window.addEventListener("pagehide",()=>{if(saveT||dirtyNoteIds.size||_isPlannerDirty())flushCloudSave();});
+document.addEventListener("visibilitychange",()=>{
+  if(document.visibilityState==="hidden"){
+    if(saveT||dirtyNoteIds.size||_isPlannerDirty())flushCloudSave();
+  }else if(document.visibilityState==="visible"){
+    triggerForegroundSync(false);
+  }
+});
+window.addEventListener("focus",()=>{triggerForegroundSync(false);});
+window.addEventListener("online",()=>{triggerForegroundSync(true);});
+window.addEventListener("baraat-app-resume",()=>{triggerForegroundSync(true);});
 async function logout(){await sb.auth.signOut();location.reload()}
 function initAuth(){sb.auth.getSession().then(async r=>{if(r.data&&r.data.session)await afterAuth(r.data.session.user);else updateAuthUI();}).catch(()=>updateAuthUI());}
 function enterPlanner(){const ok=!!me;document.getElementById("plannerGate").classList.toggle("hidden",ok);document.getElementById("plannerApp").classList.toggle("hidden",!ok);if(ok&&!ready)loadPlanner();else if(ok&&ready&&window.refreshAssignedPlannerForMe)window.refreshAssignedPlannerForMe();}
@@ -2608,7 +2872,7 @@ A('admAddBtn').addEventListener('click',()=>runAdmin(async()=>{const sel=A('admA
 </script>
 
 <script>
-// PWA: register service worker with automatic fresh update handling
+// PWA: register service worker with automatic fresh update handling across Web, PWA, and APK
 if ('serviceWorker' in navigator) {
   const hadController = !!navigator.serviceWorker.controller;
   let swReloaded = false;
@@ -2620,13 +2884,24 @@ if ('serviceWorker' in navigator) {
   });
   window.addEventListener('load', () => {
     navigator.serviceWorker.register('./sw.js', { updateViaCache: 'none' }).then(reg => {
-      reg.update().catch(() => {});
+      const checkUpd = () => {
+        if (reg.waiting) {
+          try { reg.waiting.postMessage({ type: 'SKIP_WAITING' }); } catch (e) {}
+        }
+        reg.update().catch(() => {});
+      };
+      checkUpd();
+      document.addEventListener('visibilitychange', () => {
+        if (document.visibilityState === 'visible') checkUpd();
+      });
+      window.addEventListener('online', checkUpd);
+      window.addEventListener('baraat-app-resume', checkUpd);
     }).catch(err => {
       console.warn('PWA service worker registration notice:', err);
     });
   });
 }
 </script>
-<script src="./baraat_engine.js?v=20261115_1"></script>
+<script src="./baraat_engine.js?v=20261123_1"></script>
 </body>
 </html>
