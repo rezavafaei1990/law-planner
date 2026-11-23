@@ -1,4 +1,4 @@
-import React, { useMemo, useState, useEffect } from 'react';
+import React, { useMemo, useState, useEffect, useCallback, useRef } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
 import {
   LayoutGrid,
@@ -30,9 +30,12 @@ import {
   Crown,
   Lock,
   RotateCcw,
+  RefreshCw,
+  GraduationCap,
 } from 'lucide-react';
 import studentBannerImg from '../assets/images/student_study_library_1794776843555.jpg';
 import { useBaraat, EMPTY_PLANNER } from '../context/BaraatContext';
+import { ExamQuestionCard } from '../components/ExamQuestionCard';
 import type {
   StudyBlock,
   StudyDay,
@@ -44,6 +47,8 @@ import type {
   ExamQuestionDifficulty,
   ExamQuestionFlagTag,
   ExamQuestionTagState,
+  ExamPrepRecord,
+  ExamRunMode,
   QuestionReplyItem,
 } from '../types';
 import { uploadPlannerAttachment, getSignedAttachmentUrl } from '../services/supabase';
@@ -271,12 +276,17 @@ export const StudentsHubPage: React.FC = () => {
     planner,
     updatePlanner,
     exams,
+    examSubjects,
     examAttempts,
     recordExamAttempt,
     examNotes,
     saveExamNote,
     examTags,
     saveExamTag,
+    examPrepHistory,
+    recordPrepAnswer,
+    syncNow,
+    syncing,
     questions,
     setQuestions,
     showToast,
@@ -302,16 +312,16 @@ export const StudentsHubPage: React.FC = () => {
   const [newBlockSpec, setNewBlockSpec] = useState('1-30');
   const [newBlockTargetDayId, setNewBlockTargetDayId] = useState<string>('sections');
 
-  // Exam browser & runner state
-  const [examHubSection, setExamHubSection] = useState<'exams' | 'lessons'>('exams');
-  const [lessonSearch, setLessonSearch] = useState('');
+  // Clean 2-Section Exam browser & runner state
+  const [examHubSection, setExamHubSection] = useState<'general' | 'subject'>('general');
+  const [selectedSubjectGroup, setSelectedSubjectGroup] = useState<string | null>(null);
+  const [subjectSearch, setSubjectSearch] = useState('');
   const [selectedExamCat, setSelectedExamCat] = useState<string>('all');
-  const [selectedExamYear, setSelectedExamYear] = useState<string>('all');
-  const [selectedExamType, setSelectedExamType] = useState<string>('all');
-  const [selectedExamChapter, setSelectedExamChapter] = useState<string>('all');
   const [examSearch, setExamSearch] = useState('');
+  const [historyModeFilter, setHistoryModeFilter] = useState<'all' | 'timed' | 'prep'>('all');
   const [activeExam, setActiveExam] = useState<LegalExam | null>(null);
-  const [activeExamMode, setActiveExamMode] = useState<'exam' | 'study'>('study');
+  const [activeExamMode, setActiveExamMode] = useState<ExamRunMode>('prep');
+  const [activeSubjectTabId, setActiveSubjectTabId] = useState<string>('all');
   const [revealedQIds, setRevealedQIds] = useState<Record<string, boolean>>({});
   const [examAnswers, setExamAnswers] = useState<Record<string, number>>({});
   const [examSecondsLeft, setExamSecondsLeft] = useState<number>(0);
@@ -319,6 +329,20 @@ export const StudentsHubPage: React.FC = () => {
   const [examNoteDrafts, setExamNoteDrafts] = useState<Record<string, string>>({});
   const [copiedQId, setCopiedQId] = useState<string | null>(null);
   const [vipPromptExam, setVipPromptExam] = useState<{ title: string; isLesson?: boolean } | null>(null);
+
+  // Snapshot of student's prep history captured when starting a session (zero-spoiler before answering!)
+  const sessionPrevPrepRef = useRef<Record<string, ExamPrepRecord>>({});
+  const prepSaveTimerRef = useRef<number | null>(null);
+  const examAnswersRef = useRef<Record<string, number>>({});
+  const examTagsRef = useRef<Record<string, ExamQuestionTagState>>(examTags);
+
+  useEffect(() => {
+    examAnswersRef.current = examAnswers;
+  }, [examAnswers]);
+
+  useEffect(() => {
+    examTagsRef.current = examTags;
+  }, [examTags]);
 
   // Exam Notebook (دفترچه نکات و مرور آزمونی) state
   const [nbGroupBy, setNbGroupBy] = useState<'subject' | 'exam'>('subject');
@@ -361,9 +385,9 @@ export const StudentsHubPage: React.FC = () => {
     }
   }, [activeTab]);
 
-  // Active exam countdown timer
+  // Active exam countdown timer (only runs in timed mode)
   useEffect(() => {
-    if (!activeExam || activeExamMode !== 'exam' || examSecondsLeft <= 0) return;
+    if (!activeExam || activeExamMode !== 'timed' || examSecondsLeft <= 0) return;
     const t = setInterval(() => {
       setExamSecondsLeft((s) => {
         if (s <= 1) {
@@ -644,128 +668,117 @@ export const StudentsHubPage: React.FC = () => {
     [exams, isAdmin]
   );
 
-  const examCategoriesSummary = useMemo(() => {
-    const map = new Map<
-      string,
-      { name: string; examCount: number; qCount: number; years: Set<string>; types: Set<string>; chapters: Set<string> }
-    >();
-    for (const ex of visibleExams) {
-      const cat = ex.category?.trim() || ex.subjects[0]?.name || 'سایر آزمون‌ها';
-      if (!map.has(cat)) {
-        map.set(cat, { name: cat, examCount: 0, qCount: 0, years: new Set(), types: new Set(), chapters: new Set() });
-      }
-      const entry = map.get(cat)!;
-      entry.examCount += 1;
-      if (ex.year) entry.years.add(ex.year);
-      if (ex.examType) entry.types.add(ex.examType);
-      for (const sb of ex.subjects) {
-        entry.qCount += sb.questions.length;
-        for (const q of sb.questions) {
-          if (q.chapter) entry.chapters.add(q.chapter);
-        }
-      }
-    }
-    return Array.from(map.values());
-  }, [visibleExams]);
+  // Section 1: General / Comprehensive Exams (all existing exams default here — zero data loss!)
+  const generalExams = useMemo(
+    () => visibleExams.filter((ex) => ex.examScope !== 'subject'),
+    [visibleExams]
+  );
 
-  const categoryScopedExams = useMemo(() => {
-    return visibleExams.filter((ex) => {
-      const cat = ex.category?.trim() || ex.subjects[0]?.name || 'سایر آزمون‌ها';
-      if (selectedExamCat !== 'all' && cat !== selectedExamCat) return false;
-      if (selectedExamYear !== 'all' && (ex.year || '') !== selectedExamYear) return false;
-      if (selectedExamType !== 'all' && (ex.examType || '') !== selectedExamType) return false;
-      if (selectedExamChapter !== 'all') {
-        const hasChap = ex.subjects.some((s) => s.questions.some((q) => q.chapter === selectedExamChapter));
-        if (!hasChap) return false;
-      }
-      const qTxt = examSearch.trim().toLowerCase();
+  // Section 2: Dedicated Subject-by-Subject Exams (uploaded directly under Admin-defined دروس)
+  const subjectExams = useMemo(
+    () => visibleExams.filter((ex) => ex.examScope === 'subject'),
+    [visibleExams]
+  );
+
+  const generalCategories = useMemo(() => {
+    const counts = new Map<string, number>();
+    for (const ex of generalExams) {
+      const cat = ex.category?.trim();
+      if (cat) counts.set(cat, (counts.get(cat) || 0) + 1);
+    }
+    return Array.from(counts.entries()).map(([name, count]) => ({ name, count }));
+  }, [generalExams]);
+
+  const filteredGeneralExams = useMemo(() => {
+    const qTxt = examSearch.trim().toLowerCase();
+    return generalExams.filter((ex) => {
+      if (selectedExamCat !== 'all' && (ex.category?.trim() || '') !== selectedExamCat) return false;
       if (qTxt) {
         const hay = `${ex.title} ${ex.category || ''} ${ex.examType || ''} ${ex.year || ''} ${ex.subjects.map((s) => s.name).join(' ')}`.toLowerCase();
         if (!hay.includes(qTxt)) return false;
       }
       return true;
     });
-  }, [visibleExams, selectedExamCat, selectedExamYear, selectedExamType, selectedExamChapter, examSearch]);
+  }, [generalExams, selectedExamCat, examSearch]);
 
-  const activeCategoryFacets = useMemo(() => {
-    const base =
-      selectedExamCat === 'all'
-        ? visibleExams
-        : visibleExams.filter((ex) => (ex.category?.trim() || ex.subjects[0]?.name || 'سایر آزمون‌ها') === selectedExamCat);
-    const years = Array.from(new Set(base.map((e) => e.year).filter(Boolean) as string[])).sort((a, b) => b.localeCompare(a));
-    const types = Array.from(new Set(base.map((e) => e.examType).filter(Boolean) as string[]));
-    const chapterCounts = new Map<string, number>();
-    const subjectCounts = new Map<string, number>();
-    for (const ex of base) {
-      for (const sb of ex.subjects) {
-        if (sb.name?.trim() && sb.questions.length > 0) {
-          subjectCounts.set(sb.name.trim(), (subjectCounts.get(sb.name.trim()) || 0) + sb.questions.length);
-        }
-        for (const q of sb.questions) {
-          if (q.chapter?.trim()) {
-            chapterCounts.set(q.chapter.trim(), (chapterCounts.get(q.chapter.trim()) || 0) + 1);
-          }
-        }
-      }
-    }
-    const useChapters = chapterCounts.size > 0;
-    const topicSource = useChapters ? chapterCounts : subjectCounts;
-    return {
-      years,
-      types,
-      topicKind: (useChapters ? 'chapter' : 'subject') as 'chapter' | 'subject',
-      chapters: Array.from(topicSource.entries()).map(([name, count]) => ({ name, count })),
+  // Admin-defined Subject Folders with strictly direct subjectExams underneath
+  const subjectFoldersSummary = useMemo(() => {
+    type ChapterEntry = {
+      key: string;
+      examId: string;
+      examTitle: string;
+      subjectBucketId: string;
+      chapterTitle: string;
+      questions: LegalExam['subjects'][number]['questions'];
+      isPremium: boolean;
+      isPublished: boolean;
+      practicedCount: number;
     };
-  }, [visibleExams, selectedExamCat]);
+    type FolderItem = {
+      id: string;
+      name: string;
+      desc?: string;
+      chapters: ChapterEntry[];
+      totalQ: number;
+      practicedQ: number;
+    };
 
-  const lessonBankSummary = useMemo(() => {
-    const coreOrder = [
-      'حقوق مدنی',
-      'آیین دادرسی مدنی',
-      'حقوق تجارت',
-      'اصول فقه',
-      'حقوق جزا',
-      'آیین دادرسی کیفری',
-    ];
-    const map = new Map<
-      string,
-      {
-        name: string;
-        totalQ: number;
-        exams: { examId: string; examTitle: string; year?: string; qCount: number; isPremium?: boolean }[];
-        chapters: Set<string>;
+    const folderMap = new Map<string, FolderItem>();
+    for (const sf of examSubjects) {
+      const cleanName = sf.name.trim();
+      if (!cleanName) continue;
+      folderMap.set(cleanName, {
+        id: sf.id,
+        name: cleanName,
+        desc: sf.desc,
+        chapters: [],
+        totalQ: 0,
+        practicedQ: 0,
+      });
+    }
+
+    for (const ex of subjectExams) {
+      const grpName = (ex.subjectGroup || ex.category || ex.subjects[0]?.name || 'سایر دروس').trim();
+      if (!folderMap.has(grpName)) {
+        folderMap.set(grpName, {
+          id: `auto_${grpName}`,
+          name: grpName,
+          chapters: [],
+          totalQ: 0,
+          practicedQ: 0,
+        });
       }
-    >();
-    for (const ex of visibleExams) {
+      const folder = folderMap.get(grpName)!;
       for (const sb of ex.subjects) {
         if (!sb.questions.length) continue;
-        const sName = sb.name?.trim() || 'سایر دروس';
-        if (!map.has(sName)) {
-          map.set(sName, { name: sName, totalQ: 0, exams: [], chapters: new Set() });
-        }
-        const entry = map.get(sName)!;
-        entry.totalQ += sb.questions.length;
-        entry.exams.push({
+        const practicedCount = sb.questions.filter((q) => Boolean(examPrepHistory[q.id])).length;
+        const chapterTitle =
+          ex.subjects.length === 1 && (!sb.name || sb.name === grpName || sb.name === 'سوالات آزمون')
+            ? ex.title
+            : sb.name || ex.title;
+        folder.chapters.push({
+          key: `${ex.id}__${sb.id}`,
           examId: ex.id,
           examTitle: ex.title,
-          year: ex.year,
-          qCount: sb.questions.length,
+          subjectBucketId: sb.id,
+          chapterTitle,
+          questions: sb.questions,
           isPremium: Boolean(ex.isPremium),
+          isPublished: ex.isPublished !== false,
+          practicedCount,
         });
-        for (const q of sb.questions) {
-          if (q.chapter?.trim()) entry.chapters.add(q.chapter.trim());
-        }
+        folder.totalQ += sb.questions.length;
+        folder.practicedQ += practicedCount;
       }
     }
-    return Array.from(map.values()).sort((a, b) => {
-      const ia = coreOrder.indexOf(a.name);
-      const ib = coreOrder.indexOf(b.name);
-      if (ia >= 0 && ib >= 0) return ia - ib;
-      if (ia >= 0) return -1;
-      if (ib >= 0) return 1;
-      return b.totalQ - a.totalQ;
-    });
-  }, [visibleExams]);
+
+    return Array.from(folderMap.values());
+  }, [examSubjects, subjectExams, examPrepHistory]);
+
+  const activeSubjectFolder = useMemo(
+    () => (selectedSubjectGroup ? subjectFoldersSummary.find((f) => f.name === selectedSubjectGroup) || null : null),
+    [selectedSubjectGroup, subjectFoldersSummary]
+  );
 
   const myExamHistory = useMemo(() => {
     return examAttempts.filter((a) => {
@@ -774,7 +787,12 @@ export const StudentsHubPage: React.FC = () => {
     });
   }, [examAttempts, user]);
 
-  const handleCopyQuestion = async (
+  const filteredMyHistory = useMemo(() => {
+    if (historyModeFilter === 'all') return myExamHistory;
+    return myExamHistory.filter((h) => (h.mode || 'timed') === historyModeFilter);
+  }, [myExamHistory, historyModeFilter]);
+
+  const handleCopyQuestion = useCallback(async (
     qItem: { id: string; q: string; options: string[]; answer: number; exp?: string; chapter?: string; sourceLabel?: string },
     subjectName?: string,
     qNumber?: number
@@ -814,7 +832,7 @@ export const StudentsHubPage: React.FC = () => {
     setCopiedQId(qItem.id);
     setTimeout(() => setCopiedQId((prev) => (prev === qItem.id ? null : prev)), 1800);
     showToast('سوال، گزینه‌ها، پاسخ صحیح و نکته کپی شد.');
-  };
+  }, [examNotes, showToast]);
 
   const notebookEntries = useMemo(() => {
     type QLookup = {
@@ -1031,7 +1049,7 @@ export const StudentsHubPage: React.FC = () => {
       subjects,
     };
     setActiveTab('exams');
-    startExam(virtualExam, mode);
+    startExam(virtualExam, mode === 'exam' ? 'timed' : 'prep');
   };
 
   const handleCopyAllNotebookNotes = async () => {
@@ -1073,232 +1091,314 @@ export const StudentsHubPage: React.FC = () => {
     showToast(`جزوه نکات (${toFa(notebookVisibleItems.length)} سوال) در حافظه کپی شد.`);
   };
 
-  const startExam = (ex: LegalExam, mode: 'exam' | 'study' = 'study', jumpToSubjectId?: string) => {
+  const buildAttemptResult = useCallback(
+    (exam: LegalExam, mode: ExamRunMode, answersMap: Record<string, number>, customId?: string): ExamAttemptResult => {
+      let correctCount = 0;
+      let wrongCount = 0;
+      let blankCount = 0;
+      const snapshot: ExamAttemptQuestionSnapshot[] = [];
+
+      const subjectBreakdown = exam.subjects.map((sub) => {
+        let c = 0;
+        let w = 0;
+        let bl = 0;
+        for (const q of sub.questions) {
+          const chosen = answersMap[q.id];
+          if (chosen === undefined) bl += 1;
+          else if (chosen === q.answer) c += 1;
+          else w += 1;
+          snapshot.push({
+            id: q.id,
+            subjectName: sub.name,
+            chapter: q.chapter,
+            sourceLabel: q.sourceLabel,
+            csvQuestionNum: q.csvQuestionNum,
+            csvRowIndex: q.csvRowIndex,
+            csvFileName: q.csvFileName,
+            q: q.q,
+            options: q.options,
+            answer: q.answer,
+            exp: q.exp,
+          });
+        }
+        correctCount += c;
+        wrongCount += w;
+        blankCount += bl;
+        const tot = sub.questions.length || 1;
+        const pct = Math.max(0, Math.round(((c * 3 - w) / (tot * 3)) * 100));
+        return { name: sub.name, correct: c, wrong: w, blank: bl, pct };
+      });
+
+      const totalQuestions = correctCount + wrongCount + blankCount;
+      const scorePct =
+        totalQuestions > 0
+          ? Math.max(0, Math.round(((correctCount * 3 - wrongCount) / (totalQuestions * 3)) * 100))
+          : 0;
+
+      const curTags = examTagsRef.current;
+      const attemptTagsSnapshot: Record<string, ExamQuestionTagState> = {};
+      for (const qSnap of snapshot) {
+        if (curTags[qSnap.id]) {
+          attemptTagsSnapshot[qSnap.id] = curTags[qSnap.id];
+        }
+      }
+
+      return {
+        id: customId || `res_${Date.now()}`,
+        examId: exam.id,
+        examTitle: exam.title,
+        examCategory: exam.category,
+        examYear: exam.year,
+        examType: exam.examType,
+        examScope: exam.examScope || 'general',
+        subjectGroup: exam.subjectGroup,
+        mode,
+        userId: user?.id,
+        userEmail: user?.email,
+        scorePct,
+        correctCount,
+        wrongCount,
+        blankCount,
+        totalQuestions,
+        answers: { ...answersMap },
+        questionTags: attemptTagsSnapshot,
+        questionsSnapshot: snapshot,
+        subjectBreakdown,
+        submittedAt: new Date().toISOString(),
+      };
+    },
+    [user]
+  );
+
+  const flushPrepReportNow = useCallback(
+    async (exam: LegalExam | null, answersMap: Record<string, number>) => {
+      if (prepSaveTimerRef.current !== null) {
+        window.clearTimeout(prepSaveTimerRef.current);
+        prepSaveTimerRef.current = null;
+      }
+      if (!exam || Object.keys(answersMap).length === 0) return null;
+      const prepId = `prep_${user?.id || 'guest'}_${exam.id}`;
+      const report = buildAttemptResult(exam, 'prep', answersMap, prepId);
+      await recordExamAttempt(report);
+      return report;
+    },
+    [user, buildAttemptResult, recordExamAttempt]
+  );
+
+  const schedulePrepReportSync = useCallback(
+    (exam: LegalExam, answersMap: Record<string, number>) => {
+      if (prepSaveTimerRef.current !== null) {
+        window.clearTimeout(prepSaveTimerRef.current);
+      }
+      prepSaveTimerRef.current = window.setTimeout(() => {
+        prepSaveTimerRef.current = null;
+        if (Object.keys(answersMap).length === 0) return;
+        const prepId = `prep_${user?.id || 'guest'}_${exam.id}`;
+        const report = buildAttemptResult(exam, 'prep', answersMap, prepId);
+        recordExamAttempt(report);
+      }, 1200);
+    },
+    [user, buildAttemptResult, recordExamAttempt]
+  );
+
+  const startExam = (ex: LegalExam, mode: ExamRunMode = 'prep', jumpToSubjectId?: string) => {
     if (ex.isPremium && !hasVipAccess) {
       setVipPromptExam({ title: ex.title });
       return;
     }
+    // Capture previous prep history snapshot BEFORE this session starts (strictly hidden until user answers each question!)
+    sessionPrevPrepRef.current = { ...examPrepHistory };
     const totalQ = ex.subjects.reduce((s, sb) => s + sb.questions.length, 0);
     const autoDurationMin = calcExamDurationMin(totalQ);
     setActiveExam({ ...ex, durationMin: autoDurationMin });
     setActiveExamMode(mode);
+    setActiveSubjectTabId(jumpToSubjectId || (ex.subjects.length > 1 ? ex.subjects[0].id : 'all'));
     setRevealedQIds({});
     setExamAnswers({});
+    examAnswersRef.current = {};
     setInspectedAttempt(null);
     setExamSecondsLeft(autoDurationMin * 60);
-    if (jumpToSubjectId) {
-      setTimeout(() => {
-        document.getElementById(`sub-sec-${jumpToSubjectId}`)?.scrollIntoView({ behavior: 'smooth', block: 'start' });
-      }, 80);
-    }
+    window.scrollTo({ top: 0, behavior: 'smooth' });
   };
 
-  const startLessonPractice = (lessonName: string, mode: 'exam' | 'study' = 'study', onlyExamId?: string) => {
-    if (onlyExamId) {
-      const targetEx = visibleExams.find((e) => e.id === onlyExamId);
-      if (targetEx?.isPremium && !hasVipAccess) {
-        setVipPromptExam({ title: `${targetEx.title} — ${lessonName}` });
-        return;
-      }
-    }
-    const subjects: { id: string; name: string; questions: LegalExam['subjects'][number]['questions'] }[] = [];
-    let totalQ = 0;
-    let skippedPremium = 0;
-    for (const ex of visibleExams) {
-      if (onlyExamId && ex.id !== onlyExamId) continue;
-      if (ex.isPremium && !hasVipAccess) {
-        skippedPremium += 1;
-        continue;
-      }
-      for (const sb of ex.subjects) {
-        if ((sb.name?.trim() || 'سایر دروس') !== lessonName || !sb.questions.length) continue;
-        const taggedQs = sb.questions.map((q) => ({
-          ...q,
-          sourceLabel: q.sourceLabel || buildQuestionSourceLabel('', ex.examType, ex.year) || ex.title,
-        }));
-        totalQ += taggedQs.length;
-        subjects.push({
-          id: `ls_${ex.id}_${sb.id}`,
-          name: `${ex.title}${ex.year ? ` (${toFa(ex.year)})` : ''}`,
-          questions: taggedQs,
-        });
-      }
-    }
-    if (!subjects.length || !totalQ) {
-      if (skippedPremium > 0) {
-        setVipPromptExam({ title: `درس ${lessonName}`, isLesson: true });
-      }
+  const startSubjectChapter = (
+    subjectName: string,
+    chapter: {
+      key: string;
+      examId: string;
+      examTitle: string;
+      chapterTitle: string;
+      questions: LegalExam['subjects'][number]['questions'];
+      isPremium: boolean;
+    },
+    mode: ExamRunMode
+  ) => {
+    if (chapter.isPremium && !hasVipAccess) {
+      setVipPromptExam({ title: `${subjectName} — ${chapter.chapterTitle}` });
       return;
     }
     const virtualExam: LegalExam = {
-      id: `lesson_${Date.now()}`,
-      title: `مطالعه درس به درس: ${lessonName}`,
-      category: 'مطالعه درس به درس',
-      examType: onlyExamId ? subjects[0].name : `تجمیع ${toFa(subjects.length)} آزمون`,
+      id: `subch_${chapter.key}`,
+      title: `${subjectName} · ${chapter.chapterTitle}`,
+      category: subjectName,
+      examScope: 'subject',
+      subjectGroup: subjectName,
+      examType: chapter.examTitle !== chapter.chapterTitle ? chapter.examTitle : 'درس‌به‌درس',
+      durationMin: calcExamDurationMin(chapter.questions.length),
+      isPremium: chapter.isPremium,
+      subjects: [
+        {
+          id: `sb_${chapter.key}`,
+          name: chapter.chapterTitle,
+          questions: chapter.questions,
+        },
+      ],
+    };
+    startExam(virtualExam, mode);
+  };
+
+  const startWholeSubjectFolder = (
+    folder: {
+      name: string;
+      chapters: Array<{
+        key: string;
+        chapterTitle: string;
+        questions: LegalExam['subjects'][number]['questions'];
+        isPremium: boolean;
+      }>;
+    },
+    mode: ExamRunMode
+  ) => {
+    const allowed = folder.chapters.filter((ch) => !ch.isPremium || hasVipAccess);
+    if (!allowed.length) {
+      setVipPromptExam({ title: `درس ${folder.name}`, isLesson: true });
+      return;
+    }
+    const totalQ = allowed.reduce((s, c) => s + c.questions.length, 0);
+    const virtualExam: LegalExam = {
+      id: `suball_${folder.name}`,
+      title: `آزمون جامع درس: ${folder.name}`,
+      category: folder.name,
+      examScope: 'subject',
+      subjectGroup: folder.name,
+      examType: `${toFa(allowed.length)} سرفصل`,
       durationMin: calcExamDurationMin(totalQ),
-      desc:
-        skippedPremium > 0
-          ? `تمام سوالات رایگان درس «${lessonName}» (${toFa(skippedPremium)} آزمون ویژه نیازمند اشتراک)`
-          : `تمام سوالات درس «${lessonName}» به ترتیب آزمون‌ها`,
-      subjects,
+      subjects: allowed.map((ch) => ({
+        id: ch.key,
+        name: ch.chapterTitle,
+        questions: ch.questions,
+      })),
     };
     startExam(virtualExam, mode);
   };
 
-  const startChapterPractice = (topicName: string, kind: 'chapter' | 'subject' = 'chapter', mode: 'exam' | 'study' = 'study') => {
-    const matchingQuestions = [];
-    let skippedPremium = 0;
-    const base =
-      selectedExamCat === 'all'
-        ? visibleExams
-        : visibleExams.filter((ex) => (ex.category?.trim() || ex.subjects[0]?.name || 'سایر آزمون‌ها') === selectedExamCat);
-    for (const ex of base) {
-      if (selectedExamType !== 'all' && (ex.examType || '') !== selectedExamType) continue;
-      if (selectedExamYear !== 'all' && (ex.year || '') !== selectedExamYear) continue;
-      if (ex.isPremium && !hasVipAccess) {
-        skippedPremium += 1;
-        continue;
-      }
-      for (const sb of ex.subjects) {
-        for (const q of sb.questions) {
-          const match = kind === 'chapter' ? q.chapter?.trim() === topicName : sb.name?.trim() === topicName;
-          if (match) {
-            matchingQuestions.push({
-              ...q,
-              sourceLabel: q.sourceLabel || buildQuestionSourceLabel('', ex.examType, ex.year) || undefined,
-            });
-          }
-        }
-      }
+  const handleCloseActiveExam = async () => {
+    if (activeExam && activeExamMode === 'prep' && Object.keys(examAnswersRef.current).length > 0) {
+      await flushPrepReportNow(activeExam, examAnswersRef.current);
+      showToast('گزارش حالت آمادگی شما ذخیره شد.');
     }
-    if (!matchingQuestions.length) {
-      if (skippedPremium > 0) {
-        setVipPromptExam({ title: `مبحث ${topicName}`, isLesson: true });
-      }
-      return;
-    }
-    const virtualExam: LegalExam = {
-      id: `chap_${Date.now()}`,
-      title: `آزمون مبحثی: ${topicName}`,
-      category: selectedExamCat !== 'all' ? selectedExamCat : undefined,
-      examType: 'مبحثی',
-      durationMin: calcExamDurationMin(matchingQuestions.length),
-      desc: `تمرین متمرکز سوالات سرفصل/مبحث «${topicName}»`,
-      subjects: [{ id: `sub_chap_${Date.now()}`, name: topicName, questions: matchingQuestions }],
-    };
-    startExam(virtualExam, mode);
+    setActiveExam(null);
   };
 
   const submitExam = async () => {
     if (!activeExam) return;
-    let correctCount = 0;
-    let wrongCount = 0;
-    let blankCount = 0;
-    const snapshot: ExamAttemptQuestionSnapshot[] = [];
-
-    const subjectBreakdown = activeExam.subjects.map((sub) => {
-      let c = 0;
-      let w = 0;
-      let bl = 0;
-      for (const q of sub.questions) {
-        const chosen = examAnswers[q.id];
-        if (chosen === undefined) bl += 1;
-        else if (chosen === q.answer) c += 1;
-        else w += 1;
-        snapshot.push({
-          id: q.id,
-          subjectName: sub.name,
-          chapter: q.chapter,
-          sourceLabel: q.sourceLabel,
-          csvQuestionNum: q.csvQuestionNum,
-          csvRowIndex: q.csvRowIndex,
-          csvFileName: q.csvFileName,
-          q: q.q,
-          options: q.options,
-          answer: q.answer,
-          exp: q.exp,
-        });
-      }
-      correctCount += c;
-      wrongCount += w;
-      blankCount += bl;
-      const tot = sub.questions.length || 1;
-      const pct = Math.max(0, Math.round(((c * 3 - w) / (tot * 3)) * 100));
-      return { name: sub.name, correct: c, wrong: w, blank: bl, pct };
-    });
-
-    const totalQuestions = correctCount + wrongCount + blankCount;
-    const scorePct =
-      totalQuestions > 0
-        ? Math.max(0, Math.round(((correctCount * 3 - wrongCount) / (totalQuestions * 3)) * 100))
-        : 0;
-
-    const attemptTagsSnapshot: Record<string, ExamQuestionTagState> = {};
-    for (const qSnap of snapshot) {
-      if (examTags[qSnap.id]) {
-        attemptTagsSnapshot[qSnap.id] = examTags[qSnap.id];
-      }
+    if (prepSaveTimerRef.current !== null) {
+      window.clearTimeout(prepSaveTimerRef.current);
+      prepSaveTimerRef.current = null;
     }
-
-    const result: ExamAttemptResult = {
-      id: `res_${Date.now()}`,
-      examId: activeExam.id,
-      examTitle: activeExam.title,
-      examCategory: activeExam.category,
-      examYear: activeExam.year,
-      examType: activeExam.examType,
-      userId: user?.id,
-      userEmail: user?.email,
-      scorePct,
-      correctCount,
-      wrongCount,
-      blankCount,
-      totalQuestions,
-      answers: { ...examAnswers },
-      questionTags: attemptTagsSnapshot,
-      questionsSnapshot: snapshot,
-      subjectBreakdown,
-      submittedAt: new Date().toISOString(),
-    };
-
+    const customId = activeExamMode === 'prep' ? `prep_${user?.id || 'guest'}_${activeExam.id}` : undefined;
+    const result = buildAttemptResult(activeExam, activeExamMode, examAnswersRef.current, customId);
     setInspectedAttempt(result);
     setActiveExam(null);
     await recordExamAttempt(result);
-    showToast(`آزمون تصحیح شد — نمره کل: ${toFa(scorePct)}٪`);
+    showToast(
+      activeExamMode === 'prep'
+        ? `گزارش حالت آمادگی ثبت شد — درصد شما: ${toFa(result.scorePct)}٪`
+        : `آزمون تصحیح شد — نمره کل: ${toFa(result.scorePct)}٪`
+    );
   };
 
-  const handleToggleQuestionDifficulty = (
-    questionId: string,
-    diff: ExamQuestionDifficulty,
-    meta: { examTitle?: string; subjectName?: string; qText?: string }
-  ) => {
-    const cur = examTags[questionId] || {};
-    const nextDiff = cur.difficulty === diff ? undefined : diff;
-    saveExamTag(questionId, {
-      ...cur,
-      difficulty: nextDiff,
-      examTitle: meta.examTitle || cur.examTitle,
-      subjectName: meta.subjectName || cur.subjectName,
-      qPreview: (meta.qText || cur.qPreview || '').slice(0, 140),
-    });
-  };
+  const handlePickExamOption = useCallback(
+    (questionId: string, optIdx: number, correctIdx: number) => {
+      if (!activeExam) return;
+      if (activeExamMode === 'prep') {
+        const curPicked = examAnswersRef.current[questionId];
+        const nextAnswers = { ...examAnswersRef.current };
+        if (curPicked === optIdx) {
+          delete nextAnswers[questionId];
+          examAnswersRef.current = nextAnswers;
+          setExamAnswers(nextAnswers);
+          setRevealedQIds((p) => ({ ...p, [questionId]: false }));
+        } else {
+          nextAnswers[questionId] = optIdx;
+          examAnswersRef.current = nextAnswers;
+          setExamAnswers(nextAnswers);
+          setRevealedQIds((p) => ({ ...p, [questionId]: true }));
+          // Persist per-question prep history & schedule prep report save for student + admin!
+          recordPrepAnswer(questionId, optIdx, optIdx === correctIdx);
+          schedulePrepReportSync(activeExam, nextAnswers);
+        }
+      } else {
+        const nextAnswers = { ...examAnswersRef.current };
+        if (nextAnswers[questionId] === optIdx) delete nextAnswers[questionId];
+        else nextAnswers[questionId] = optIdx;
+        examAnswersRef.current = nextAnswers;
+        setExamAnswers(nextAnswers);
+      }
+    },
+    [activeExam, activeExamMode, recordPrepAnswer, schedulePrepReportSync]
+  );
 
-  const handleToggleQuestionFlag = (
-    questionId: string,
-    flag: ExamQuestionFlagTag,
-    meta: { examTitle?: string; subjectName?: string; qText?: string }
-  ) => {
-    const cur = examTags[questionId] || {};
-    const prevTags = Array.isArray(cur.tags) ? cur.tags : [];
-    const nextTags = prevTags.includes(flag) ? prevTags.filter((t) => t !== flag) : [...prevTags, flag];
-    saveExamTag(questionId, {
-      ...cur,
-      tags: nextTags.length ? nextTags : undefined,
-      examTitle: meta.examTitle || cur.examTitle,
-      subjectName: meta.subjectName || cur.subjectName,
-      qPreview: (meta.qText || cur.qPreview || '').slice(0, 140),
-    });
-  };
+  const handleToggleRevealQuestion = useCallback((questionId: string, currentlyRevealed: boolean) => {
+    if (currentlyRevealed) {
+      setRevealedQIds((p) => ({ ...p, [questionId]: false }));
+      const nextAnswers = { ...examAnswersRef.current };
+      delete nextAnswers[questionId];
+      examAnswersRef.current = nextAnswers;
+      setExamAnswers(nextAnswers);
+    } else {
+      setRevealedQIds((p) => ({ ...p, [questionId]: true }));
+    }
+  }, []);
+
+  const handleToggleQuestionDifficulty = useCallback(
+    (
+      questionId: string,
+      diff: ExamQuestionDifficulty,
+      meta: { examTitle?: string; subjectName?: string; qText?: string }
+    ) => {
+      const cur = examTagsRef.current[questionId] || {};
+      const nextDiff = cur.difficulty === diff ? undefined : diff;
+      saveExamTag(questionId, {
+        ...cur,
+        difficulty: nextDiff,
+        examTitle: meta.examTitle || cur.examTitle,
+        subjectName: meta.subjectName || cur.subjectName,
+        qPreview: (meta.qText || cur.qPreview || '').slice(0, 140),
+      });
+    },
+    [saveExamTag]
+  );
+
+  const handleToggleQuestionFlag = useCallback(
+    (
+      questionId: string,
+      flag: ExamQuestionFlagTag,
+      meta: { examTitle?: string; subjectName?: string; qText?: string }
+    ) => {
+      const cur = examTagsRef.current[questionId] || {};
+      const prevTags = Array.isArray(cur.tags) ? cur.tags : [];
+      const nextTags = prevTags.includes(flag) ? prevTags.filter((t) => t !== flag) : [...prevTags, flag];
+      saveExamTag(questionId, {
+        ...cur,
+        tags: nextTags.length ? nextTags : undefined,
+        examTitle: meta.examTitle || cur.examTitle,
+        subjectName: meta.subjectName || cur.subjectName,
+        qPreview: (meta.qText || cur.qPreview || '').slice(0, 140),
+      });
+    },
+    [saveExamTag]
+  );
 
   const renderQuestionTagBar = (
     questionId: string,
@@ -1959,440 +2059,288 @@ export const StudentsHubPage: React.FC = () => {
         </section>
       )}
 
-      {/* Tab 4: Online Legal Exams */}
+      {/* Tab 4: Clean Two-Section Legal Exams (آزمون‌های کلی + آزمون‌های درس‌به‌درس) */}
       {activeTab === 'exams' && (
         <section className="mt-6 space-y-6">
           {activeExam ? (
             (() => {
               const allActiveQs = activeExam.subjects.flatMap((sb) => sb.questions);
               const totalActiveCount = allActiveQs.length;
-              let studyCorrectCount = 0;
-              let studyWrongCount = 0;
+              let liveCorrect = 0;
+              let liveWrong = 0;
               for (const q of allActiveQs) {
                 const p = examAnswers[q.id];
                 if (p !== undefined) {
-                  if (p === q.answer) studyCorrectCount += 1;
-                  else studyWrongCount += 1;
+                  if (p === q.answer) liveCorrect += 1;
+                  else liveWrong += 1;
                 }
               }
-              const studyAnsweredCount = studyCorrectCount + studyWrongCount;
-              const studyLivePct =
-                studyAnsweredCount > 0
-                  ? Math.max(0, Math.round(((studyCorrectCount * 3 - studyWrongCount) / (studyAnsweredCount * 3)) * 100))
+              const liveAnswered = liveCorrect + liveWrong;
+              const livePct =
+                liveAnswered > 0
+                  ? Math.max(0, Math.round(((liveCorrect * 3 - liveWrong) / (liveAnswered * 3)) * 100))
                   : 0;
-              const allStudyRevealed = totalActiveCount > 0 && allActiveQs.every((q) => !!revealedQIds[q.id]);
+              const isPrep = activeExamMode === 'prep';
+              const displayedSubjects =
+                activeExam.subjects.length > 1 && activeSubjectTabId !== 'all'
+                  ? activeExam.subjects.filter((s) => s.id === activeSubjectTabId)
+                  : activeExam.subjects;
 
               return (
-            <div className="rounded-2xl border border-[var(--hairline)] bg-[var(--surface)] p-5 sm:p-7">
-              <div className="flex flex-wrap items-center justify-between gap-4 border-b border-[var(--hairline)] pb-4">
-                <div>
-                  <h2 className="text-lg font-extrabold text-[var(--ink)]">{activeExam.title}</h2>
-                  <p className="text-xs text-[var(--ink-muted)]">
-                    {[
-                      activeExamMode === 'study'
-                        ? 'حالت شبه‌آزمون تعاملی (انتخاب هر گزینه = نمایش فوری درست/غلط و پاسخ تشریحی)'
-                        : `آزمون زمان‌دار (${toFa(calcExamDurationMin(totalActiveCount))} دقیقه · ۲ دقیقه برای هر سوال)`,
-                      activeExam.category,
-                      activeExam.examType,
-                      activeExam.year ? `سال ${toFa(activeExam.year)}` : '',
-                      activeExam.desc,
-                    ]
-                      .filter(Boolean)
-                      .join(' · ')}
-                  </p>
-                </div>
-                <div className="flex flex-wrap items-center gap-2.5">
-                  {activeExamMode === 'study' && (
-                    <>
+                <div className="rounded-2xl border border-[var(--hairline)] bg-[var(--surface)] p-4 sm:p-6">
+                  {/* Active Exam Top Bar */}
+                  <div className="flex flex-wrap items-center justify-between gap-3 border-b border-[var(--hairline)] pb-4">
+                    <div className="min-w-0">
+                      <div className="flex flex-wrap items-center gap-2">
+                        <span
+                          className={`rounded-md px-2 py-0.5 text-[11px] font-extrabold ${
+                            isPrep
+                              ? 'bg-teal-700/15 text-teal-800 dark:text-teal-300'
+                              : 'bg-amber-500/15 text-amber-800 dark:text-amber-300'
+                          }`}
+                        >
+                          {isPrep ? 'حالت آمادگی (بدون تایمر)' : 'آزمون زمان‌دار'}
+                        </span>
+                        <h2 className="text-base sm:text-lg font-extrabold text-[var(--ink)]">{activeExam.title}</h2>
+                      </div>
+                      <p className="mt-1 text-xs text-[var(--ink-muted)]">
+                        {isPrep
+                          ? 'پاسخ هر سوال بلافاصله تصحیح و ذخیره می‌شود · پس از پاسخ‌دهی سابقه قبلی شما نمایش داده می‌شود'
+                          : `زمان کل: ${toFa(calcExamDurationMin(totalActiveCount))} دقیقه (۲ دقیقه به ازای هر سوال) · ${toFa(liveAnswered)} از ${toFa(totalActiveCount)} پاسخ‌داده‌شده`}
+                      </p>
+                    </div>
+
+                    <div className="flex flex-wrap items-center gap-2">
+                      {!isPrep ? (
+                        <div className="inline-flex items-center gap-1.5 rounded-xl bg-amber-500/10 px-3.5 py-2 text-xs font-extrabold text-amber-700 dark:text-amber-300 tabular-nums">
+                          <Clock className="h-4 w-4" />
+                          <span>
+                            {toFa(Math.floor(examSecondsLeft / 60))}:
+                            {toFa(String(examSecondsLeft % 60).padStart(2, '0'))}
+                          </span>
+                        </div>
+                      ) : (
+                        liveAnswered > 0 && (
+                          <button
+                            type="button"
+                            onClick={() => {
+                              setExamAnswers({});
+                              examAnswersRef.current = {};
+                              setRevealedQIds({});
+                            }}
+                            className="inline-flex items-center gap-1 rounded-xl border border-[var(--hairline)] px-3 py-2 text-xs font-bold text-[var(--ink-muted)] hover:border-teal-600/40 hover:text-[var(--ink)]"
+                          >
+                            <RotateCcw className="h-3.5 w-3.5" />
+                            <span>شروع مجدد تمرین</span>
+                          </button>
+                        )
+                      )}
+
                       <button
                         type="button"
-                        onClick={() => {
-                          if (allStudyRevealed) {
-                            setRevealedQIds({});
-                          } else {
-                            const next: Record<string, boolean> = {};
-                            allActiveQs.forEach((q) => {
-                              next[q.id] = true;
-                            });
-                            setRevealedQIds(next);
-                          }
-                        }}
-                        className="rounded-xl border border-teal-700/30 bg-teal-700/10 px-3.5 py-2 text-xs font-bold text-teal-800 hover:bg-teal-700/20 dark:text-teal-300"
+                        onClick={handleCloseActiveExam}
+                        className="rounded-xl border border-[var(--hairline)] px-3.5 py-2 text-xs font-bold text-[var(--ink-muted)] hover:text-[var(--ink)]"
                       >
-                        {allStudyRevealed ? 'بستن همه پاسخ‌ها' : 'نمایش همه پاسخ‌ها'}
+                        بازگشت
                       </button>
-                      {studyAnsweredCount > 0 && (
-                        <button
-                          type="button"
-                          onClick={() => {
-                            setExamAnswers({});
-                            setRevealedQIds({});
-                          }}
-                          className="inline-flex items-center gap-1 rounded-xl border border-[var(--hairline)] px-3 py-2 text-xs font-bold text-[var(--ink-muted)] hover:border-teal-600/40 hover:text-[var(--ink)]"
-                        >
-                          <RotateCcw className="h-3.5 w-3.5" />
-                          <span>پاک کردن پاسخ‌ها</span>
-                        </button>
-                      )}
-                    </>
-                  )}
-                  {activeExamMode === 'exam' ? (
-                    <div className="inline-flex items-center gap-1.5 rounded-xl bg-amber-500/10 px-3.5 py-2 text-xs font-extrabold text-amber-700 dark:text-amber-300 tabular-nums">
-                      <Clock className="h-4 w-4" />
-                      <span>
-                        {toFa(Math.floor(examSecondsLeft / 60))}:{toFa(String(examSecondsLeft % 60).padStart(2, '0'))}
+                      <button
+                        type="button"
+                        onClick={submitExam}
+                        className="rounded-xl bg-teal-700 px-4 py-2 text-xs font-extrabold text-white hover:bg-teal-800 dark:bg-teal-500 dark:text-slate-950"
+                      >
+                        {isPrep ? 'مشاهده کارنامه آمادگی' : 'پایان و ثبت کارنامه'}
+                      </button>
+                    </div>
+                  </div>
+
+                  {/* Live Prep Mode Score Strip */}
+                  {isPrep && (
+                    <div className="mt-4 flex flex-wrap items-center justify-between gap-3 rounded-xl border border-teal-700/20 bg-teal-700/5 px-4 py-2.5 text-xs">
+                      <div className="flex flex-wrap items-center gap-x-4 gap-y-1 tabular-nums">
+                        <span className="font-extrabold text-[var(--ink)]">
+                          پاسخ‌داده‌شده: {toFa(liveAnswered)} از {toFa(totalActiveCount)}
+                        </span>
+                        <span className="inline-flex items-center gap-1 font-extrabold text-emerald-700 dark:text-emerald-400">
+                          <CheckCircle2 className="h-3.5 w-3.5" />
+                          صحیح: {toFa(liveCorrect)}
+                        </span>
+                        <span className="inline-flex items-center gap-1 font-extrabold text-rose-700 dark:text-rose-400">
+                          <XCircle className="h-3.5 w-3.5" />
+                          غلط: {toFa(liveWrong)}
+                        </span>
+                        <span className="font-extrabold text-teal-800 dark:text-teal-300">
+                          درصد: {toFa(livePct)}٪
+                        </span>
+                      </div>
+                      <span className="text-[11px] text-[var(--ink-muted)]">
+                        پاسخ‌های شما به‌صورت خودکار برای شما و مدیر ذخیره می‌شود
                       </span>
                     </div>
-                  ) : (
-                    <button
-                      type="button"
-                      onClick={() => {
-                        setExamSecondsLeft(calcExamDurationMin(totalActiveCount) * 60);
-                        setActiveExamMode('exam');
-                      }}
-                      className="rounded-xl border border-[var(--hairline)] px-3.5 py-2 text-xs font-bold text-[var(--ink)] hover:border-teal-600/40"
-                    >
-                      تغییر به آزمون زمان‌دار
-                    </button>
                   )}
-                  {activeExamMode === 'exam' && (
-                    <button
-                      type="button"
-                      onClick={() => setActiveExamMode('study')}
-                      className="rounded-xl border border-[var(--hairline)] px-3.5 py-2 text-xs font-bold text-[var(--ink)] hover:border-teal-600/40"
-                    >
-                      شبه‌آزمون / مشاهده پاسخ
-                    </button>
+
+                  {/* Subject / Chapter Filter Tabs (Keeps DOM super fast on large multi-subject exams!) */}
+                  {activeExam.subjects.length > 1 && (
+                    <div className="mt-4 flex flex-wrap items-center gap-1.5 border-b border-[var(--hairline)] pb-3">
+                      <button
+                        type="button"
+                        onClick={() => setActiveSubjectTabId('all')}
+                        className={`rounded-lg px-2.5 py-1 text-[11px] font-bold transition-colors ${
+                          activeSubjectTabId === 'all'
+                            ? 'bg-teal-700 text-white dark:bg-teal-500 dark:text-slate-950'
+                            : 'border border-[var(--hairline)] bg-[var(--surface-muted)] text-[var(--ink-muted)] hover:text-[var(--ink)]'
+                        }`}
+                      >
+                        همه بخش‌ها ({toFa(totalActiveCount)})
+                      </button>
+                      {activeExam.subjects.map((sub) => (
+                        <button
+                          key={sub.id}
+                          type="button"
+                          onClick={() => setActiveSubjectTabId(sub.id)}
+                          className={`rounded-lg px-2.5 py-1 text-[11px] font-bold transition-colors ${
+                            activeSubjectTabId === sub.id
+                              ? 'bg-teal-700 text-white dark:bg-teal-500 dark:text-slate-950'
+                              : 'border border-[var(--hairline)] bg-[var(--surface-muted)] text-[var(--ink-muted)] hover:text-[var(--ink)]'
+                          }`}
+                        >
+                          {sub.name} ({toFa(sub.questions.length)})
+                        </button>
+                      ))}
+                    </div>
                   )}
-                  <button
-                    type="button"
-                    onClick={() => setActiveExam(null)}
-                    className="rounded-xl border border-[var(--hairline)] px-3.5 py-2 text-xs font-bold text-[var(--ink-muted)] hover:text-[var(--ink)]"
-                  >
-                    بازگشت
-                  </button>
-                  <button
-                    type="button"
-                    onClick={submitExam}
-                    className="rounded-xl bg-teal-700 px-5 py-2 text-xs font-extrabold text-white hover:bg-teal-800 dark:bg-teal-500 dark:text-slate-950"
-                  >
-                    پایان و ثبت کارنامه
-                  </button>
-                </div>
-              </div>
 
-              {/* Live Quasi-Exam Score Bar in Study Mode */}
-              {activeExamMode === 'study' && (
-                <div className="mt-4 flex flex-wrap items-center justify-between gap-3 rounded-xl border border-teal-700/20 bg-teal-700/5 px-4 py-2.5 text-xs">
-                  <div className="flex flex-wrap items-center gap-x-4 gap-y-1.5 tabular-nums">
-                    <span className="font-extrabold text-[var(--ink)]">
-                      پاسخ‌داده‌شده: {toFa(studyAnsweredCount)} از {toFa(totalActiveCount)}
-                    </span>
-                    <span className="inline-flex items-center gap-1 font-extrabold text-emerald-700 dark:text-emerald-400">
-                      <CheckCircle2 className="h-3.5 w-3.5" />
-                      صحیح: {toFa(studyCorrectCount)}
-                    </span>
-                    <span className="inline-flex items-center gap-1 font-extrabold text-rose-700 dark:text-rose-400">
-                      <XCircle className="h-3.5 w-3.5" />
-                      غلط: {toFa(studyWrongCount)}
-                    </span>
-                    <span className="font-extrabold text-teal-800 dark:text-teal-300">
-                      درصد لحظه‌ای (با نمره منفی): {toFa(studyLivePct)}٪
-                    </span>
-                  </div>
-                  <span className="text-[11px] text-[var(--ink-muted)]">
-                    روی هر گزینه بزنید تا بلافاصله درستی یا نادرستی و پاسخ تشریحی مشخص شود
-                  </span>
-                </div>
-              )}
-
-              {activeExam.subjects.length > 1 && (
-                <div className="mt-4 flex flex-wrap items-center gap-1.5 border-b border-[var(--hairline)] pb-3">
-                  <span className="text-[11px] font-bold text-[var(--ink-muted)] ml-1">ترتیب درس‌ها (یا اسکرول مستقیم به پایین):</span>
-                  {activeExam.subjects.map((sub) => (
-                    <button
-                      key={sub.id}
-                      type="button"
-                      onClick={() => document.getElementById(`sub-sec-${sub.id}`)?.scrollIntoView({ behavior: 'smooth', block: 'start' })}
-                      className="rounded-lg border border-[var(--hairline)] bg-[var(--surface-muted)] px-2.5 py-1 text-[11px] font-bold text-[var(--ink)] hover:border-teal-600/50"
-                    >
-                      {sub.name} ({toFa(sub.questions.length)})
-                    </button>
-                  ))}
-                </div>
-              )}
-
-              <div className="mt-6 grid grid-cols-1 gap-6 lg:grid-cols-[1fr_260px] items-start">
-                <div className="space-y-8 min-w-0">
-                  {activeExam.subjects.map((sub, subIdx) => {
-                    const prevCount = activeExam.subjects
-                      .slice(0, subIdx)
-                      .reduce((sum, s) => sum + s.questions.length, 0);
-                    return (
-                    <div key={sub.id} id={`sub-sec-${sub.id}`} className="space-y-4">
-                      <h3 className="sticky top-0 z-10 border-r-2 border-teal-600 bg-[var(--surface)]/95 py-2 pr-3 text-base font-extrabold text-[var(--ink)] backdrop-blur-sm">
-                        {sub.name} ({toFa(sub.questions.length)} سوال)
-                      </h3>
-                      {sub.questions.map((q, qIdx) => {
-                        const picked = examAnswers[q.id];
-                        const isRev = activeExamMode === 'study' && (!!revealedQIds[q.id] || picked !== undefined);
-                        const isPickedCorrect = picked !== undefined && picked === q.answer;
-                        const isPickedWrong = picked !== undefined && picked !== q.answer;
-                        const srcNotice = formatQuestionSourceNotice(q.sourceLabel);
-                        const isCopied = copiedQId === q.id;
-                        const adminCsvRef = isAdmin ? formatAdminCsvQuestionRef(q, prevCount + qIdx + 1) : '';
+                  <div className="mt-5 grid grid-cols-1 gap-6 lg:grid-cols-[1fr_240px] items-start">
+                    <div className="space-y-6 min-w-0">
+                      {displayedSubjects.map((sub) => {
+                        const subIdxInExam = activeExam.subjects.findIndex((s) => s.id === sub.id);
+                        const prevCount = activeExam.subjects
+                          .slice(0, Math.max(0, subIdxInExam))
+                          .reduce((sum, s) => sum + s.questions.length, 0);
                         return (
-                          <div
-                            key={q.id}
-                            id={`q-card-${q.id}`}
-                            className={`rounded-xl border p-4 transition-colors ${
-                              activeExamMode === 'study' && isPickedCorrect
-                                ? 'border-emerald-500/40 bg-emerald-500/[0.04]'
-                                : activeExamMode === 'study' && isPickedWrong
-                                  ? 'border-rose-500/40 bg-rose-500/[0.04]'
-                                  : 'border-[var(--hairline)] bg-[var(--surface-muted)]/60'
-                            }`}
-                          >
-                            <div className="mb-2 flex flex-wrap items-center justify-between gap-2 text-[11px]">
-                              <div className="flex flex-wrap items-center gap-2">
-                                {activeExamMode === 'study' && isPickedCorrect && (
-                                  <span className="inline-flex items-center gap-1 rounded-lg bg-emerald-500/15 px-2.5 py-0.5 font-extrabold text-emerald-800 dark:text-emerald-300">
-                                    <CheckCircle2 className="h-3.5 w-3.5" />
-                                    پاسخ صحیح
-                                  </span>
-                                )}
-                                {activeExamMode === 'study' && isPickedWrong && (
-                                  <span className="inline-flex items-center gap-1 rounded-lg bg-rose-500/15 px-2.5 py-0.5 font-extrabold text-rose-800 dark:text-rose-300">
-                                    <XCircle className="h-3.5 w-3.5" />
-                                    نادرست · گزینه صحیح: {toFa(q.answer + 1)}
-                                  </span>
-                                )}
-                                {q.chapter && (
-                                  <span className="font-bold text-teal-700 dark:text-teal-400">
-                                    سرفصل: {q.chapter}
-                                  </span>
-                                )}
-                                {srcNotice && (
-                                  <span className="rounded-lg bg-amber-500/15 px-2.5 py-0.5 font-extrabold text-amber-800 dark:text-amber-300">
-                                    {srcNotice}
-                                  </span>
-                                )}
-                                {isAdmin && adminCsvRef && (
-                                  <span
-                                    title={q.csvFileName ? `فایل منبع: ${q.csvFileName}` : 'شناسه سوال در فایل منبع (فقط قابل مشاهده برای مدیر)'}
-                                    className="rounded-md border border-indigo-500/30 bg-indigo-500/10 px-2 py-0.5 text-[10.5px] font-bold text-indigo-800 dark:text-indigo-300 tabular-nums"
-                                  >
-                                    مدیر · {adminCsvRef}
-                                  </span>
-                                )}
-                              </div>
-                              <button
-                                type="button"
-                                onClick={() => handleCopyQuestion(q, sub.name, qIdx + 1)}
-                                className="inline-flex items-center gap-1 rounded-lg border border-[var(--hairline-strong)] bg-[var(--surface)] px-2.5 py-1 text-[11px] font-bold text-[var(--ink)] hover:border-teal-600/50"
-                                title="کپی سوال، گزینه‌ها، جواب و نکته"
-                              >
-                                {isCopied ? <Check className="h-3 w-3 text-emerald-600" /> : <Copy className="h-3 w-3" />}
-                                <span>{isCopied ? 'کپی شد' : 'کپی سوال و جواب'}</span>
-                              </button>
-                            </div>
-                            <p className="text-sm font-bold leading-7 text-[var(--ink)]">
-                              {toFa(qIdx + 1)}. {q.q}
-                            </p>
-                            <div className="mt-3 grid grid-cols-1 gap-2 sm:grid-cols-2">
-                              {q.options.map((opt, optIdx) => {
-                                const selected = picked === optIdx;
-                                const isRightOpt = q.answer === optIdx;
-                                let btnCls =
-                                  'border-[var(--hairline)] bg-[var(--surface)] text-[var(--ink-prose)] hover:border-teal-600/40';
-                                if (isRev) {
-                                  if (isRightOpt) {
-                                    btnCls =
-                                      'border-emerald-600 bg-emerald-500/15 font-bold text-emerald-800 dark:text-emerald-300';
-                                  } else if (selected) {
-                                    btnCls = 'border-rose-600 bg-rose-500/15 font-bold text-rose-800 dark:text-rose-300';
-                                  }
-                                } else if (selected) {
-                                  btnCls =
-                                    'border-teal-600 bg-teal-700/10 font-bold text-teal-800 dark:text-teal-300';
-                                }
-                                return (
-                                  <button
-                                    key={optIdx}
-                                    type="button"
-                                    onClick={() => {
-                                      if (activeExamMode === 'study') {
-                                        setExamAnswers((p) => {
-                                          const copy = { ...p };
-                                          if (copy[q.id] === optIdx) {
-                                            delete copy[q.id];
-                                          } else {
-                                            copy[q.id] = optIdx;
-                                          }
-                                          return copy;
-                                        });
-                                        setRevealedQIds((p) => ({
-                                          ...p,
-                                          [q.id]: picked === optIdx ? false : true,
-                                        }));
-                                      } else {
-                                        setExamAnswers((p) => {
-                                          const copy = { ...p };
-                                          if (copy[q.id] === optIdx) delete copy[q.id];
-                                          else copy[q.id] = optIdx;
-                                          return copy;
-                                        });
-                                      }
-                                    }}
-                                    className={`flex items-start justify-between gap-2 rounded-xl border px-3.5 py-2.5 text-right text-xs font-medium transition-colors ${btnCls}`}
-                                  >
-                                    <span>
-                                      <span className="ml-2 font-extrabold tabular-nums">{toFa(optIdx + 1)})</span>
-                                      {opt}
-                                    </span>
-                                    {isRev && isRightOpt && <CheckCircle2 className="h-4 w-4 shrink-0 text-emerald-600 dark:text-emerald-400" />}
-                                    {isRev && selected && !isRightOpt && <XCircle className="h-4 w-4 shrink-0 text-rose-600 dark:text-rose-400" />}
-                                  </button>
-                                );
-                              })}
-                            </div>
-
-                            {activeExamMode === 'study' && (
-                              <div className="mt-3">
-                                <div className="flex flex-wrap items-center gap-2">
-                                  <button
-                                    type="button"
-                                    onClick={() => {
-                                      if (isRev) {
-                                        setRevealedQIds((p) => ({ ...p, [q.id]: false }));
-                                        setExamAnswers((p) => {
-                                          const copy = { ...p };
-                                          delete copy[q.id];
-                                          return copy;
-                                        });
-                                      } else {
-                                        setRevealedQIds((p) => ({ ...p, [q.id]: true }));
-                                      }
-                                    }}
-                                    className="rounded-lg border border-teal-700/30 bg-teal-700/10 px-3 py-1.5 text-[11px] font-bold text-teal-800 hover:bg-teal-700/20 dark:text-teal-300"
-                                  >
-                                    {isRev ? 'بستن پاسخ و بازنشانی' : 'مشاهده مستقیم پاسخ و تشریح'}
-                                  </button>
-                                </div>
-                                {isRev && (
-                                  <div className="mt-2 rounded-lg border border-emerald-600/25 bg-[var(--surface)] p-3 text-xs leading-6">
-                                    <p className="font-extrabold text-emerald-700 dark:text-emerald-400">
-                                      گزینه صحیح: {toFa(q.answer + 1)}) {q.options[q.answer]}
-                                    </p>
-                                    {q.exp && (
-                                      <p className="mt-1 text-[var(--ink-prose)]">
-                                        <span className="font-bold text-teal-700 dark:text-teal-400">تشریح: </span>
-                                        {q.exp}
-                                      </p>
-                                    )}
-                                  </div>
-                                )}
-                              </div>
-                            )}
-
-                            {renderQuestionTagBar(q.id, {
-                              examTitle: activeExam.title,
-                              subjectName: sub.name,
-                              qText: q.q,
-                            })}
-
-                            {renderQuestionNoteBox(q.id)}
+                          <div key={sub.id} id={`sub-sec-${sub.id}`} className="space-y-3.5">
+                            <h3 className="sticky top-0 z-10 border-r-2 border-teal-600 bg-[var(--surface)]/95 py-1.5 pr-3 text-sm font-extrabold text-[var(--ink)] backdrop-blur-sm">
+                              {sub.name} ({toFa(sub.questions.length)} سوال)
+                            </h3>
+                            {sub.questions.map((q, qIdx) => (
+                              <ExamQuestionCard
+                                key={q.id}
+                                question={q}
+                                displayIndex={qIdx + 1}
+                                subjectName={sub.name}
+                                examTitle={activeExam.title}
+                                mode={activeExamMode}
+                                picked={examAnswers[q.id]}
+                                isRevealed={Boolean(revealedQIds[q.id])}
+                                prevPrepRecord={sessionPrevPrepRef.current[q.id]}
+                                tagState={examTags[q.id]}
+                                savedNote={examNotes[q.id] || ''}
+                                isCopied={copiedQId === q.id}
+                                isAdmin={isAdmin}
+                                adminCsvRef={isAdmin ? formatAdminCsvQuestionRef(q, prevCount + qIdx + 1) : ''}
+                                sourceNotice={formatQuestionSourceNotice(q.sourceLabel)}
+                                onPickOption={handlePickExamOption}
+                                onToggleReveal={handleToggleRevealQuestion}
+                                onToggleDifficulty={handleToggleQuestionDifficulty}
+                                onToggleFlag={handleToggleQuestionFlag}
+                                onSaveNote={saveExamNote}
+                                onCopy={handleCopyQuestion}
+                              />
+                            ))}
                           </div>
                         );
                       })}
                     </div>
-                    );
-                  })}
-                </div>
 
-                {/* Independently scrollable question navigator sidebar */}
-                <aside className="rounded-xl border border-[var(--hairline)] bg-[var(--surface-muted)]/70 p-4 lg:sticky lg:top-4 lg:max-h-[calc(100vh-2rem)] lg:overflow-y-auto overscroll-contain">
-                  <h4 className="text-xs font-extrabold text-[var(--ink)]">ناوبری سریع سوالات</h4>
-                  <p className="mt-1 text-[11px] text-[var(--ink-muted)]">
-                    {activeExamMode === 'study'
-                      ? 'سبز = درست · قرمز = غلط · کلیک برای پرش'
-                      : 'اسکرول جداگانه برای پرش به هر درس و سوال'}
-                  </p>
-                  <div className="mt-3 space-y-3">
-                    {activeExam.subjects.map((sub) => (
-                      <div key={sub.id} className="space-y-1.5 border-t border-[var(--hairline)] pt-2 first:border-t-0 first:pt-0">
-                        <button
-                          type="button"
-                          onClick={() => document.getElementById(`sub-sec-${sub.id}`)?.scrollIntoView({ behavior: 'smooth', block: 'start' })}
-                          className="text-right text-[11px] font-extrabold text-teal-700 hover:underline dark:text-teal-400"
-                        >
-                          {sub.name} ({toFa(sub.questions.length)})
-                        </button>
-                        <div className="grid grid-cols-5 gap-1.5">
-                          {sub.questions.map((q, qIdx) => {
-                            const pickedVal = examAnswers[q.id];
-                            const isAns = pickedVal !== undefined;
-                            const isRev = activeExamMode === 'study' && (!!revealedQIds[q.id] || isAns);
-                            const qTag = examTags[q.id];
-                            const hasTag = Boolean(qTag && (qTag.difficulty || (qTag.tags && qTag.tags.length > 0)));
-                            let tileCls =
-                              'border-[var(--hairline-strong)] bg-[var(--surface)] text-[var(--ink)] hover:border-teal-600/50';
-                            if (activeExamMode === 'study' && isAns) {
-                              tileCls =
-                                pickedVal === q.answer
-                                  ? 'border-emerald-600 bg-emerald-600 text-white'
-                                  : 'border-rose-600 bg-rose-600 text-white';
-                            } else if (isRev) {
-                              tileCls = 'border-emerald-600/50 bg-emerald-500/15 text-emerald-800 dark:text-emerald-300';
-                            } else if (isAns) {
-                              tileCls = 'border-teal-600 bg-teal-700 text-white dark:bg-teal-500 dark:text-slate-950';
-                            }
-                            return (
-                              <button
-                                key={q.id}
-                                type="button"
-                                onClick={() => document.getElementById(`q-card-${q.id}`)?.scrollIntoView({ behavior: 'smooth', block: 'center' })}
-                                className={`relative h-7 rounded-lg border text-[11px] font-bold tabular-nums transition-colors ${tileCls}`}
-                              >
-                                {toFa(qIdx + 1)}
-                                {hasTag && (
-                                  <span
-                                    aria-hidden="true"
-                                    className={`absolute -top-0.5 -left-0.5 h-2 w-2 rounded-full ${
-                                      qTag?.difficulty === 'hard'
-                                        ? 'bg-rose-500'
-                                        : qTag?.difficulty === 'medium'
-                                          ? 'bg-amber-500'
-                                          : qTag?.difficulty === 'easy'
-                                            ? 'bg-emerald-500'
-                                            : 'bg-violet-500'
-                                    }`}
-                                  />
-                                )}
-                              </button>
-                            );
-                          })}
-                        </div>
+                    {/* Compact Scrollable Question Navigator */}
+                    <aside className="rounded-xl border border-[var(--hairline)] bg-[var(--surface-muted)]/60 p-3.5 lg:sticky lg:top-4 lg:max-h-[calc(100vh-2rem)] lg:overflow-y-auto overscroll-contain">
+                      <h4 className="text-xs font-extrabold text-[var(--ink)]">ناوبری سریع سوالات</h4>
+                      <p className="mt-1 text-[11px] text-[var(--ink-muted)]">
+                        {isPrep ? 'سبز = درست · قرمز = غلط' : 'رنگ‌دار = پاسخ‌داده‌شده'}
+                      </p>
+                      <div className="mt-3 space-y-3">
+                        {displayedSubjects.map((sub) => (
+                          <div
+                            key={sub.id}
+                            className="space-y-1.5 border-t border-[var(--hairline)] pt-2 first:border-t-0 first:pt-0"
+                          >
+                            <p className="text-[11px] font-extrabold text-teal-700 dark:text-teal-400">
+                              {sub.name} ({toFa(sub.questions.length)})
+                            </p>
+                            <div className="grid grid-cols-5 gap-1.5">
+                              {sub.questions.map((q, qIdx) => {
+                                const pickedVal = examAnswers[q.id];
+                                const isAns = pickedVal !== undefined;
+                                const qTag = examTags[q.id];
+                                const hasTag = Boolean(qTag && (qTag.difficulty || (qTag.tags && qTag.tags.length > 0)));
+                                let tileCls =
+                                  'border-[var(--hairline-strong)] bg-[var(--surface)] text-[var(--ink)] hover:border-teal-600/50';
+                                if (isPrep && isAns) {
+                                  tileCls =
+                                    pickedVal === q.answer
+                                      ? 'border-emerald-600 bg-emerald-600 text-white'
+                                      : 'border-rose-600 bg-rose-600 text-white';
+                                } else if (isAns) {
+                                  tileCls = 'border-teal-600 bg-teal-700 text-white dark:bg-teal-500 dark:text-slate-950';
+                                }
+                                return (
+                                  <button
+                                    key={q.id}
+                                    type="button"
+                                    onClick={() =>
+                                      document.getElementById(`q-card-${q.id}`)?.scrollIntoView({ behavior: 'smooth', block: 'center' })
+                                    }
+                                    className={`relative h-7 rounded-lg border text-[11px] font-bold tabular-nums transition-colors ${tileCls}`}
+                                  >
+                                    {toFa(qIdx + 1)}
+                                    {hasTag && (
+                                      <span
+                                        aria-hidden="true"
+                                        className={`absolute -top-0.5 -left-0.5 h-2 w-2 rounded-full ${
+                                          qTag?.difficulty === 'hard'
+                                            ? 'bg-rose-500'
+                                            : qTag?.difficulty === 'medium'
+                                              ? 'bg-amber-500'
+                                              : qTag?.difficulty === 'easy'
+                                                ? 'bg-emerald-500'
+                                                : 'bg-violet-500'
+                                        }`}
+                                      />
+                                    )}
+                                  </button>
+                                );
+                              })}
+                            </div>
+                          </div>
+                        ))}
                       </div>
-                    ))}
+                    </aside>
                   </div>
-                </aside>
-              </div>
-            </div>
+                </div>
               );
             })()
           ) : (
             <>
-              {/* Detailed Attempt Review (Right/Wrong per Question + Personal Notes) */}
+              {/* Detailed Attempt / Prep Report Review */}
               {inspectedAttempt && (
                 <div className="rounded-2xl border border-teal-700/30 bg-[var(--surface)] p-5 sm:p-6 space-y-5">
                   <div className="flex flex-wrap items-center justify-between gap-4 border-b border-[var(--hairline)] pb-4">
                     <div>
-                      <p className="text-xs font-bold text-teal-700 dark:text-teal-400">کارنامه و پاسخ‌برگ تشریحی</p>
-                      <h3 className="text-lg font-extrabold text-[var(--ink)]">{inspectedAttempt.examTitle}</h3>
+                      <div className="flex flex-wrap items-center gap-2">
+                        <span
+                          className={`rounded-md px-2 py-0.5 text-[11px] font-extrabold ${
+                            inspectedAttempt.mode === 'prep'
+                              ? 'bg-teal-700/15 text-teal-800 dark:text-teal-300'
+                              : 'bg-amber-500/15 text-amber-800 dark:text-amber-300'
+                          }`}
+                        >
+                          {inspectedAttempt.mode === 'prep' ? 'کارنامه حالت آمادگی' : 'کارنامه آزمون زمان‌دار'}
+                        </span>
+                        <h3 className="text-lg font-extrabold text-[var(--ink)]">{inspectedAttempt.examTitle}</h3>
+                      </div>
                       <p className="mt-1 text-xs text-[var(--ink-muted)] tabular-nums">
                         صحیح: {toFa(inspectedAttempt.correctCount)} · غلط: {toFa(inspectedAttempt.wrongCount)} · نزده:{' '}
-                        {toFa(inspectedAttempt.blankCount)} · {new Date(inspectedAttempt.submittedAt).toLocaleDateString('fa-IR')}
+                        {toFa(inspectedAttempt.blankCount)} ·{' '}
+                        {new Date(inspectedAttempt.submittedAt).toLocaleDateString('fa-IR')}
                       </p>
                     </div>
                     <div className="flex items-center gap-3">
@@ -2421,7 +2369,6 @@ export const StudentsHubPage: React.FC = () => {
                     ))}
                   </div>
 
-                  {/* Per-Question Answer Analysis + Personal Notes */}
                   {inspectedAttempt.questionsSnapshot && inspectedAttempt.questionsSnapshot.length > 0 && (
                     <div className="space-y-4 pt-2">
                       <h4 className="text-sm font-extrabold text-[var(--ink)]">تحلیل پاسخ‌های شما در تک‌تک سوالات</h4>
@@ -2443,18 +2390,10 @@ export const StudentsHubPage: React.FC = () => {
                             <div className="flex flex-wrap items-center justify-between gap-2 mb-2">
                               <div className="flex flex-wrap items-center gap-2 text-[11px]">
                                 <span className="font-bold text-[var(--ink-muted)]">
-                                  {q.subjectName} {q.chapter ? `· سرفصل: ${q.chapter}` : ''}
+                                  {q.subjectName} {q.chapter && q.chapter !== q.subjectName ? `· ${q.chapter}` : ''}
                                 </span>
-                                {q.sourceLabel && (
-                                  <span className="rounded-lg bg-amber-500/15 px-2 py-0.5 font-bold text-amber-800 dark:text-amber-300">
-                                    {formatQuestionSourceNotice(q.sourceLabel)}
-                                  </span>
-                                )}
                                 {isAdmin && (
-                                  <span
-                                    title={q.csvFileName ? `فایل منبع: ${q.csvFileName}` : 'شناسه سوال (فقط مدیر)'}
-                                    className="rounded-md border border-indigo-500/30 bg-indigo-500/10 px-2 py-0.5 text-[10.5px] font-bold text-indigo-800 dark:text-indigo-300 tabular-nums"
-                                  >
+                                  <span className="rounded-md border border-indigo-500/30 bg-indigo-500/10 px-2 py-0.5 text-[10.5px] font-bold text-indigo-800 dark:text-indigo-300 tabular-nums">
                                     مدیر · {formatAdminCsvQuestionRef(q, qIdx + 1)}
                                   </span>
                                 )}
@@ -2480,17 +2419,17 @@ export const StudentsHubPage: React.FC = () => {
                                   {isCorrect ? (
                                     <>
                                       <CheckCircle2 className="h-4 w-4" />
-                                      <span>پاسخ صحیح دادید</span>
+                                      <span>صحیح</span>
                                     </>
                                   ) : isBlank ? (
                                     <>
                                       <MinusCircle className="h-4 w-4" />
-                                      <span>نزده (بدون پاسخ)</span>
+                                      <span>نزده</span>
                                     </>
                                   ) : (
                                     <>
                                       <XCircle className="h-4 w-4" />
-                                      <span>پاسخ اشتباه زدید</span>
+                                      <span>غلط</span>
                                     </>
                                   )}
                                 </span>
@@ -2544,323 +2483,120 @@ export const StudentsHubPage: React.FC = () => {
                 </div>
               )}
 
-              {/* Dedicated Section Switcher: Exams vs Lesson-by-Lesson Study */}
+              {/* Clean 2-Section Top Switcher */}
               <div className="flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-[var(--hairline)] bg-[var(--surface)] p-3">
                 <div className="flex flex-wrap items-center gap-2">
                   <button
                     type="button"
-                    onClick={() => setExamHubSection('exams')}
-                    className={`inline-flex items-center gap-2 rounded-xl px-4 py-2 text-xs font-extrabold transition-colors ${
-                      examHubSection === 'exams'
+                    onClick={() => {
+                      setExamHubSection('general');
+                      setSelectedSubjectGroup(null);
+                    }}
+                    className={`inline-flex items-center gap-2 rounded-xl px-4 py-2.5 text-xs font-extrabold transition-colors ${
+                      examHubSection === 'general'
                         ? 'bg-teal-700 text-white dark:bg-teal-500 dark:text-slate-950'
                         : 'border border-[var(--hairline)] bg-[var(--surface-muted)] text-[var(--ink-muted)] hover:text-[var(--ink)]'
                     }`}
                   >
                     <FolderOpen className="h-4 w-4" />
-                    <span>آزمون‌های جامع و سنواتی ({toFa(visibleExams.length)})</span>
+                    <span>آزمون‌های کلی ({toFa(generalExams.length)})</span>
                   </button>
                   <button
                     type="button"
-                    onClick={() => setExamHubSection('lessons')}
-                    className={`inline-flex items-center gap-2 rounded-xl px-4 py-2 text-xs font-extrabold transition-colors ${
-                      examHubSection === 'lessons'
+                    onClick={() => setExamHubSection('subject')}
+                    className={`inline-flex items-center gap-2 rounded-xl px-4 py-2.5 text-xs font-extrabold transition-colors ${
+                      examHubSection === 'subject'
                         ? 'bg-teal-700 text-white dark:bg-teal-500 dark:text-slate-950'
                         : 'border border-[var(--hairline)] bg-[var(--surface-muted)] text-[var(--ink-muted)] hover:text-[var(--ink)]'
                     }`}
                   >
-                    <BookOpen className="h-4 w-4" />
-                    <span>مطالعه درس به درس سوالات ({toFa(lessonBankSummary.length)} درس)</span>
+                    <GraduationCap className="h-4 w-4" />
+                    <span>آزمون‌های درس‌به‌درس ({toFa(subjectFoldersSummary.length)} درس)</span>
                   </button>
                 </div>
+
                 <div className="flex flex-wrap items-center gap-2">
                   {isVip && (
-                    <span className="inline-flex items-center gap-1.5 rounded-lg border border-amber-500/40 bg-amber-500/15 px-3 py-1 text-[11px] font-extrabold text-amber-800 dark:text-amber-300">
+                    <span className="inline-flex items-center gap-1.5 rounded-lg border border-amber-500/40 bg-amber-500/15 px-3 py-1.5 text-[11px] font-extrabold text-amber-800 dark:text-amber-300">
                       <Crown className="h-3.5 w-3.5" />
                       <span>
-                        اشتراک ویژه فعال
+                        اشتراک ویژه
                         {vipInfo?.expiresAt
                           ? ` تا ${new Date(vipInfo.expiresAt).toLocaleDateString('fa-IR')}`
                           : ' (دائمی)'}
                       </span>
                     </span>
                   )}
-                  <p className="text-[11px] text-[var(--ink-muted)]">
-                    {examHubSection === 'lessons'
-                      ? 'تمام سوالات همه آزمون‌ها به تفکیک هر درس یکجا گردآوری شده‌اند'
-                      : 'زمان هر آزمون به‌طور خودکار ۲ دقیقه برای هر سوال است'}
-                  </p>
+                  <button
+                    type="button"
+                    onClick={() => syncNow(false)}
+                    disabled={syncing}
+                    title="همگام‌سازی نکات، تیک‌ها و آزمون‌ها بین وب و اپلیکیشن"
+                    className="inline-flex items-center gap-1.5 rounded-xl border border-[var(--hairline)] bg-[var(--surface-muted)] px-3 py-1.5 text-[11px] font-bold text-[var(--ink-muted)] hover:border-teal-600/40 hover:text-[var(--ink)] disabled:opacity-50"
+                  >
+                    <RefreshCw className={`h-3.5 w-3.5 ${syncing ? 'animate-spin' : ''}`} />
+                    <span>{syncing ? 'در حال همگام‌سازی...' : 'همگام‌سازی'}</span>
+                  </button>
                 </div>
               </div>
 
-              {examHubSection === 'lessons' ? (
+              {/* SECTION 1: آزمون‌های کلی */}
+              {examHubSection === 'general' ? (
                 <div className="space-y-4">
-                  <div className="flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-[var(--hairline)] bg-[var(--surface)] p-5">
-                    <div>
-                      <h2 className="text-base font-extrabold text-[var(--ink)]">مطالعه درس به درس تمام آزمون‌ها</h2>
-                      <p className="mt-1 text-xs text-[var(--ink-muted)]">
-                        سوالات مربوط به هر درس از تمامی آزمون‌های بارگذاری‌شده یکجا دسته‌بندی شده‌اند تا درس به درس مطالعه یا آزمون بدهید.
-                      </p>
-                    </div>
-                    <input
-                      type="text"
-                      value={lessonSearch}
-                      onChange={(e) => setLessonSearch(e.target.value)}
-                      placeholder="جستجوی نام درس یا مبحث..."
-                      className="w-full sm:w-64 rounded-xl border border-[var(--hairline-strong)] bg-[var(--surface-muted)] px-3.5 py-2 text-xs text-[var(--ink)] outline-none focus:border-teal-600"
-                    />
-                  </div>
-
-                  <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
-                    {lessonBankSummary
-                      .filter((ls) => {
-                        const q = lessonSearch.trim().toLowerCase();
-                        if (!q) return true;
-                        return (
-                          ls.name.toLowerCase().includes(q) ||
-                          Array.from(ls.chapters).some((c) => c.toLowerCase().includes(q)) ||
-                          ls.exams.some((e) => e.examTitle.toLowerCase().includes(q))
-                        );
-                      })
-                      .map((ls) => (
-                        <div
-                          key={ls.name}
-                          className="flex flex-col justify-between rounded-2xl border border-[var(--hairline)] bg-[var(--surface)] p-5"
+                  <div className="flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-[var(--hairline)] bg-[var(--surface)] p-4">
+                    <div className="flex flex-wrap items-center gap-1.5">
+                      <button
+                        type="button"
+                        onClick={() => setSelectedExamCat('all')}
+                        className={`rounded-lg px-3 py-1.5 text-xs font-bold transition-colors ${
+                          selectedExamCat === 'all'
+                            ? 'bg-[var(--ink)] text-[var(--surface)]'
+                            : 'bg-[var(--surface-muted)] text-[var(--ink-muted)] hover:text-[var(--ink)]'
+                        }`}
+                      >
+                        همه ({toFa(generalExams.length)})
+                      </button>
+                      {generalCategories.map((cat) => (
+                        <button
+                          key={cat.name}
+                          type="button"
+                          onClick={() => setSelectedExamCat(cat.name)}
+                          className={`rounded-lg px-3 py-1.5 text-xs font-bold transition-colors ${
+                            selectedExamCat === cat.name
+                              ? 'bg-[var(--ink)] text-[var(--surface)]'
+                              : 'bg-[var(--surface-muted)] text-[var(--ink-muted)] hover:text-[var(--ink)]'
+                          }`}
                         >
-                          <div>
-                            <div className="flex items-center justify-between gap-2">
-                              <h3 className="text-base font-extrabold text-[var(--ink)]">{ls.name}</h3>
-                              <span className="rounded-lg bg-teal-700/10 px-2.5 py-1 text-xs font-extrabold text-teal-800 dark:text-teal-300 tabular-nums">
-                                {toFa(ls.totalQ)} سوال · {toFa(ls.exams.length)} آزمون
-                              </span>
-                            </div>
-
-                            <div className="mt-3 border-t border-[var(--hairline)] pt-3">
-                              <p className="text-[11px] font-bold text-[var(--ink-muted)] mb-1.5">
-                                آزمون‌های شامل این درس (کلیک برای مطالعه تک‌آزمون):
-                              </p>
-                              <div className="flex flex-wrap gap-1.5">
-                                {ls.exams.map((exRef) => {
-                                  const locked = Boolean(exRef.isPremium && !hasVipAccess);
-                                  return (
-                                    <button
-                                      key={`${ls.name}_${exRef.examId}`}
-                                      type="button"
-                                      onClick={() => startLessonPractice(ls.name, 'study', exRef.examId)}
-                                      className={`inline-flex items-center gap-1 rounded-lg border px-2.5 py-1 text-[11px] font-bold transition-colors ${
-                                        locked
-                                          ? 'border-amber-500/40 bg-amber-500/10 text-amber-800 dark:text-amber-300'
-                                          : 'border-[var(--hairline)] bg-[var(--surface-muted)] text-[var(--ink)] hover:border-teal-600/50'
-                                      }`}
-                                    >
-                                      {locked && <Lock className="h-3 w-3 shrink-0" />}
-                                      <span>{exRef.examTitle} ({toFa(exRef.qCount)})</span>
-                                    </button>
-                                  );
-                                })}
-                              </div>
-                            </div>
-                          </div>
-
-                          <div className="mt-5 flex flex-wrap gap-2">
-                            <button
-                              type="button"
-                              onClick={() => startLessonPractice(ls.name, 'study')}
-                              className="flex-1 rounded-xl bg-teal-700 py-2.5 px-3 text-xs font-bold text-white hover:bg-teal-800 dark:bg-teal-500 dark:text-slate-950"
-                            >
-                              مشاهده سوالات و پاسخ ({toFa(ls.totalQ)})
-                            </button>
-                            <button
-                              type="button"
-                              onClick={() => startLessonPractice(ls.name, 'exam')}
-                              className="rounded-xl border border-[var(--hairline-strong)] bg-[var(--surface-muted)] py-2.5 px-3.5 text-xs font-bold text-[var(--ink)] hover:border-teal-600/50"
-                            >
-                              آزمون زمان‌دار
-                            </button>
-                          </div>
-                        </div>
+                          {cat.name} ({toFa(cat.count)})
+                        </button>
                       ))}
-                  </div>
-                </div>
-              ) : (
-                <>
-                  {/* Exam Categories Folder Navigation & Multi-Axis Filters */}
-                  <div className="rounded-2xl border border-[var(--hairline)] bg-[var(--surface)] p-5 space-y-4">
-                    <div className="flex flex-wrap items-center justify-between gap-3">
-                      <div className="flex items-center gap-2">
-                        {selectedExamCat !== 'all' && (
-                          <button
-                            type="button"
-                            onClick={() => {
-                              setSelectedExamCat('all');
-                              setSelectedExamYear('all');
-                              setSelectedExamType('all');
-                              setSelectedExamChapter('all');
-                            }}
-                            className="inline-flex items-center gap-1 rounded-xl border border-[var(--hairline)] bg-[var(--surface-muted)] px-3 py-1.5 text-xs font-bold text-[var(--ink)] hover:border-teal-600/40"
-                          >
-                            <ArrowRight className="h-3.5 w-3.5" />
-                            <span>همه دسته‌های آزمون</span>
-                          </button>
-                        )}
-                        <h2 className="text-base font-extrabold text-[var(--ink)]">
-                          {selectedExamCat === 'all' ? 'دسته‌بندی آزمون‌های حقوقی' : selectedExamCat}
-                        </h2>
-                      </div>
+                    </div>
 
+                    <div className="relative w-full sm:w-64">
+                      <Search className="pointer-events-none absolute right-3 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-[var(--ink-muted)]" />
                       <input
                         type="text"
                         value={examSearch}
                         onChange={(e) => setExamSearch(e.target.value)}
-                        placeholder="جستجوی نام آزمون، درس یا سال..."
-                        className="w-full sm:w-64 rounded-xl border border-[var(--hairline-strong)] bg-[var(--surface-muted)] px-3.5 py-2 text-xs text-[var(--ink)] outline-none focus:border-teal-600"
+                        placeholder="جستجوی نام آزمون یا سال..."
+                        className="w-full rounded-xl border border-[var(--hairline-strong)] bg-[var(--surface-muted)] py-2 pr-8 pl-3 text-xs text-[var(--ink)] outline-none focus:border-teal-600"
                       />
                     </div>
-
-                    {/* Top-Level Folders when browsing 'all' */}
-                    {selectedExamCat === 'all' && examCategoriesSummary.length > 0 && !examSearch.trim() && (
-                      <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3 pt-1">
-                        {examCategoriesSummary.map((cat) => (
-                          <button
-                            key={cat.name}
-                            type="button"
-                            onClick={() => {
-                              setSelectedExamCat(cat.name);
-                              setSelectedExamYear('all');
-                              setSelectedExamType('all');
-                              setSelectedExamChapter('all');
-                            }}
-                            className="flex items-start justify-between gap-3 rounded-xl border border-[var(--hairline)] bg-[var(--surface-muted)]/60 p-4 text-right hover:border-teal-600/50 transition-colors"
-                          >
-                            <div>
-                              <div className="flex items-center gap-2 text-sm font-extrabold text-[var(--ink)]">
-                                <FolderOpen className="h-4 w-4 text-teal-700 dark:text-teal-400 shrink-0" />
-                                <span>{cat.name}</span>
-                              </div>
-                              <p className="mt-1.5 text-xs text-[var(--ink-muted)] tabular-nums">
-                                {toFa(cat.examCount)} آزمون · {toFa(cat.qCount)} پرسش
-                              </p>
-                              <p className="mt-1 text-[11px] text-teal-700 dark:text-teal-400">
-                                {cat.years.size > 0
-                                  ? `تفکیک بر اساس سال (${toFa(cat.years.size)} دوره)`
-                                  : cat.chapters.size > 0
-                                    ? `تفکیک بر اساس ${toFa(cat.chapters.size)} مبحث`
-                                    : 'مشاهده و شرکت در آزمون‌ها'}
-                              </p>
-                            </div>
-                          </button>
-                        ))}
-                      </div>
-                    )}
-
-                    {/* Drill-Down Filters inside Category or when Searching */}
-                    {(selectedExamCat !== 'all' || examSearch.trim() !== '') && (
-                      <div className="space-y-3 border-t border-[var(--hairline)] pt-3">
-                        {activeCategoryFacets.years.length > 0 && (
-                          <div className="flex flex-wrap items-center gap-1.5">
-                            <span className="text-xs font-bold text-[var(--ink-muted)] ml-1">سال:</span>
-                            <button
-                              type="button"
-                              onClick={() => setSelectedExamYear('all')}
-                              className={`rounded-lg px-2.5 py-1 text-xs font-bold ${
-                                selectedExamYear === 'all'
-                                  ? 'bg-teal-700 text-white dark:bg-teal-500 dark:text-slate-950'
-                                  : 'bg-[var(--surface-muted)] text-[var(--ink-muted)]'
-                              }`}
-                            >
-                              همه سال‌ها
-                            </button>
-                            {activeCategoryFacets.years.map((yr) => (
-                              <button
-                                key={yr}
-                                type="button"
-                                onClick={() => setSelectedExamYear(yr)}
-                                className={`rounded-lg px-2.5 py-1 text-xs font-bold tabular-nums ${
-                                  selectedExamYear === yr
-                                    ? 'bg-teal-700 text-white dark:bg-teal-500 dark:text-slate-950'
-                                    : 'bg-[var(--surface-muted)] text-[var(--ink-muted)]'
-                                }`}
-                              >
-                                {toFa(yr)}
-                              </button>
-                            ))}
-                          </div>
-                        )}
-
-                        {activeCategoryFacets.types.length > 0 && (
-                          <div className="flex flex-wrap items-center gap-1.5">
-                            <span className="text-xs font-bold text-[var(--ink-muted)] ml-1">نوع آزمون:</span>
-                            <button
-                              type="button"
-                              onClick={() => setSelectedExamType('all')}
-                              className={`rounded-lg px-2.5 py-1 text-xs font-bold ${
-                                selectedExamType === 'all'
-                                  ? 'bg-teal-700 text-white dark:bg-teal-500 dark:text-slate-950'
-                                  : 'bg-[var(--surface-muted)] text-[var(--ink-muted)]'
-                              }`}
-                            >
-                              همه
-                            </button>
-                            {activeCategoryFacets.types.map((tp) => (
-                              <button
-                                key={tp}
-                                type="button"
-                                onClick={() => setSelectedExamType(tp)}
-                                className={`rounded-lg px-2.5 py-1 text-xs font-bold ${
-                                  selectedExamType === tp
-                                    ? 'bg-teal-700 text-white dark:bg-teal-500 dark:text-slate-950'
-                                    : 'bg-[var(--surface-muted)] text-[var(--ink-muted)]'
-                                }`}
-                              >
-                                {tp}
-                              </button>
-                            ))}
-                          </div>
-                        )}
-
-                        {/* Topic / Chapter Direct Practice */}
-                        {activeCategoryFacets.chapters.length > 0 && (
-                          <div className="rounded-xl border border-[var(--hairline)] bg-[var(--surface-muted)]/50 p-3.5">
-                            <p className="text-xs font-extrabold text-[var(--ink)] mb-2">
-                              آزمون {activeCategoryFacets.topicKind === 'chapter' ? 'مبحثی و فصلی' : 'بر اساس بخش / درس'} (انتخاب مستقیم برای مطالعه و یادداشت):
-                            </p>
-                            <div className="flex flex-wrap gap-2">
-                              {activeCategoryFacets.chapters.map((ch) => (
-                                <button
-                                  key={ch.name}
-                                  type="button"
-                                  onClick={() => startChapterPractice(ch.name, activeCategoryFacets.topicKind, 'study')}
-                                  className="inline-flex items-center gap-1.5 rounded-xl border border-teal-700/25 bg-[var(--surface)] px-3 py-1.5 text-xs font-bold text-teal-800 hover:border-teal-600 dark:text-teal-300"
-                                >
-                                  <span>{ch.name}</span>
-                                  <span className="text-[11px] text-[var(--ink-muted)] tabular-nums">
-                                    ({toFa(ch.count)} تست)
-                                  </span>
-                                </button>
-                              ))}
-                            </div>
-                          </div>
-                        )}
-                      </div>
-                    )}
                   </div>
 
-                  {/* Filtered Exams Grid */}
-                  <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
-                    {categoryScopedExams.length === 0 ? (
-                      <div className="md:col-span-2 rounded-2xl border border-dashed border-[var(--hairline-strong)] bg-[var(--surface)] p-10 text-center text-sm text-[var(--ink-muted)]">
-                        آزمونی مطابق فیلتر انتخاب‌شده یافت نشد.
-                      </div>
-                    ) : (
-                      categoryScopedExams.map((ex) => {
-                        const qCount = ex.subjects.reduce((s, sub) => s + sub.questions.length, 0);
+                  {filteredGeneralExams.length === 0 ? (
+                    <div className="rounded-2xl border border-dashed border-[var(--hairline-strong)] bg-[var(--surface)] p-10 text-center text-sm text-[var(--ink-muted)]">
+                      آزمونی در این بخش یافت نشد.
+                    </div>
+                  ) : (
+                    <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
+                      {filteredGeneralExams.map((ex) => {
+                        const allQs = ex.subjects.flatMap((s) => s.questions);
+                        const qCount = allQs.length;
                         const autoMin = calcExamDurationMin(qCount);
+                        const practicedCount = allQs.filter((q) => Boolean(examPrepHistory[q.id])).length;
                         const isLocked = Boolean(ex.isPremium && !hasVipAccess);
-                        const headings = Array.from(
-                          new Set([
-                            ...ex.subjects.map((sb) => sb.name).filter(Boolean),
-                            ...ex.subjects.flatMap((sb) => sb.questions.map((q) => q.chapter || '')).filter(Boolean),
-                          ])
-                        );
+
                         return (
                           <div
                             key={ex.id}
@@ -2872,112 +2608,346 @@ export const StudentsHubPage: React.FC = () => {
                           >
                             <div>
                               <div className="flex flex-wrap items-center justify-between gap-2">
-                                <div className="flex flex-wrap items-center gap-2">
-                                  <h3 className="text-base font-extrabold text-[var(--ink)]">{ex.title}</h3>
+                                <h3 className="text-base font-extrabold text-[var(--ink)]">{ex.title}</h3>
+                                <div className="flex items-center gap-1.5">
                                   {ex.isPremium ? (
                                     <span className="inline-flex items-center gap-1 rounded-md border border-amber-500/40 bg-amber-500/15 px-2 py-0.5 text-[10.5px] font-extrabold text-amber-800 dark:text-amber-300">
                                       {isLocked ? <Lock className="h-3 w-3" /> : <Crown className="h-3 w-3" />}
-                                      <span>ویژه اشتراک</span>
+                                      <span>ویژه</span>
                                     </span>
                                   ) : (
                                     <span className="rounded-md border border-emerald-500/30 bg-emerald-500/10 px-2 py-0.5 text-[10.5px] font-bold text-emerald-700 dark:text-emerald-300">
                                       رایگان
                                     </span>
                                   )}
+                                  {isAdmin && ex.isPublished === false && (
+                                    <span className="rounded-md bg-amber-500/15 px-2 py-0.5 text-[10.5px] font-bold text-amber-700 dark:text-amber-300">
+                                      مخفی
+                                    </span>
+                                  )}
                                 </div>
-                                {isAdmin && ex.isPublished === false && (
-                                  <span className="text-[11px] font-bold text-amber-600 dark:text-amber-400">
-                                    (مخفی برای کاربران)
-                                  </span>
-                                )}
                               </div>
-                              {ex.desc && <p className="mt-1 text-xs leading-6 text-[var(--ink-muted)]">{ex.desc}</p>}
-                              <div className="mt-3 flex flex-wrap gap-x-3 gap-y-1 text-xs text-[var(--ink-muted)] tabular-nums">
-                                {ex.category && <span>{ex.category}</span>}
-                                {ex.examType && <span>· {ex.examType}</span>}
-                                {ex.year && <span>· سال {toFa(ex.year)}</span>}
-                                <span>· {toFa(qCount)} پرسش</span>
-                                <span>· {toFa(autoMin)} دقیقه (۲ دقیقه/سوال)</span>
-                              </div>
-                              {headings.length > 0 && (
-                                <div className="mt-3 border-t border-[var(--hairline)] pt-2.5">
-                                  <p className="text-[11px] font-bold text-[var(--ink-muted)] mb-1.5">
-                                    درس‌ها به ترتیب در این آزمون (کلیک برای پرش مستقیم):
-                                  </p>
-                                  <div className="flex flex-wrap gap-1.5">
-                                    {ex.subjects.filter((sb) => sb.questions.length > 0).map((sb) => (
-                                      <button
-                                        key={sb.id}
-                                        type="button"
-                                        onClick={() => startExam(ex, 'study', sb.id)}
-                                        className="rounded-lg border border-[var(--hairline)] bg-[var(--surface-muted)] px-2.5 py-1 text-[11px] font-bold text-[var(--ink)] hover:border-teal-600/50"
-                                      >
-                                        {sb.name} ({toFa(sb.questions.length)})
-                                      </button>
-                                    ))}
-                                  </div>
-                                </div>
+
+                              <p className="mt-2 text-xs text-[var(--ink-muted)] tabular-nums">
+                                {[
+                                  ex.category,
+                                  ex.year ? `سال ${toFa(ex.year)}` : '',
+                                  `${toFa(qCount)} سوال`,
+                                  `${toFa(autoMin)} دقیقه`,
+                                ]
+                                  .filter(Boolean)
+                                  .join(' · ')}
+                              </p>
+
+                              {practicedCount > 0 && (
+                                <p className="mt-2 text-[11px] font-bold text-teal-700 dark:text-teal-400 tabular-nums">
+                                  سابقه تمرین شما: {toFa(practicedCount)} از {toFa(qCount)} سوال
+                                </p>
                               )}
                             </div>
-                            <div className="mt-5 flex flex-wrap gap-2">
+
+                            <div className="mt-5 grid grid-cols-2 gap-2">
                               <button
                                 type="button"
-                                onClick={() => startExam(ex, 'study')}
-                                className={`flex-1 inline-flex items-center justify-center gap-1.5 rounded-xl py-2.5 px-3 text-xs font-bold transition-colors ${
+                                onClick={() => startExam(ex, 'timed')}
+                                className={`inline-flex items-center justify-center gap-1.5 rounded-xl py-2.5 px-3 text-xs font-bold transition-colors ${
                                   isLocked
                                     ? 'bg-amber-600 text-white hover:bg-amber-700'
                                     : 'bg-teal-700 text-white hover:bg-teal-800 dark:bg-teal-500 dark:text-slate-950'
                                 }`}
                               >
-                                {isLocked && <Lock className="h-3.5 w-3.5" />}
-                                <span>{isLocked ? 'مخصوص اعضای ویژه' : 'شبه‌آزمون / مشاهده و پاسخ'}</span>
+                                {isLocked ? <Lock className="h-3.5 w-3.5" /> : <Clock className="h-3.5 w-3.5" />}
+                                <span>آزمون زمان‌دار</span>
                               </button>
                               <button
                                 type="button"
-                                onClick={() => startExam(ex, 'exam')}
-                                className="rounded-xl border border-[var(--hairline-strong)] bg-[var(--surface-muted)] py-2.5 px-3.5 text-xs font-bold text-[var(--ink)] hover:border-teal-600/50"
+                                onClick={() => startExam(ex, 'prep')}
+                                className="inline-flex items-center justify-center gap-1.5 rounded-xl border border-[var(--hairline-strong)] bg-[var(--surface-muted)] py-2.5 px-3 text-xs font-bold text-[var(--ink)] hover:border-teal-600/50"
                               >
-                                آزمون زمان‌دار ({toFa(autoMin)} د)
+                                <BookOpen className="h-3.5 w-3.5 text-teal-700 dark:text-teal-400" />
+                                <span>حالت آمادگی</span>
                               </button>
                             </div>
                           </div>
                         );
-                      })
-                    )}
-                  </div>
-                </>
-              )}
-
-              {/* Student Attempt History (Read-Only / Inspect Only — Delete is Strictly Admin-Only) */}
-              {myExamHistory.length > 0 && (
-                <div className="rounded-2xl border border-[var(--hairline)] bg-[var(--surface)] p-5">
-                  <div className="flex flex-wrap items-center justify-between gap-2 mb-3">
-                    <h3 className="text-sm font-extrabold text-[var(--ink)]">
-                      سوابق آزمون‌های شما ({toFa(myExamHistory.length)} کارنامه ثبت‌شده)
-                    </h3>
-                    <span className="text-[11px] text-[var(--ink-muted)]">
-                      نتایج آزمون ثبت‌شده دائمی هستند و صرفاً توسط مدیر قابل حذف می‌باشند.
-                    </span>
-                  </div>
-                  <div className="divide-y divide-[var(--hairline)]">
-                    {myExamHistory.map((h) => (
-                      <div key={h.id} className="flex flex-wrap items-center justify-between gap-3 py-3 text-xs">
+                      })}
+                    </div>
+                  )}
+                </div>
+              ) : (
+                /* SECTION 2: آزمون‌های درس‌به‌درس (فقط سوالات و سرفصل‌های مستقیم زیر هر درس) */
+                <div className="space-y-4">
+                  {activeSubjectFolder ? (
+                    <>
+                      <div className="flex flex-wrap items-center justify-between gap-4 rounded-2xl border border-[var(--hairline)] bg-[var(--surface)] p-5">
                         <div>
-                          <p className="font-bold text-[var(--ink)]">{h.examTitle}</p>
-                          <p className="mt-0.5 text-[11px] text-[var(--ink-muted)] tabular-nums">
-                            نمره: {toFa(h.scorePct)}٪ · صحیح: {toFa(h.correctCount)} · غلط: {toFa(h.wrongCount)} ·{' '}
-                            {new Date(h.submittedAt).toLocaleDateString('fa-IR')}
+                          <button
+                            type="button"
+                            onClick={() => setSelectedSubjectGroup(null)}
+                            className="inline-flex items-center gap-1 text-xs font-bold text-teal-700 hover:underline dark:text-teal-400"
+                          >
+                            <ArrowRight className="h-3.5 w-3.5" />
+                            <span>بازگشت به فهرست دروس</span>
+                          </button>
+                          <h2 className="mt-1.5 text-lg font-extrabold text-[var(--ink)]">{activeSubjectFolder.name}</h2>
+                          <p className="mt-0.5 text-xs text-[var(--ink-muted)] tabular-nums">
+                            {toFa(activeSubjectFolder.chapters.length)} سرفصل · {toFa(activeSubjectFolder.totalQ)} سوال
+                            {activeSubjectFolder.practicedQ > 0
+                              ? ` · ${toFa(activeSubjectFolder.practicedQ)} سوال قبلاً تمرین شده`
+                              : ''}
                           </p>
                         </div>
-                        <button
-                          type="button"
-                          onClick={() => setInspectedAttempt(h)}
-                          className="rounded-xl border border-teal-700/30 bg-teal-700/10 px-3.5 py-1.5 text-xs font-bold text-teal-800 hover:bg-teal-700/20 dark:text-teal-300"
-                        >
-                          مشاهده درست/غلط‌ها و نکات من
-                        </button>
+
+                        {activeSubjectFolder.totalQ > 0 && (
+                          <div className="flex flex-wrap items-center gap-2">
+                            <button
+                              type="button"
+                              onClick={() => startWholeSubjectFolder(activeSubjectFolder, 'timed')}
+                              className="inline-flex items-center gap-1.5 rounded-xl bg-teal-700 px-3.5 py-2 text-xs font-bold text-white hover:bg-teal-800 dark:bg-teal-500 dark:text-slate-950"
+                            >
+                              <Clock className="h-3.5 w-3.5" />
+                              <span>آزمون زمان‌دار کل درس</span>
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => startWholeSubjectFolder(activeSubjectFolder, 'prep')}
+                              className="inline-flex items-center gap-1.5 rounded-xl border border-[var(--hairline-strong)] bg-[var(--surface-muted)] px-3.5 py-2 text-xs font-bold text-[var(--ink)] hover:border-teal-600/50"
+                            >
+                              <BookOpen className="h-3.5 w-3.5 text-teal-700 dark:text-teal-400" />
+                              <span>آمادگی کل درس</span>
+                            </button>
+                          </div>
+                        )}
                       </div>
-                    ))}
+
+                      {activeSubjectFolder.chapters.length === 0 ? (
+                        <div className="rounded-2xl border border-dashed border-[var(--hairline-strong)] bg-[var(--surface)] p-10 text-center text-sm text-[var(--ink-muted)]">
+                          هنوز فایل سوالی برای درس «{activeSubjectFolder.name}» بارگذاری نشده است.
+                        </div>
+                      ) : (
+                        <div className="grid grid-cols-1 gap-3.5 md:grid-cols-2">
+                          {activeSubjectFolder.chapters.map((ch) => {
+                            const autoMin = calcExamDurationMin(ch.questions.length);
+                            const isLocked = Boolean(ch.isPremium && !hasVipAccess);
+                            return (
+                              <div
+                                key={ch.key}
+                                className={`flex flex-col justify-between rounded-2xl border p-4 transition-colors ${
+                                  ch.isPremium
+                                    ? 'border-amber-500/35 bg-[var(--surface)]'
+                                    : 'border-[var(--hairline)] bg-[var(--surface)]'
+                                }`}
+                              >
+                                <div>
+                                  <div className="flex flex-wrap items-center justify-between gap-2">
+                                    <h3 className="text-sm font-extrabold text-[var(--ink)]">{ch.chapterTitle}</h3>
+                                    <div className="flex items-center gap-1.5">
+                                      {ch.isPremium ? (
+                                        <span className="inline-flex items-center gap-1 rounded-md border border-amber-500/40 bg-amber-500/15 px-2 py-0.5 text-[10.5px] font-extrabold text-amber-800 dark:text-amber-300">
+                                          {isLocked ? <Lock className="h-3 w-3" /> : <Crown className="h-3 w-3" />}
+                                          <span>ویژه</span>
+                                        </span>
+                                      ) : (
+                                        <span className="rounded-md border border-emerald-500/30 bg-emerald-500/10 px-2 py-0.5 text-[10.5px] font-bold text-emerald-700 dark:text-emerald-300">
+                                          رایگان
+                                        </span>
+                                      )}
+                                      {isAdmin && !ch.isPublished && (
+                                        <span className="rounded-md bg-amber-500/15 px-2 py-0.5 text-[10.5px] font-bold text-amber-700 dark:text-amber-300">
+                                          مخفی
+                                        </span>
+                                      )}
+                                    </div>
+                                  </div>
+                                  <p className="mt-1.5 text-xs text-[var(--ink-muted)] tabular-nums">
+                                    {toFa(ch.questions.length)} سوال · {toFa(autoMin)} دقیقه
+                                    {ch.examTitle !== ch.chapterTitle ? ` · ${ch.examTitle}` : ''}
+                                  </p>
+                                  {ch.practicedCount > 0 && (
+                                    <p className="mt-1.5 text-[11px] font-bold text-teal-700 dark:text-teal-400 tabular-nums">
+                                      تمرین‌شده: {toFa(ch.practicedCount)} از {toFa(ch.questions.length)} سوال
+                                    </p>
+                                  )}
+                                </div>
+
+                                <div className="mt-4 grid grid-cols-2 gap-2">
+                                  <button
+                                    type="button"
+                                    onClick={() => startSubjectChapter(activeSubjectFolder.name, ch, 'timed')}
+                                    className={`inline-flex items-center justify-center gap-1.5 rounded-xl py-2 px-3 text-xs font-bold transition-colors ${
+                                      isLocked
+                                        ? 'bg-amber-600 text-white hover:bg-amber-700'
+                                        : 'bg-teal-700 text-white hover:bg-teal-800 dark:bg-teal-500 dark:text-slate-950'
+                                    }`}
+                                  >
+                                    {isLocked ? <Lock className="h-3.5 w-3.5" /> : <Clock className="h-3.5 w-3.5" />}
+                                    <span>آزمون زمان‌دار</span>
+                                  </button>
+                                  <button
+                                    type="button"
+                                    onClick={() => startSubjectChapter(activeSubjectFolder.name, ch, 'prep')}
+                                    className="inline-flex items-center justify-center gap-1.5 rounded-xl border border-[var(--hairline-strong)] bg-[var(--surface-muted)] py-2 px-3 text-xs font-bold text-[var(--ink)] hover:border-teal-600/50"
+                                  >
+                                    <BookOpen className="h-3.5 w-3.5 text-teal-700 dark:text-teal-400" />
+                                    <span>حالت آمادگی</span>
+                                  </button>
+                                </div>
+                              </div>
+                            );
+                          })}
+                        </div>
+                      )}
+                    </>
+                  ) : (
+                    <>
+                      <div className="flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-[var(--hairline)] bg-[var(--surface)] p-4">
+                        <div>
+                          <h2 className="text-sm sm:text-base font-extrabold text-[var(--ink)]">آزمون‌های درس‌به‌درس</h2>
+                          <p className="mt-0.5 text-xs text-[var(--ink-muted)]">
+                            هر درس را انتخاب کنید تا سرفصل‌ها و آزمون‌های اختصاصی آن نمایش داده شود.
+                          </p>
+                        </div>
+                        <div className="relative w-full sm:w-64">
+                          <Search className="pointer-events-none absolute right-3 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-[var(--ink-muted)]" />
+                          <input
+                            type="text"
+                            value={subjectSearch}
+                            onChange={(e) => setSubjectSearch(e.target.value)}
+                            placeholder="جستجوی نام درس یا سرفصل..."
+                            className="w-full rounded-xl border border-[var(--hairline-strong)] bg-[var(--surface-muted)] py-2 pr-8 pl-3 text-xs text-[var(--ink)] outline-none focus:border-teal-600"
+                          />
+                        </div>
+                      </div>
+
+                      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
+                        {subjectFoldersSummary
+                          .filter((f) => {
+                            const q = subjectSearch.trim().toLowerCase();
+                            if (!q) return true;
+                            return (
+                              f.name.toLowerCase().includes(q) ||
+                              (f.desc || '').toLowerCase().includes(q) ||
+                              f.chapters.some((c) => c.chapterTitle.toLowerCase().includes(q))
+                            );
+                          })
+                          .map((folder) => {
+                            const pct = folder.totalQ > 0 ? Math.round((folder.practicedQ / folder.totalQ) * 100) : 0;
+                            return (
+                              <button
+                                key={folder.id}
+                                type="button"
+                                onClick={() => setSelectedSubjectGroup(folder.name)}
+                                className="flex flex-col justify-between rounded-2xl border border-[var(--hairline)] bg-[var(--surface)] p-5 text-right hover:border-teal-600/50 transition-colors"
+                              >
+                                <div>
+                                  <div className="flex items-center justify-between gap-2">
+                                    <span className="inline-flex h-9 w-9 items-center justify-center rounded-xl bg-teal-700/10 text-teal-700 dark:text-teal-400">
+                                      <GraduationCap className="h-5 w-5" />
+                                    </span>
+                                    <span className="rounded-lg bg-[var(--surface-muted)] px-2.5 py-1 text-[11px] font-bold text-[var(--ink-muted)] tabular-nums">
+                                      {toFa(folder.chapters.length)} سرفصل · {toFa(folder.totalQ)} سوال
+                                    </span>
+                                  </div>
+                                  <h3 className="mt-3 text-base font-extrabold text-[var(--ink)]">{folder.name}</h3>
+                                  {folder.desc && (
+                                    <p className="mt-1 text-xs leading-5 text-[var(--ink-muted)] line-clamp-2">
+                                      {folder.desc}
+                                    </p>
+                                  )}
+                                </div>
+
+                                <div className="mt-4 pt-3 border-t border-[var(--hairline)]">
+                                  <div className="flex items-center justify-between text-[11px] font-bold text-[var(--ink-muted)] tabular-nums">
+                                    <span>{folder.totalQ > 0 ? `تمرین‌شده: ${toFa(folder.practicedQ)} از ${toFa(folder.totalQ)}` : 'در انتظار بارگذاری سرفصل'}</span>
+                                    {folder.totalQ > 0 && <span className="text-teal-700 dark:text-teal-400">{toFa(pct)}٪</span>}
+                                  </div>
+                                  {folder.totalQ > 0 && (
+                                    <div className="mt-1.5 h-1.5 w-full overflow-hidden rounded-full bg-[var(--surface-muted)]">
+                                      <div
+                                        className="h-full rounded-full bg-teal-600 transition-all"
+                                        style={{ width: `${pct}%` }}
+                                      />
+                                    </div>
+                                  )}
+                                </div>
+                              </button>
+                            );
+                          })}
+                      </div>
+                    </>
+                  )}
+                </div>
+              )}
+
+              {/* Student Attempt & Prep Report History */}
+              {myExamHistory.length > 0 && (
+                <div className="rounded-2xl border border-[var(--hairline)] bg-[var(--surface)] p-5">
+                  <div className="flex flex-wrap items-center justify-between gap-3 mb-3">
+                    <div>
+                      <h3 className="text-sm font-extrabold text-[var(--ink)]">
+                        کارنامه‌ها و گزارش‌های من ({toFa(myExamHistory.length)})
+                      </h3>
+                      <p className="text-[11px] text-[var(--ink-muted)]">
+                        نتایج آزمون‌های زمان‌دار و گزارش‌های حالت آمادگی شما
+                      </p>
+                    </div>
+                    <div className="flex flex-wrap items-center gap-1.5">
+                      {[
+                        { id: 'all' as const, label: 'همه' },
+                        { id: 'timed' as const, label: 'زمان‌دار' },
+                        { id: 'prep' as const, label: 'حالت آمادگی' },
+                      ].map((f) => (
+                        <button
+                          key={f.id}
+                          type="button"
+                          onClick={() => setHistoryModeFilter(f.id)}
+                          className={`rounded-lg px-2.5 py-1 text-[11px] font-bold transition-colors ${
+                            historyModeFilter === f.id
+                              ? 'bg-teal-700 text-white dark:bg-teal-500 dark:text-slate-950'
+                              : 'bg-[var(--surface-muted)] text-[var(--ink-muted)] hover:text-[var(--ink)]'
+                          }`}
+                        >
+                          {f.label}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                  <div className="divide-y divide-[var(--hairline)]">
+                    {filteredMyHistory.length === 0 ? (
+                      <p className="py-4 text-center text-xs text-[var(--ink-muted)]">
+                        موردی در این فیلتر ثبت نشده است.
+                      </p>
+                    ) : (
+                      filteredMyHistory.map((h) => (
+                        <div key={h.id} className="flex flex-wrap items-center justify-between gap-3 py-3 text-xs">
+                          <div>
+                            <div className="flex flex-wrap items-center gap-2">
+                              <span
+                                className={`rounded-md px-2 py-0.5 text-[10.5px] font-extrabold ${
+                                  h.mode === 'prep'
+                                    ? 'bg-teal-700/15 text-teal-800 dark:text-teal-300'
+                                    : 'bg-amber-500/15 text-amber-800 dark:text-amber-300'
+                                }`}
+                              >
+                                {h.mode === 'prep' ? 'حالت آمادگی' : 'زمان‌دار'}
+                              </span>
+                              <span className="font-bold text-[var(--ink)]">{h.examTitle}</span>
+                            </div>
+                            <p className="mt-1 text-[11px] text-[var(--ink-muted)] tabular-nums">
+                              درصد: {toFa(h.scorePct)}٪ · صحیح: {toFa(h.correctCount)} · غلط: {toFa(h.wrongCount)} · نزده:{' '}
+                              {toFa(h.blankCount)} · {new Date(h.submittedAt).toLocaleDateString('fa-IR')}
+                            </p>
+                          </div>
+                          <button
+                            type="button"
+                            onClick={() => setInspectedAttempt(h)}
+                            className="rounded-xl border border-teal-700/30 bg-teal-700/10 px-3.5 py-1.5 text-xs font-bold text-teal-800 hover:bg-teal-700/20 dark:text-teal-300"
+                          >
+                            مشاهده پاسخ‌ها و نکات من
+                          </button>
+                        </div>
+                      ))
+                    )}
                   </div>
                 </div>
               )}
