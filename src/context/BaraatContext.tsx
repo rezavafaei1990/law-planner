@@ -1,4 +1,4 @@
-import React, { createContext, useContext, useState, useEffect, useCallback, useMemo } from 'react';
+import React, { createContext, useContext, useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import type { User } from '@supabase/supabase-js';
 import type {
   Law,
@@ -10,8 +10,10 @@ import type {
   AboutInfo,
   ContactInfo,
   LegalExam,
+  ExamSubjectFolder,
   ExamAttemptResult,
   ExamQuestionTagState,
+  ExamPrepRecord,
   QuestionReplyItem,
   PlannerState,
   StudySubject,
@@ -32,6 +34,7 @@ import {
   appendExamAttemptToServer,
   deleteExamAttemptFromServer,
   META_KEYS,
+  DEFAULT_EXAM_SUBJECTS,
   DEFAULT_VIP_SETTINGS,
 } from '../services/supabase';
 import { DEFAULT_DEADLINES, DEFAULT_CUSTOM_CALCS, DEFAULT_ABOUT, DEFAULT_CONTACT } from '../utils/legal';
@@ -75,6 +78,8 @@ interface BaraatContextValue {
   setContact: (val: ContactInfo) => Promise<void>;
   exams: LegalExam[];
   setExams: (list: LegalExam[]) => Promise<void>;
+  examSubjects: ExamSubjectFolder[];
+  setExamSubjects: (list: ExamSubjectFolder[]) => Promise<void>;
   examAttempts: ExamAttemptResult[];
   recordExamAttempt: (attempt: ExamAttemptResult) => Promise<void>;
   deleteExamAttempt: (attemptId: string) => Promise<void>;
@@ -82,11 +87,15 @@ interface BaraatContextValue {
   saveExamNote: (questionId: string, note: string) => Promise<void>;
   examTags: Record<string, ExamQuestionTagState>;
   saveExamTag: (questionId: string, tagState: ExamQuestionTagState | null) => Promise<void>;
+  examPrepHistory: Record<string, ExamPrepRecord>;
+  recordPrepAnswer: (questionId: string, choiceIdx: number, isCorrect: boolean) => Promise<void>;
   questions: Record<string, QuestionReplyItem>;
   setQuestions: (map: Record<string, QuestionReplyItem>) => Promise<void>;
   vipSettings: VipSettings;
   setVipSettings: (val: VipSettings) => Promise<void>;
-  refreshMeta: () => Promise<void>;
+  refreshMeta: (adminOverride?: boolean) => Promise<void>;
+  syncNow: (silent?: boolean) => Promise<void>;
+  syncing: boolean;
 
   user: User | null;
   isAdmin: boolean;
@@ -130,14 +139,39 @@ export const BaraatProvider: React.FC<{ children: React.ReactNode }> = ({ childr
   const [about, setAboutState] = useState<AboutInfo>(initialLocal.about || DEFAULT_ABOUT);
   const [contact, setContactState] = useState<ContactInfo>(initialLocal.contact || DEFAULT_CONTACT);
   const [exams, setExamsState] = useState<LegalExam[]>(initialLocal.exams);
+  const [examSubjects, setExamSubjectsState] = useState<ExamSubjectFolder[]>(
+    initialLocal.examSubjects?.length ? initialLocal.examSubjects : DEFAULT_EXAM_SUBJECTS
+  );
   const [examAttempts, setExamAttemptsState] = useState<ExamAttemptResult[]>(initialLocal.examAttempts);
   const [questions, setQuestionsState] = useState<Record<string, QuestionReplyItem>>(initialLocal.questions);
   const [vipSettings, setVipSettingsState] = useState<VipSettings>(initialLocal.vipSettings || DEFAULT_VIP_SETTINGS);
+  const [syncing, setSyncing] = useState(false);
 
   const [user, setUser] = useState<User | null>(null);
   const [isAdmin, setIsAdmin] = useState(false);
   const [authModalOpen, setAuthModalOpen] = useState(false);
   const [planner, setPlanner] = useState<PlannerState>(EMPTY_PLANNER);
+
+  const isAdminRef = useRef(false);
+  const userRef = useRef<User | null>(null);
+  const plannerRef = useRef<PlannerState>(EMPTY_PLANNER);
+  const examAttemptsRef = useRef<ExamAttemptResult[]>(initialLocal.examAttempts);
+  const saveQueueRef = useRef<Promise<unknown>>(Promise.resolve());
+  const lastSyncTsRef = useRef<number>(0);
+
+  useEffect(() => {
+    isAdminRef.current = isAdmin;
+  }, [isAdmin]);
+  useEffect(() => {
+    userRef.current = user;
+  }, [user]);
+  useEffect(() => {
+    plannerRef.current = planner;
+  }, [planner]);
+  useEffect(() => {
+    examAttemptsRef.current = examAttempts;
+  }, [examAttempts]);
+
   const [guestNotes, setGuestNotes] = useState<Record<string, string>>(() => {
     try {
       const raw = localStorage.getItem('baraat_exam_notes_v1_guest');
@@ -150,6 +184,14 @@ export const BaraatProvider: React.FC<{ children: React.ReactNode }> = ({ childr
     try {
       const raw = localStorage.getItem('baraat_exam_tags_v1_guest');
       return raw ? (JSON.parse(raw) as Record<string, ExamQuestionTagState>) : {};
+    } catch {
+      return {};
+    }
+  });
+  const [guestPrep, setGuestPrep] = useState<Record<string, ExamPrepRecord>>(() => {
+    try {
+      const raw = localStorage.getItem('baraat_exam_prep_v1_guest');
+      return raw ? (JSON.parse(raw) as Record<string, ExamPrepRecord>) : {};
     } catch {
       return {};
     }
@@ -225,7 +267,7 @@ export const BaraatProvider: React.FC<{ children: React.ReactNode }> = ({ childr
 
   const refreshMeta = useCallback(async (adminOverride?: boolean) => {
     try {
-      const effectiveAdmin = typeof adminOverride === 'boolean' ? adminOverride : isAdmin;
+      const effectiveAdmin = typeof adminOverride === 'boolean' ? adminOverride : isAdminRef.current;
       const meta = await fetchSiteMetaFromSupabase(effectiveAdmin);
       setJournalState(meta.articles);
       if (meta.deadlines.length) setDeadlinesState(meta.deadlines);
@@ -233,18 +275,41 @@ export const BaraatProvider: React.FC<{ children: React.ReactNode }> = ({ childr
       if (meta.about) setAboutState(meta.about);
       if (meta.contact) setContactState(meta.contact);
       setExamsState(meta.exams);
+      if (meta.examSubjects?.length) setExamSubjectsState(meta.examSubjects);
       setExamAttemptsState(meta.examAttempts);
+      examAttemptsRef.current = meta.examAttempts;
       setQuestionsState(meta.questions);
       if (meta.vipSettings) setVipSettingsState(meta.vipSettings);
     } catch {
       // offline fallback remains active
     }
-  }, [isAdmin]);
+  }, []);
+
+  const pullAndMergePlanner = useCallback(async (u: User) => {
+    const { state: loaded } = await loadUserPlanner(u.id, u.email);
+    const nextPlanner: PlannerState = loaded
+      ? {
+          ...EMPTY_PLANNER,
+          ...loaded,
+          subjects: loaded.subjects?.length ? loaded.subjects : EMPTY_PLANNER.subjects,
+          _userEmail: u.email || loaded._userEmail,
+        }
+      : { ...EMPTY_PLANNER, _userEmail: u.email };
+    plannerRef.current = nextPlanner;
+    setPlanner(nextPlanner);
+    // Guest notes/tags have been migrated into cloud planner; clear local guest mirrors in memory
+    setGuestNotes({});
+    setGuestTags({});
+    setGuestPrep({});
+  }, []);
 
   const syncAuthUser = useCallback(async (u: User | null) => {
+    userRef.current = u;
     setUser(u);
     if (!u) {
+      isAdminRef.current = false;
       setIsAdmin(false);
+      plannerRef.current = EMPTY_PLANNER;
       setPlanner(EMPTY_PLANNER);
       setExamsState((prev) => prev.filter((e) => e.isPublished !== false));
       try {
@@ -255,6 +320,7 @@ export const BaraatProvider: React.FC<{ children: React.ReactNode }> = ({ childr
       return;
     }
     const adm = await checkIsAdmin(u.id);
+    isAdminRef.current = adm;
     setIsAdmin(adm);
     if (adm) {
       refreshMeta(true);
@@ -266,48 +332,83 @@ export const BaraatProvider: React.FC<{ children: React.ReactNode }> = ({ childr
         // ignore
       }
     }
-    const loadedPlanner = await loadUserPlanner(u.id, u.email);
-    let userNotes: Record<string, string> = {};
-    let userTags: Record<string, ExamQuestionTagState> = {};
-    try {
-      const raw = localStorage.getItem(`baraat_exam_notes_v1_${u.id}`);
-      if (raw) userNotes = JSON.parse(raw) as Record<string, string>;
-    } catch {
-      // ignore
-    }
-    try {
-      const rawT = localStorage.getItem(`baraat_exam_tags_v1_${u.id}`);
-      if (rawT) userTags = JSON.parse(rawT) as Record<string, ExamQuestionTagState>;
-    } catch {
-      // ignore
-    }
-    if (loadedPlanner) {
-      setPlanner({
-        ...loadedPlanner,
-        examNotes: { ...userNotes, ...(loadedPlanner.examNotes || {}) },
-        examTags: { ...userTags, ...(loadedPlanner.examTags || {}) },
-      });
-    } else {
-      setPlanner({ ...EMPTY_PLANNER, _userEmail: u.email, examNotes: userNotes, examTags: userTags });
-    }
-  }, [refreshMeta]);
+    await pullAndMergePlanner(u);
+  }, [refreshMeta, pullAndMergePlanner]);
 
+  const syncNow = useCallback(async (silent = false) => {
+    if (typeof navigator !== 'undefined' && !navigator.onLine) {
+      if (!silent) showToast('اتصال اینترنت برقرار نیست — اطلاعات محلی فعال است.');
+      return;
+    }
+    lastSyncTsRef.current = Date.now();
+    if (!silent) setSyncing(true);
+    try {
+      const tasks: Promise<unknown>[] = [refreshMeta(isAdminRef.current)];
+      const curUser = userRef.current;
+      if (curUser) {
+        tasks.push(pullAndMergePlanner(curUser));
+      }
+      await Promise.all(tasks);
+      if (!silent) showToast('اطلاعات، نکات و آزمون‌ها همگام‌سازی شدند.');
+    } finally {
+      if (!silent) setSyncing(false);
+    }
+  }, [refreshMeta, pullAndMergePlanner, showToast]);
+
+  // Run ONCE on mount — never re-triggered by isAdmin or state flips!
   useEffect(() => {
-    reloadLawDb(false);
-    refreshMeta(false);
+    const pathname = typeof window !== 'undefined' ? window.location.pathname : '/';
+    const isLawRoute = pathname === '/' || pathname.startsWith('/laws') || pathname.startsWith('/decisions');
 
+    // Immediately load meta & session for instant interactivity
+    refreshMeta(false);
     supabase.auth.getSession().then(({ data }) => {
       syncAuthUser(data?.session?.user || null);
     });
 
-    const { data: sub } = supabase.auth.onAuthStateChange((_event, session) => {
+    // Load Law DB immediately on law routes; defer slightly on /exams or /admin so they boot instantaneously
+    let idleTimer: number | null = null;
+    if (isLawRoute) {
+      reloadLawDb(false);
+    } else {
+      idleTimer = window.setTimeout(() => {
+        reloadLawDb(false);
+      }, 220);
+    }
+
+    const { data: sub } = supabase.auth.onAuthStateChange((event, session) => {
+      if (event === 'INITIAL_SESSION') return;
       syncAuthUser(session?.user || null);
     });
 
-    return () => {
-      sub.subscription.unsubscribe();
+    // Cross-device foreground & network recovery sync (PWA <-> Web <-> Android App)
+    const triggerAutoSync = (force = false) => {
+      if (typeof document !== 'undefined' && document.visibilityState === 'hidden') return;
+      const now = Date.now();
+      if (!force && now - lastSyncTsRef.current < 12000) return;
+      syncNow(true);
     };
-  }, [reloadLawDb, refreshMeta, syncAuthUser]);
+    const onVisibility = () => {
+      if (document.visibilityState === 'visible') triggerAutoSync(false);
+    };
+    const onFocus = () => triggerAutoSync(false);
+    const onOnline = () => triggerAutoSync(true);
+    const onAppResume = () => triggerAutoSync(true);
+
+    document.addEventListener('visibilitychange', onVisibility);
+    window.addEventListener('focus', onFocus);
+    window.addEventListener('online', onOnline);
+    window.addEventListener('baraat-app-resume', onAppResume);
+
+    return () => {
+      if (idleTimer !== null) window.clearTimeout(idleTimer);
+      sub.subscription.unsubscribe();
+      document.removeEventListener('visibilitychange', onVisibility);
+      window.removeEventListener('focus', onFocus);
+      window.removeEventListener('online', onOnline);
+      window.removeEventListener('baraat-app-resume', onAppResume);
+    };
+  }, [reloadLawDb, refreshMeta, syncAuthUser, syncNow]);
 
   const setJournalArticles = useCallback(async (list: JournalArticle[]) => {
     setJournalState(list);
@@ -345,20 +446,28 @@ export const BaraatProvider: React.FC<{ children: React.ReactNode }> = ({ childr
     showToast(res.ok ? 'آزمون‌ها ذخیره شد (آزمون‌های مخفی فقط برای مدیر).' : `خطا در سرور: ${res.error}`);
   }, [showToast]);
 
+  const setExamSubjects = useCallback(async (list: ExamSubjectFolder[]) => {
+    setExamSubjectsState(list);
+    const res = await upsertMetaKey(META_KEYS.EXAM_SUBJECTS, list);
+    showToast(res.ok ? 'فهرست دروس درس‌به‌درس ذخیره شد.' : `خطا در سرور: ${res.error}`);
+  }, [showToast]);
+
   const recordExamAttempt = useCallback(async (attempt: ExamAttemptResult) => {
-    const res = await appendExamAttemptToServer(attempt, examAttempts);
+    const res = await appendExamAttemptToServer(attempt, examAttemptsRef.current);
+    examAttemptsRef.current = res.list;
     setExamAttemptsState(res.list);
-  }, [examAttempts]);
+  }, []);
 
   const deleteExamAttempt = useCallback(async (attemptId: string) => {
-    if (!isAdmin) {
+    if (!isAdminRef.current) {
       showToast('فقط مدیر سامانه مجاز به حذف نتایج آزمون است.');
       return;
     }
-    const res = await deleteExamAttemptFromServer(attemptId, examAttempts);
+    const res = await deleteExamAttemptFromServer(attemptId, examAttemptsRef.current);
+    examAttemptsRef.current = res.list;
     setExamAttemptsState(res.list);
     showToast(res.ok ? 'نتیجه آزمون توسط مدیر حذف شد (نکات دانشجویان محفوظ ماند).' : `خطا در حذف نتیجه: ${res.error}`);
-  }, [isAdmin, examAttempts, showToast]);
+  }, [showToast]);
 
   const setQuestions = useCallback(async (map: Record<string, QuestionReplyItem>) => {
     setQuestionsState(map);
@@ -389,81 +498,183 @@ export const BaraatProvider: React.FC<{ children: React.ReactNode }> = ({ childr
   const isVip = Boolean(vipInfo);
   const hasVipAccess = isAdmin || isVip;
 
+  const enqueuePlannerPersist = useCallback(
+    (u: User, nextState: PlannerState): Promise<{ ok: boolean; state: PlannerState; error?: string }> => {
+      const task = saveQueueRef.current.then(async () => {
+        // Always save the newest plannerRef snapshot so back-to-back updates never lose earlier edits
+        const latest = plannerRef.current;
+        const res = await saveUserPlanner(u.id, u.email, latest, { mergeRemoteFirst: true });
+        if (res.ok) {
+          plannerRef.current = res.state;
+          setPlanner(res.state);
+        }
+        return res;
+      });
+      saveQueueRef.current = task.catch(() => ({ ok: false, state: nextState }));
+      return task;
+    },
+    []
+  );
+
   const updatePlanner = useCallback(async (next: PlannerState) => {
+    plannerRef.current = next;
     setPlanner(next);
-    if (user) {
-      await saveUserPlanner(user.id, user.email, next);
+    const curUser = userRef.current;
+    if (curUser) {
+      await enqueuePlannerPersist(curUser, next);
     }
-  }, [user]);
+  }, [enqueuePlannerPersist]);
 
   const examNotes = user ? (planner.examNotes || {}) : guestNotes;
   const examTags = user ? (planner.examTags || {}) : guestTags;
+  const examPrepHistory = user ? (planner.examPrepHistory || {}) : guestPrep;
 
   const saveExamNote = useCallback(async (questionId: string, note: string) => {
     const trimmed = note;
-    if (user) {
-      const nextNotes = { ...(planner.examNotes || {}) };
-      if (trimmed.trim()) nextNotes[questionId] = trimmed;
-      else delete nextNotes[questionId];
-      try {
-        localStorage.setItem(`baraat_exam_notes_v1_${user.id}`, JSON.stringify(nextNotes));
-      } catch {
-        // ignore
+    const nowTs = Date.now();
+    const curUser = userRef.current;
+    if (curUser) {
+      const base = plannerRef.current;
+      const nextNotes = { ...(base.examNotes || {}) };
+      const nextUpd = { ...(base.examNotesUpdatedAt || {}) };
+      const nextDel = { ...(base.examNotesDeletedAt || {}) };
+      if (trimmed.trim()) {
+        nextNotes[questionId] = trimmed;
+        nextUpd[questionId] = nowTs;
+        delete nextDel[questionId];
+      } else {
+        delete nextNotes[questionId];
+        nextDel[questionId] = nowTs;
       }
-      await updatePlanner({ ...planner, examNotes: nextNotes });
-      showToast('نکته شخصی شما زیر سوال ذخیره شد.');
+      const nextState: PlannerState = {
+        ...base,
+        examNotes: nextNotes,
+        examNotesUpdatedAt: nextUpd,
+        examNotesDeletedAt: nextDel,
+      };
+      plannerRef.current = nextState;
+      setPlanner(nextState);
+      const res = await enqueuePlannerPersist(curUser, nextState);
+      showToast(
+        res.ok
+          ? 'نکته شخصی شما ذخیره و در تمام دستگاه‌ها همگام‌سازی شد.'
+          : 'نکته روی این دستگاه ذخیره شد و با اتصال اینترنت همگام می‌شود.'
+      );
     } else {
-      const nextNotes = { ...guestNotes };
-      if (trimmed.trim()) nextNotes[questionId] = trimmed;
-      else delete nextNotes[questionId];
-      setGuestNotes(nextNotes);
-      try {
-        localStorage.setItem('baraat_exam_notes_v1_guest', JSON.stringify(nextNotes));
-      } catch {
-        // ignore
-      }
-      showToast('نکته روی این دستگاه ذخیره شد (برای همگام‌سازی همیشگی وارد حساب شوید).');
+      setGuestNotes((prev) => {
+        const nextNotes = { ...prev };
+        if (trimmed.trim()) nextNotes[questionId] = trimmed;
+        else delete nextNotes[questionId];
+        try {
+          localStorage.setItem('baraat_exam_notes_v1_guest', JSON.stringify(nextNotes));
+        } catch {
+          // ignore
+        }
+        return nextNotes;
+      });
+      showToast('نکته روی این دستگاه ذخیره شد (برای همگام‌سازی بین وب و اپلیکیشن وارد حساب شوید).');
     }
-  }, [user, planner, guestNotes, updatePlanner, showToast]);
+  }, [enqueuePlannerPersist, showToast]);
 
   const saveExamTag = useCallback(async (questionId: string, tagState: ExamQuestionTagState | null) => {
     const hasAny = Boolean(tagState && (tagState.difficulty || (tagState.tags && tagState.tags.length > 0)));
-    if (user) {
-      const nextTags = { ...(planner.examTags || {}) };
+    const nowIso = new Date().toISOString();
+    const nowTs = Date.now();
+    const curUser = userRef.current;
+    if (curUser) {
+      const base = plannerRef.current;
+      const nextTags = { ...(base.examTags || {}) };
+      const nextDel = { ...(base.examTagsDeletedAt || {}) };
       if (hasAny && tagState) {
-        nextTags[questionId] = { ...tagState, updatedAt: new Date().toISOString() };
+        nextTags[questionId] = { ...tagState, updatedAt: nowIso };
+        delete nextDel[questionId];
       } else {
         delete nextTags[questionId];
+        nextDel[questionId] = nowTs;
       }
-      try {
-        localStorage.setItem(`baraat_exam_tags_v1_${user.id}`, JSON.stringify(nextTags));
-      } catch {
-        // ignore
-      }
-      await updatePlanner({ ...planner, examTags: nextTags });
+      const nextState: PlannerState = {
+        ...base,
+        examTags: nextTags,
+        examTagsDeletedAt: nextDel,
+      };
+      plannerRef.current = nextState;
+      setPlanner(nextState);
+      await enqueuePlannerPersist(curUser, nextState);
     } else {
-      const nextTags = { ...guestTags };
-      if (hasAny && tagState) {
-        nextTags[questionId] = { ...tagState, updatedAt: new Date().toISOString() };
-      } else {
-        delete nextTags[questionId];
-      }
-      setGuestTags(nextTags);
-      try {
-        localStorage.setItem('baraat_exam_tags_v1_guest', JSON.stringify(nextTags));
-      } catch {
-        // ignore
-      }
+      setGuestTags((prev) => {
+        const nextTags = { ...prev };
+        if (hasAny && tagState) {
+          nextTags[questionId] = { ...tagState, updatedAt: nowIso };
+        } else {
+          delete nextTags[questionId];
+        }
+        try {
+          localStorage.setItem('baraat_exam_tags_v1_guest', JSON.stringify(nextTags));
+        } catch {
+          // ignore
+        }
+        return nextTags;
+      });
     }
-  }, [user, planner, guestTags, updatePlanner]);
+  }, [enqueuePlannerPersist]);
+
+  const recordPrepAnswer = useCallback(
+    async (questionId: string, choiceIdx: number, isCorrect: boolean) => {
+      const nowTs = Date.now();
+      const curUser = userRef.current;
+      if (curUser) {
+        const base = plannerRef.current;
+        const prevMap = base.examPrepHistory || {};
+        const prev = prevMap[questionId];
+        const nextRec: ExamPrepRecord = {
+          lastChoice: choiceIdx,
+          isCorrect,
+          attempts: (prev?.attempts || 0) + 1,
+          correctRuns: (prev?.correctRuns || 0) + (isCorrect ? 1 : 0),
+          wrongRuns: (prev?.wrongRuns || 0) + (isCorrect ? 0 : 1),
+          updatedAt: nowTs,
+        };
+        const nextState: PlannerState = {
+          ...base,
+          examPrepHistory: { ...prevMap, [questionId]: nextRec },
+        };
+        plannerRef.current = nextState;
+        setPlanner(nextState);
+        await enqueuePlannerPersist(curUser, nextState);
+      } else {
+        setGuestPrep((prevMap) => {
+          const prev = prevMap[questionId];
+          const nextMap: Record<string, ExamPrepRecord> = {
+            ...prevMap,
+            [questionId]: {
+              lastChoice: choiceIdx,
+              isCorrect,
+              attempts: (prev?.attempts || 0) + 1,
+              correctRuns: (prev?.correctRuns || 0) + (isCorrect ? 1 : 0),
+              wrongRuns: (prev?.wrongRuns || 0) + (isCorrect ? 0 : 1),
+              updatedAt: nowTs,
+            },
+          };
+          try {
+            localStorage.setItem('baraat_exam_prep_v1_guest', JSON.stringify(nextMap));
+          } catch {
+            // ignore
+          }
+          return nextMap;
+        });
+      }
+    },
+    [enqueuePlannerPersist]
+  );
 
   const toggleArticleMark = useCallback(async (law: string, numText: string, note?: string) => {
-    if (!user) {
+    if (!userRef.current) {
       setAuthModalOpen(true);
       return;
     }
+    const base = plannerRef.current;
     const key = `${law}|${numText}`;
-    const marks = { ...(planner.marks || {}) };
+    const marks = { ...(base.marks || {}) };
     if (note !== undefined) {
       marks[key] = { note, t: Date.now() };
     } else if (marks[key]) {
@@ -471,12 +682,14 @@ export const BaraatProvider: React.FC<{ children: React.ReactNode }> = ({ childr
     } else {
       marks[key] = { note: '', t: Date.now() };
     }
-    const next = { ...planner, marks };
-    await updatePlanner(next);
-  }, [user, planner, updatePlanner]);
+    await updatePlanner({ ...base, marks });
+  }, [updatePlanner]);
 
   const logout = useCallback(async () => {
     await supabase.auth.signOut();
+    userRef.current = null;
+    isAdminRef.current = false;
+    plannerRef.current = EMPTY_PLANNER;
     setUser(null);
     setIsAdmin(false);
     setPlanner(EMPTY_PLANNER);
@@ -510,6 +723,8 @@ export const BaraatProvider: React.FC<{ children: React.ReactNode }> = ({ childr
         setContact,
         exams,
         setExams,
+        examSubjects,
+        setExamSubjects,
         examAttempts,
         recordExamAttempt,
         deleteExamAttempt,
@@ -517,11 +732,15 @@ export const BaraatProvider: React.FC<{ children: React.ReactNode }> = ({ childr
         saveExamNote,
         examTags,
         saveExamTag,
+        examPrepHistory,
+        recordPrepAnswer,
         questions,
         setQuestions,
         vipSettings,
         setVipSettings,
         refreshMeta,
+        syncNow,
+        syncing,
         user,
         isAdmin,
         isVip,
