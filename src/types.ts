@@ -117,6 +117,17 @@ export interface ExamSubject {
   questions: ExamQuestion[];
 }
 
+export type ExamScope = 'general' | 'subject';
+export type ExamRunMode = 'timed' | 'prep';
+
+export interface ExamSubjectFolder {
+  id: string;
+  name: string;
+  desc?: string;
+  order?: number;
+  createdAt?: string;
+}
+
 export interface LegalExam {
   id: string;
   title: string;
@@ -125,6 +136,8 @@ export interface LegalExam {
   category?: string;
   examType?: string;
   year?: string;
+  examScope?: ExamScope;
+  subjectGroup?: string;
   isPublished?: boolean;
   isPremium?: boolean;
   subjects: ExamSubject[];
@@ -173,6 +186,15 @@ export interface ExamQuestionTagState {
   updatedAt?: string;
 }
 
+export interface ExamPrepRecord {
+  lastChoice: number;
+  isCorrect: boolean;
+  attempts: number;
+  correctRuns: number;
+  wrongRuns: number;
+  updatedAt: number;
+}
+
 export interface ExamAttemptResult {
   id: string;
   examId: string;
@@ -180,6 +202,9 @@ export interface ExamAttemptResult {
   examCategory?: string;
   examYear?: string;
   examType?: string;
+  examScope?: ExamScope;
+  subjectGroup?: string;
+  mode?: ExamRunMode;
   userId?: string;
   userEmail?: string;
   scorePct: number;
@@ -274,7 +299,11 @@ export interface PlannerState {
   subjectSections?: StudyBlock[];
   marks?: Record<string, PlannerMark>;
   examNotes?: Record<string, string>;
+  examNotesUpdatedAt?: Record<string, number>;
+  examNotesDeletedAt?: Record<string, number>;
   examTags?: Record<string, ExamQuestionTagState>;
+  examTagsDeletedAt?: Record<string, number>;
+  examPrepHistory?: Record<string, ExamPrepRecord>;
   imports?: { id: string; name: string }[];
   _userEmail?: string;
   _lastAssignedAt?: string;
