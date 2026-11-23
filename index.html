@@ -987,7 +987,7 @@ let state=fresh();
 const SUB_CID="__sub__";
 let activeSubjectPlanFilter="all";
 const subjGroupOpen={};
-function fresh(){return {subjects:defaultSubjects.map((x,i)=>({id:"s"+i,name:x[0],laws:x[1].map(n=>({name:n,count:COUNTS[n]||0,unit:UNITS[n]||"ماده"}))})),days:[],subjectSections:[],marks:{},imports:[],examResults:[],examNotes:{},examNotesUpdatedAt:{},examNotesDeletedAt:{},examTags:{},examTagsDeletedAt:{},examPrepHistory:{}}}
+function fresh(){return {subjects:defaultSubjects.map((x,i)=>({id:"s"+i,name:x[0],laws:x[1].map(n=>({name:n,count:COUNTS[n]||0,unit:UNITS[n]||"ماده"}))})),days:[],subjectSections:[],marks:{},imports:[],examResults:[],examNotes:{},examNotesUpdatedAt:{},examNotesDeletedAt:{},examTags:{},examTagsDeletedAt:{},examPrepHistory:{},examQuestionSnapshots:{}}}
 function normBlockItem(b){
  if(!b)return;
  if(!Array.isArray(b.checks))b.checks=Array(CHECKS.length).fill(false);
@@ -995,7 +995,7 @@ function normBlockItem(b){
  b.refs=b.refs||[];b.title=b.title||"";
  if(!b.items){b.spec=b.from===b.to?String(b.from):b.from+"-"+b.to;b.items=(typeof expand==="function")?expand(b.spec):[]}
 }
-function norm(s){if(!s||typeof s!=="object")s=fresh();if(!Array.isArray(s.subjects))s=fresh();if(!Array.isArray(s.days))s.days=[];if(!Array.isArray(s.subjectSections))s.subjectSections=[];s.subjects.forEach(u=>{if(u&&Array.isArray(u.laws)){u.laws=u.laws.map(l=>typeof l==="string"?{name:l,count:COUNTS[l]||0}:l);u.laws.forEach(l=>{if(l&&l.topics)l.count=l.topics.length})}else if(u){u.laws=[]}});s.days.forEach(d=>{if(d&&Array.isArray(d.blocks)){d.blocks.forEach(normBlockItem)}else if(d){d.blocks=[]}});s.subjectSections.forEach(normBlockItem);s.marks=s.marks||{};s.imports=s.imports||[];if(!Array.isArray(s.examResults))s.examResults=[];if(!s.examNotes||typeof s.examNotes!=="object")s.examNotes={};if(!s.examNotesUpdatedAt||typeof s.examNotesUpdatedAt!=="object")s.examNotesUpdatedAt={};if(!s.examNotesDeletedAt||typeof s.examNotesDeletedAt!=="object")s.examNotesDeletedAt={};if(!s.examTags||typeof s.examTags!=="object")s.examTags={};if(!s.examTagsDeletedAt||typeof s.examTagsDeletedAt!=="object")s.examTagsDeletedAt={};if(!s.examPrepHistory||typeof s.examPrepHistory!=="object")s.examPrepHistory={};return s}
+function norm(s){if(!s||typeof s!=="object")s=fresh();if(!Array.isArray(s.subjects))s=fresh();if(!Array.isArray(s.days))s.days=[];if(!Array.isArray(s.subjectSections))s.subjectSections=[];s.subjects.forEach(u=>{if(u&&Array.isArray(u.laws)){u.laws=u.laws.map(l=>typeof l==="string"?{name:l,count:COUNTS[l]||0}:l);u.laws.forEach(l=>{if(l&&l.topics)l.count=l.topics.length})}else if(u){u.laws=[]}});s.days.forEach(d=>{if(d&&Array.isArray(d.blocks)){d.blocks.forEach(normBlockItem)}else if(d){d.blocks=[]}});s.subjectSections.forEach(normBlockItem);s.marks=s.marks||{};s.imports=s.imports||[];if(!Array.isArray(s.examResults))s.examResults=[];if(!s.examNotes||typeof s.examNotes!=="object")s.examNotes={};if(!s.examNotesUpdatedAt||typeof s.examNotesUpdatedAt!=="object")s.examNotesUpdatedAt={};if(!s.examNotesDeletedAt||typeof s.examNotesDeletedAt!=="object")s.examNotesDeletedAt={};if(!s.examTags||typeof s.examTags!=="object")s.examTags={};if(!s.examTagsDeletedAt||typeof s.examTagsDeletedAt!=="object")s.examTagsDeletedAt={};if(!s.examPrepHistory||typeof s.examPrepHistory!=="object")s.examPrepHistory={};if(!s.examQuestionSnapshots||typeof s.examQuestionSnapshots!=="object")s.examQuestionSnapshots={};return s}
 function _tsMs(v){if(!v)return 0;if(typeof v==="number")return v;const p=Date.parse(String(v));return isNaN(p)?0:p;}
 function _mergeExamFieldsInto(target,src){
  if(!target||!src||typeof src!=="object")return false;
@@ -1080,6 +1080,17 @@ function _mergeExamFieldsInto(target,src){
   target.examResults=[...resMap.values()].sort((a,b)=>String(b.updatedAt||b.createdAt||"").localeCompare(String(a.updatedAt||a.createdAt||""))).slice(0,80);
  }
 
+ target.examQuestionSnapshots=target.examQuestionSnapshots||{};
+ const sSnaps=(src.examQuestionSnapshots&&typeof src.examQuestionSnapshots==="object")?src.examQuestionSnapshots:{};
+ Object.entries(sSnaps).forEach(([qid,ss])=>{
+  if(!ss||typeof ss!=="object"||!Array.isArray(ss.options)||!ss.options.filter(Boolean).length)return;
+  const ts=target.examQuestionSnapshots[qid];
+  if(!ts||!Array.isArray(ts.options)||!ts.options.filter(Boolean).length||_tsMs(ss.updatedAt)>_tsMs(ts.updatedAt)){
+   target.examQuestionSnapshots[qid]=Object.assign({},ss);
+   changed=true;
+  }
+ });
+
  target.marks=target.marks||{};
  if(src.marks&&typeof src.marks==="object"){
   Object.entries(src.marks).forEach(([k,mv])=>{
@@ -1098,7 +1109,7 @@ function _userExamStorageKeys(){
  return [...new Set(keys)];
 }
 function _readLocalExamExtras(){
- const out={examNotes:{},examNotesUpdatedAt:{},examNotesDeletedAt:{},examTags:{},examTagsDeletedAt:{},examPrepHistory:{},examResults:[]};
+ const out={examNotes:{},examNotesUpdatedAt:{},examNotesDeletedAt:{},examTags:{},examTagsDeletedAt:{},examPrepHistory:{},examQuestionSnapshots:{},examResults:[]};
  const suffixes=_userExamStorageKeys();
  suffixes.forEach(suf=>{
   try{
@@ -1144,6 +1155,17 @@ function _readLocalExamExtras(){
    }
   }catch(e){}
   try{
+   const qsRaw=localStorage.getItem("baraat_exam_qsnap_v1_"+suf);
+   const qsObj=qsRaw?JSON.parse(qsRaw):null;
+   if(qsObj&&typeof qsObj==="object"){
+    Object.entries(qsObj).forEach(([k,v])=>{
+     if(!v||typeof v!=="object"||!Array.isArray(v.options)||!v.options.filter(Boolean).length)return;
+     const ex=out.examQuestionSnapshots[k];
+     if(!ex||_tsMs(v.updatedAt)>_tsMs(ex.updatedAt))out.examQuestionSnapshots[k]=v;
+    });
+   }
+  }catch(e){}
+  try{
    const rRaw=localStorage.getItem("baraat_exam_results_v1_"+suf);
    const rArr=rRaw?JSON.parse(rRaw):null;
    if(Array.isArray(rArr))out.examResults.push(...rArr);
@@ -1159,6 +1181,7 @@ function _writeLocalExamExtrasFromState(st){
  try{localStorage.setItem("baraat_exam_tags_v1_"+uidKey,JSON.stringify(st.examTags||{}));}catch(e){}
  try{localStorage.setItem("baraat_exam_tags_del_v1_"+uidKey,JSON.stringify(st.examTagsDeletedAt||{}));}catch(e){}
  try{localStorage.setItem("baraat_exam_prep_v1_"+uidKey,JSON.stringify(st.examPrepHistory||{}));}catch(e){}
+ try{localStorage.setItem("baraat_exam_qsnap_v1_"+uidKey,JSON.stringify(st.examQuestionSnapshots||{}));}catch(e){}
  if(Array.isArray(st.examResults)){
   try{localStorage.setItem("baraat_exam_results_v1_"+uidKey,JSON.stringify(st.examResults.slice(0,80)));}catch(e){}
  }
@@ -1952,9 +1975,14 @@ async function afterAuth(user){
   }
   window.isAdmin = isAdmin;
   window.me = me;
+  window._authResolved = true;
   document.body.classList.toggle('is-admin', !!isAdmin);
   updateAuthUI();
+  if (typeof window.syncAllFromSupabase === 'function') {
+    await window.syncAllFromSupabase(true);
+  }
   if (window.renderAdminPanels) window.renderAdminPanels();
+  if (window.renderExamsHub) window.renderExamsHub();
   if (isAdmin && typeof window.autoSyncAdminArticlesOnLogin === 'function') {
     await window.autoSyncAdminArticlesOnLogin();
   }
@@ -1980,6 +2008,7 @@ async function applyAdminAssignedPlans(currentState){
       examTags:currentState.examTags||{},
       examTagsDeletedAt:currentState.examTagsDeletedAt||{},
       examPrepHistory:currentState.examPrepHistory||{},
+      examQuestionSnapshots:currentState.examQuestionSnapshots||{},
       examResults:Array.isArray(currentState.examResults)?currentState.examResults:[],
       marks:currentState.marks||{}
     };
@@ -2226,7 +2255,7 @@ window.addEventListener("focus",()=>{triggerForegroundSync(false);});
 window.addEventListener("online",()=>{triggerForegroundSync(true);});
 window.addEventListener("baraat-app-resume",()=>{triggerForegroundSync(true);});
 async function logout(){await sb.auth.signOut();location.reload()}
-function initAuth(){sb.auth.getSession().then(async r=>{if(r.data&&r.data.session)await afterAuth(r.data.session.user);else updateAuthUI();}).catch(()=>updateAuthUI());}
+function initAuth(){sb.auth.getSession().then(async r=>{if(r.data&&r.data.session)await afterAuth(r.data.session.user);else{window._authResolved=true;updateAuthUI();}}).catch(()=>{window._authResolved=true;updateAuthUI();});}
 function enterPlanner(){const ok=!!me;document.getElementById("plannerGate").classList.toggle("hidden",ok);document.getElementById("plannerApp").classList.toggle("hidden",!ok);if(ok&&!ready)loadPlanner();else if(ok&&ready&&window.refreshAssignedPlannerForMe)window.refreshAssignedPlannerForMe();}
 const ALL_TABS=["search","planner","cases","articles","deadlines","calculator","about","contact","admin"];
 function go(tab){
@@ -2902,6 +2931,6 @@ if ('serviceWorker' in navigator) {
   });
 }
 </script>
-<script src="./baraat_engine.js?v=20261123_2"></script>
+<script src="./baraat_engine.js?v=20261123_3"></script>
 </body>
 </html>
