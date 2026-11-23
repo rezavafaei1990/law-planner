@@ -4748,6 +4748,22 @@
     if (typeof toast === 'function') toast('سوال، گزینه‌ها، جواب و نکته کپی شد.');
   };
 
+  function getExamMainTitle(ex) {
+    if (!ex || typeof ex !== 'object') return 'آزمون حقوقی';
+    const mt = String(ex.mainTitle || '').trim();
+    if (mt) return mt;
+    if (ex.examScope === 'subject' && String(ex.subjectGroup || '').trim()) {
+      return String(ex.subjectGroup).trim();
+    }
+    return String(ex.title || ex.category || ex.org || 'آزمون حقوقی').trim();
+  }
+
+  function getAllMainTitleSuggestions() {
+    const existing = window.getExams().map(getExamMainTitle).filter(Boolean);
+    const defaults = typeof getExamSubjectsList === 'function' ? getExamSubjectsList() : DEFAULT_EXAM_SUBJECTS;
+    return [...new Set([...existing, ...defaults])];
+  }
+
   function normalizeExamRecord(ex) {
     if (!ex || typeof ex !== 'object') return ex;
     const cat = String(ex.category || ex.org || 'آزمون حقوقی').trim();
@@ -4763,7 +4779,11 @@
     const qTotal = subjects.reduce((sum, s) => sum + ((s.questions || []).length), 0);
     const scope = ex.examScope === 'subject' ? 'subject' : 'general';
     const subjGrp = scope === 'subject' ? String(ex.subjectGroup || cat || '').trim() : '';
+    const mainTitle = String(ex.mainTitle || (scope === 'subject' && subjGrp ? subjGrp : '') || ex.title || cat || 'آزمون حقوقی').trim();
+    const topicTitle = String(ex.topicTitle || '').trim();
     return Object.assign({}, ex, {
+      mainTitle,
+      topicTitle,
       org: cat,
       category: cat,
       examScope: scope,
@@ -5836,8 +5856,8 @@
     return [...chSet];
   }
 
-  let examHubSection = 'exams'; // 'exams' (آزمون‌های کلی) | 'lessons' (آزمون‌های درس‌به‌درس) | 'notebook' (دفترچه نکات)
-  let selectedSubjectGroup = ''; // نام درس انتخاب‌شده در بخش درس‌به‌درس
+  let examHubSection = 'exams'; // 'exams' (عناوین اصلی و سرفصل‌ها) | 'notebook' (دفترچه نکات)
+  let selectedMainTitle = '';   // عنوان اصلی انتخاب‌شده برای نمایش سرفصل‌ها
   let examLessonSearch = '';
   let examNbGroupBy = 'subject'; // 'subject' | 'exam'
   let examNbFilter = 'all';      // 'all' | 'noted' | 'review' | 'noteworthy' | 'careless' | 'hard' | 'medium' | 'easy' | 'wrong'
@@ -5852,15 +5872,17 @@
   let examHubSubViewMode = 'list';
 
   window.setExamHubSection = function(sec) {
-    examHubSection = (sec === 'lessons' || sec === 'notebook') ? sec : 'exams';
-    if (sec !== 'lessons') selectedSubjectGroup = '';
+    examHubSection = sec === 'notebook' ? 'notebook' : 'exams';
+    if (sec === 'exams') selectedMainTitle = '';
     window.renderExamsHub();
   };
 
-  window.selectSubjectGroupEnc = function(encName) {
-    selectedSubjectGroup = decodeURIComponent(encName || '');
+  window.selectMainTitleEnc = function(encName) {
+    examHubSection = 'exams';
+    selectedMainTitle = decodeURIComponent(encName || '');
     window.renderExamsHub();
   };
+  window.selectSubjectGroupEnc = window.selectMainTitleEnc;
 
   window.setExamLessonSearch = function(val) {
     examLessonSearch = String(val || '');
@@ -6102,24 +6124,28 @@
     renderExamRunner();
   };
 
-  // --- اجراکننده اختصاصی آزمون درس‌به‌درس (فقط سوالات فایل‌های بارگذاری‌شده زیر همان درس) ---
-  function getSubjectExamsOnly(subjectName) {
-    return getVisibleExams().filter(ex => ex.examScope === 'subject' && String(ex.subjectGroup || '').trim() === String(subjectName || '').trim());
+  // --- تفکیک عناوین اصلی و سرفصل‌ها / مباحث زیر هر عنوان اصلی ---
+  function getExamsForMainTitle(mainTitle) {
+    const key = String(mainTitle || '').trim();
+    return getVisibleExams().filter(ex => getExamMainTitle(ex) === key);
   }
 
-  function getSubjectChaptersBreakdown(subjectName) {
-    const subExams = getSubjectExamsOnly(subjectName);
+  function getMainTitleTopicsBreakdown(mainTitle) {
+    const subExams = getExamsForMainTitle(mainTitle);
     const chMap = new Map();
     subExams.forEach(ex => {
+      const exTopic = String(ex.topicTitle || '').trim();
       (ex.subjects || []).forEach(sb => {
+        const sbName = String(sb.name || '').trim();
         (sb.questions || []).forEach(q => {
-          const chName = String(q.chapter || sb.name || 'سوالات عمومی درس').trim();
-          if (!chMap.has(chName)) chMap.set(chName, { name: chName, questions: [], hasPremium: false });
+          const chName = String(q.chapter || '').trim() || exTopic || sbName || String(ex.title || '').trim() || 'همه سوالات';
+          if (!chMap.has(chName)) chMap.set(chName, { name: chName, questions: [], hasPremium: false, hasHidden: false });
           const entry = chMap.get(chName);
           if (ex.isPremium) entry.hasPremium = true;
+          if (ex.isPublished === false) entry.hasHidden = true;
           entry.questions.push(Object.assign({}, q, {
             chapter: chName,
-            sourceLabel: q.sourceLabel || buildExamSourceLabel('', ex.examType, ex.year) || ex.title
+            sourceLabel: q.sourceLabel || buildExamSourceLabel('', ex.examType, ex.year) || ''
           }));
         });
       });
@@ -6127,52 +6153,76 @@
     return [...chMap.values()];
   }
 
-  window.openSubjectLessonRunner = function(encSubjectName, mode, encChapterName) {
-    const subjectName = decodeURIComponent(encSubjectName || '');
-    const chapterFilter = encChapterName ? decodeURIComponent(encChapterName) : '';
-    const subExams = getSubjectExamsOnly(subjectName);
+  function getMainTitleGroupsSummary() {
+    const allExams = getVisibleExams();
+    const groupsMap = new Map();
+    allExams.forEach(ex => {
+      const mt = getExamMainTitle(ex);
+      if (!groupsMap.has(mt)) {
+        groupsMap.set(mt, { name: mt, exams: [], hasPremium: false, allHidden: true });
+      }
+      const g = groupsMap.get(mt);
+      g.exams.push(ex);
+      if (ex.isPremium) g.hasPremium = true;
+      if (ex.isPublished !== false) g.allHidden = false;
+    });
+    return [...groupsMap.values()].map(g => {
+      const topics = getMainTitleTopicsBreakdown(g.name);
+      const totalQ = topics.reduce((sum, t) => sum + t.questions.length, 0);
+      return Object.assign(g, { topics, totalQ });
+    });
+  }
+
+  window.openMainTitleRunner = function(encMainTitle, mode, encTopicName) {
+    const mainTitle = decodeURIComponent(encMainTitle || '');
+    const topicFilter = encTopicName ? decodeURIComponent(encTopicName) : '';
+    const subExams = getExamsForMainTitle(mainTitle);
     if (!subExams.length) {
-      if (typeof toast === 'function') toast('هنوز فایلی زیر این درس بارگذاری نشده است.');
+      if (typeof toast === 'function') toast('آزمونی زیر این عنوان یافت نشد.');
       return;
     }
-    const chapters = getSubjectChaptersBreakdown(subjectName).filter(ch => !chapterFilter || ch.name === chapterFilter);
-    if (!chapters.length) {
+    const topics = getMainTitleTopicsBreakdown(mainTitle).filter(ch => !topicFilter || ch.name === topicFilter);
+    if (!topics.length) {
       if (typeof toast === 'function') toast('سوالی در این سرفصل یافت نشد.');
       return;
     }
-    const requiresVip = chapters.some(ch => ch.hasPremium) && !isCurrentUserVip();
+    const requiresVip = topics.some(ch => ch.hasPremium) && !isCurrentUserVip();
     if (requiresVip) {
-      showVipLockModal(subjectName + (chapterFilter ? ' · ' + chapterFilter : ''));
+      showVipLockModal(mainTitle + (topicFilter ? ' · ' + topicFilter : ''));
       return;
     }
 
-    const rawSubjs = chapters.map((ch, idx) => ({
-      id: 'subch_' + idx,
+    const rawSubjs = topics.map((ch, idx) => ({
+      id: 'mtch_' + idx,
       name: ch.name,
       questions: ch.questions
     }));
     const totalQ = rawSubjs.reduce((a, s) => a + s.questions.length, 0);
-    if (!totalQ) return;
+    if (!totalQ) {
+      if (typeof toast === 'function') toast('برای این بخش هنوز سوالی ثبت نشده است.');
+      return;
+    }
 
     stopExamTimer();
     const runMode = mode === 'exam' ? 'exam' : 'study';
     const defaultSeconds = calcExamDurationMin(totalQ) * 60;
-    const stableId = 'subj_' + subjectName + (chapterFilter ? '__' + chapterFilter : '');
+    const stableId = 'mt_' + mainTitle + (topicFilter ? '__' + topicFilter : '');
 
     examSession = {
       exam: {
         id: stableId,
-        title: chapterFilter ? (subjectName + ' · ' + chapterFilter) : ('آزمون درس: ' + subjectName),
-        category: subjectName,
+        title: topicFilter ? (mainTitle + ' · ' + topicFilter) : mainTitle,
+        mainTitle,
+        category: mainTitle,
         examScope: 'subject',
-        subjectGroup: subjectName,
-        examType: chapterFilter ? 'سرفصل درس‌به‌درس' : 'درس‌به‌درس کامل',
-        negativeMarking: true
+        subjectGroup: mainTitle,
+        examType: topicFilter ? 'سرفصل / مبحث' : 'آزمون کامل',
+        negativeMarking: subExams.every(e => e.negativeMarking !== false)
       },
-      retryParams: { type: 'subjectLesson', encSubjectName, encChapterName: encChapterName || '' },
+      retryParams: { type: 'mainTitle', encMainTitle, encTopicName: encTopicName || '' },
       mode: runMode,
       subjects: rawSubjs,
-      scopeLabel: chapterFilter ? ('درس ' + subjectName + ' · سرفصل: ' + chapterFilter) : ('درس: ' + subjectName),
+      scopeLabel: topicFilter ? (mainTitle + ' · مبحث: ' + topicFilter) : (mainTitle + ' (همه سرفصل‌ها)'),
       activeSubjIdx: 0,
       activeQIdx: 0,
       viewMode: 'list',
@@ -6193,6 +6243,7 @@
     if (runMode === 'exam') startExamCountdown();
     renderExamRunner();
   };
+  window.openSubjectLessonRunner = window.openMainTitleRunner;
 
   function getLessonGroupsAcrossAllExams() {
     const coreOrder = ['حقوق مدنی', 'آیین دادرسی مدنی', 'حقوق تجارت', 'اصول فقه', 'حقوق جزا', 'آیین دادرسی کیفری'];
@@ -6524,9 +6575,14 @@
 
   window.examRestartSession = function(newMode) {
     if (!examSession) return;
+    if (examSession.retryParams && examSession.retryParams.type === 'mainTitle') {
+      const p = examSession.retryParams;
+      window.openMainTitleRunner(p.encMainTitle, newMode, p.encTopicName);
+      return;
+    }
     if (examSession.retryParams && examSession.retryParams.type === 'subjectLesson') {
       const p = examSession.retryParams;
-      window.openSubjectLessonRunner(p.encSubjectName, newMode, p.encChapterName);
+      window.openMainTitleRunner(p.encSubjectName, newMode, p.encChapterName);
       return;
     }
     if (examSession.retryParams && examSession.retryParams.type === 'notebook') {
@@ -6547,40 +6603,48 @@
     window.openExamRunner(examSession.exam.id, singleId, newMode);
   };
 
+  window.adminRenameMainTitle = async function(encOldMainTitle) {
+    if (!window.isAdmin) return;
+    const oldName = decodeURIComponent(encOldMainTitle || '');
+    const nextName = prompt('عنوان اصلی جدید را وارد کنید (برای ادغام با یک عنوان دیگر، دقیقاً نام آن عنوان را بنویسید):', oldName);
+    if (!nextName || !nextName.trim() || nextName.trim() === oldName) return;
+    const cleanNext = nextName.trim();
+    const list = window.getExams();
+    let changed = 0;
+    list.forEach(ex => {
+      if (getExamMainTitle(ex) === oldName) {
+        ex.mainTitle = cleanNext;
+        if (ex.examScope === 'subject') ex.subjectGroup = cleanNext;
+        ex.updatedAt = new Date().toISOString();
+        changed++;
+      }
+    });
+    if (!changed) return;
+    if (selectedMainTitle === oldName) selectedMainTitle = cleanNext;
+    await persistExamsList(list, `عنوان اصلی به «${cleanNext}» تغییر یافت (${toFa(changed)} فایل به‌روزرسانی شد).`);
+  };
+
   window.renderExamsHub = function() {
     injectExamUpgradeStyles();
     const root = document.getElementById('studentExamsRoot');
     if (!root) return;
-    const prevFocusId = document.activeElement && (document.activeElement.id === 'examHubSearchInp' || document.activeElement.id === 'examLessonSearchInp' || document.activeElement.id === 'examNbSearchInp')
+    const prevFocusId = document.activeElement && (document.activeElement.id === 'examHubSearchInp' || document.activeElement.id === 'examNbSearchInp')
       ? document.activeElement.id
       : '';
     const prevSelEnd = prevFocusId && typeof document.activeElement.selectionEnd === 'number'
       ? document.activeElement.selectionEnd
       : null;
 
-    const allExams = getVisibleExams();
-    const generalExams = allExams.filter(ex => ex.examScope !== 'subject');
-    const subjectScopedExams = allExams.filter(ex => ex.examScope === 'subject');
-    const allDefinedSubjects = getExamSubjectsList();
-    // اگر درسی در آزمون‌های درس‌به‌درس وجود دارد که هنوز در لیست مدیر نیست، آن را هم نشان بده
-    const mergedSubjectNames = [...new Set([
-      ...allDefinedSubjects,
-      ...subjectScopedExams.map(ex => String(ex.subjectGroup || '').trim()).filter(Boolean)
-    ])];
+    const groupsAll = getMainTitleGroupsSummary();
+    if (selectedMainTitle && !groupsAll.some(g => g.name === selectedMainTitle)) {
+      selectedMainTitle = '';
+    }
 
-    const allCats = [...new Set(generalExams.map(getExamCategory).filter(Boolean))];
-    const catExams = examHubCat === 'all' ? generalExams : generalExams.filter(e => getExamCategory(e) === examHubCat);
-    const yearSet = [...new Set(catExams.map(e => Number(e.year)).filter(Boolean))].sort((a, b) => b - a);
     const qNorm = examHubQuery.trim().toLowerCase();
-    const filteredGeneral = catExams.filter(e => {
-      if (examHubFilterYear !== 'all' && String(e.year) !== String(examHubFilterYear)) return false;
+    const filteredGroups = groupsAll.filter(g => {
       if (!qNorm) return true;
-      return (
-        (e.title || '').toLowerCase().includes(qNorm) ||
-        getExamCategory(e).toLowerCase().includes(qNorm) ||
-        getExamTypeLabel(e).toLowerCase().includes(qNorm) ||
-        String(e.year || '').includes(qNorm)
-      );
+      if (g.name.toLowerCase().includes(qNorm)) return true;
+      return g.topics.some(t => t.name.toLowerCase().includes(qNorm));
     });
 
     const userIsVip = isCurrentUserVip();
@@ -6608,42 +6672,31 @@
     const nbFilteredObj = examHubSection === 'notebook' ? getFilteredNotebookEntries(nbAll) : { base: [], groups: [], visible: [] };
     const nbPlayableCount = nbFilteredObj.visible.filter(x => x.hasFullQuestion).length;
 
-    const lessonQNorm = examLessonSearch.trim().toLowerCase();
-    const filteredSubjectCards = mergedSubjectNames.filter(name => !lessonQNorm || name.toLowerCase().includes(lessonQNorm));
-
-    const renderExamCardHtml = (ex) => {
+    const renderAdminFileCardHtml = (ex) => {
       const totalQ = totalQuestionsCount(ex);
       const autoMin = calcExamDurationMin(totalQ);
       const hiddenByAdmin = ex.isPublished === false;
-      const lockedVip = ex.isPremium && !userIsVip;
+      const topicsNames = [...new Set((ex.subjects || []).flatMap(sb => (sb.questions || []).map(q => q.chapter || ex.topicTitle || sb.name)).filter(Boolean))];
       return `
         <article class="exam-card" style="${hiddenByAdmin ? 'opacity:.85; border:1.5px dashed var(--danger, #dc2626);' : ''}">
           <div class="row between" style="gap:6px; flex-wrap:wrap;">
             <div class="row" style="gap:6px; flex-wrap:wrap;">
-              <span class="art-tag">${esc(ex.examScope === 'subject' ? (ex.subjectGroup || getExamCategory(ex)) : getExamCategory(ex))}</span>
+              <span class="art-tag">${esc(getExamMainTitle(ex))}</span>
               ${ex.isPremium ? `<span class="ex-vip-badge">⭐ ویژه VIP</span>` : ''}
+              ${hiddenByAdmin ? `<span class="ex-vis-badge hid">🙈 مخفی</span>` : ''}
             </div>
-            <span class="pill ${totalQ ? 'done' : ''}">${ex.year ? 'سال ' + toFa(ex.year) + ' · ' : ''}${toFa(totalQ)} سوال · ${toFa(autoMin)} دقیقه</span>
+            <span class="pill ${totalQ ? 'done' : ''}">${toFa(totalQ)} سوال · ${toFa(autoMin)} دقیقه</span>
           </div>
-          ${hiddenByAdmin ? `<div class="ex-vis-badge hid" style="align-self:flex-start;">🙈 مخفی از کاربران (فقط مدیر)</div>` : ''}
           <div>
-            <h3 style="margin:0 0 6px; font-size:16.5px; font-weight:800; color:var(--text);">${esc(ex.title)}</h3>
-            <div class="muted small">
-              ⏱ آزمون زمان‌دار (${toFa(autoMin)} دقیقه · ۲ دقیقه/سوال) · 📖 حالت آمادگی بدون تایمر با ثبت گزارش
-            </div>
-            ${ex.description ? `<p style="margin:6px 0 0; font-size:12.5px; color:var(--muted); line-height:1.7;">${esc(ex.description)}</p>` : ''}
+            <b style="font-size:14.5px; color:var(--text);">${esc(ex.title || ex.topicTitle || getExamMainTitle(ex))}</b>
+            ${topicsNames.length ? `<div class="muted small" style="margin-top:4px;">سرفصل‌ها: ${esc(topicsNames.slice(0, 4).join(' · '))}${topicsNames.length > 4 ? ' ...' : ''}</div>` : ''}
           </div>
-          <div class="row between" style="gap:6px; flex-wrap:wrap; padding-top:12px; border-top:1px solid var(--line); margin-top:auto;">
-            <button type="button" class="btn primary" style="flex:1; justify-content:center;" ${totalQ ? `onclick="openExamRunner('${ex.id}', null, 'exam')"` : 'disabled'}>
-              ${lockedVip ? '🔒 ' : '⏱ '}آزمون زمان‌دار
-            </button>
-            <button type="button" class="btn" style="flex:1; justify-content:center;" ${totalQ ? `onclick="openExamRunner('${ex.id}', null, 'study')"` : 'disabled'}>
-              ${lockedVip ? '🔒 ' : '📖 '}حالت آمادگی
-            </button>
-            ${window.isAdmin ? `
-              <button type="button" class="btn small" onclick="toggleExamPublished('${ex.id}')" title="${hiddenByAdmin ? 'انتشار برای همه' : 'مخفی کردن از کاربران'}">${hiddenByAdmin ? '👁' : '🙈'}</button>
-              <button type="button" class="btn small" onclick="openExamQuestionsEditor('${ex.id}')" title="مدیریت و ویرایش تکی سوالات">✏️</button>
-            ` : ''}
+          <div class="row" style="gap:6px; flex-wrap:wrap; padding-top:10px; border-top:1px solid var(--line); margin-top:auto;">
+            <button type="button" class="btn small primary" onclick="openExamQuestionsEditor('${ex.id}')">✏️ ویرایش سوالات</button>
+            <button type="button" class="btn small" onclick="openExamMetaModal('${ex.id}')">✎ عنوان/مبحث</button>
+            <button type="button" class="btn small" onclick="toggleExamPremium('${ex.id}')">${ex.isPremium ? '⭐ ویژه' : '🆓 رایگان'}</button>
+            <button type="button" class="btn small" onclick="toggleExamPublished('${ex.id}')">${hiddenByAdmin ? '👁 انتشار' : '🙈 مخفی'}</button>
+            <button type="button" class="btn small danger" onclick="deleteExam('${ex.id}')">✕</button>
           </div>
         </article>
       `;
@@ -6659,6 +6712,7 @@
               <div class="muted small" style="margin-top:4px;">همه نکات شخصی زیر سوالات، تیک‌های سخت/متوسط/آسان/مرور/نکته‌دار/بی‌دقتی و غلط‌های قبلی شما (همگام در وب و اپ).</div>
             </div>
             <div class="row" style="gap:6px; flex-wrap:wrap;">
+              <button type="button" class="btn small" onclick="setExamHubSection('exams')">→ بازگشت به آزمون‌ها</button>
               <button type="button" class="btn small primary" ${nbPlayableCount ? '' : 'disabled'} onclick="openNotebookPracticeRunner('study')">📖 حالت آمادگی از فیلتر (${toFa(nbPlayableCount)})</button>
               <button type="button" class="btn small" ${nbPlayableCount ? '' : 'disabled'} onclick="openNotebookPracticeRunner('exam')">⏱ آزمون زمان‌دار</button>
               <button type="button" class="btn small" ${nbFilteredObj.visible.length ? '' : 'disabled'} onclick="copyAllNotebookNotes()">📋 کپی جزوه</button>
@@ -6688,7 +6742,7 @@
 
           <div class="row between" style="gap:10px; flex-wrap:wrap;">
             <div class="row" style="gap:6px; flex-wrap:wrap;">
-              <button type="button" class="btn small ${examNbGroupBy === 'subject' ? 'primary' : ''}" onclick="setExamNbGroupBy('subject')">📘 تفکیک بر اساس درس</button>
+              <button type="button" class="btn small ${examNbGroupBy === 'subject' ? 'primary' : ''}" onclick="setExamNbGroupBy('subject')">📘 تفکیک بر اساس سرفصل/درس</button>
               <button type="button" class="btn small ${examNbGroupBy === 'exam' ? 'primary' : ''}" onclick="setExamNbGroupBy('exam')">📂 تفکیک بر اساس آزمون</button>
             </div>
             <input id="examNbSearchInp" value="${esc(examNbSearch)}" placeholder="جستجو در متن سوال یا نکات شخصی..." style="min-width:220px; flex:1; max-width:320px;" oninput="setExamNbSearch(this.value)">
@@ -6696,7 +6750,7 @@
 
           ${nbFilteredObj.groups.length ? `
             <div class="row" style="gap:6px; flex-wrap:wrap; margin-top:10px;">
-              <button type="button" class="ex-crumb-btn ${examNbGroup === 'all' ? 'active' : ''}" onclick="setExamNbGroupEnc('all')">${examNbGroupBy === 'subject' ? 'همه دروس' : 'همه آزمون‌ها'} (${toFa(nbFilteredObj.base.length)})</button>
+              <button type="button" class="ex-crumb-btn ${examNbGroup === 'all' ? 'active' : ''}" onclick="setExamNbGroupEnc('all')">${examNbGroupBy === 'subject' ? 'همه موارد' : 'همه آزمون‌ها'} (${toFa(nbFilteredObj.base.length)})</button>
               ${nbFilteredObj.groups.map(g => `<button type="button" class="ex-crumb-btn ${examNbGroup === g.name ? 'active' : ''}" onclick="setExamNbGroupEnc('${encodeURIComponent(g.name)}')">${esc(g.name)} (${toFa(g.count)})</button>`).join('')}
             </div>
           ` : ''}
@@ -6759,147 +6813,118 @@
           </div>
         `}
       `;
-    } else if (examHubSection === 'lessons') {
-      if (selectedSubjectGroup) {
-        const subExams = getSubjectExamsOnly(selectedSubjectGroup);
-        const chapters = getSubjectChaptersBreakdown(selectedSubjectGroup);
-        const totalSubjQ = chapters.reduce((s, c) => s + c.questions.length, 0);
-        const encSubj = encodeURIComponent(selectedSubjectGroup);
-        mainBodyHtml = `
-          <div class="ex-breadcrumb">
-            <button type="button" class="ex-crumb-btn" onclick="selectSubjectGroupEnc('')">→ بازگشت به فهرست دروس</button>
-            <span>›</span>
-            <span class="ex-crumb-btn active">📚 ${esc(selectedSubjectGroup)} (${toFa(totalSubjQ)} سوال · ${toFa(chapters.length)} سرفصل)</span>
-            ${window.isAdmin ? `<button type="button" class="btn small primary" style="margin-right:auto;" onclick="openMultiExamFileImportModal('${esc(selectedSubjectGroup)}')">📥 آپلود فایل زیر این درس</button>` : ''}
-          </div>
+    } else if (selectedMainTitle) {
+      // سطح ۲: نمایش سرفصل‌ها / مباحث زیر عنوان اصلی انتخاب‌شده
+      const subExams = getExamsForMainTitle(selectedMainTitle);
+      const topics = getMainTitleTopicsBreakdown(selectedMainTitle);
+      const totalSubjQ = topics.reduce((s, c) => s + c.questions.length, 0);
+      const encMain = encodeURIComponent(selectedMainTitle);
+      const anyLocked = topics.some(ch => ch.hasPremium) && !userIsVip;
 
-          ${!totalSubjQ ? `
-            <div class="empty-glass-card" style="margin:24px auto;">
-              <div class="empty-icon">📚</div>
-              <h3>هنوز فایلی زیر درس «${esc(selectedSubjectGroup)}» بارگذاری نشده است</h3>
-              <p>فقط فایل‌ها و سوالاتی که مدیر مستقیماً زیر این درس آپلود کند در اینجا نمایش داده می‌شوند.</p>
-              ${window.isAdmin ? `<div style="margin-top:14px;"><button type="button" class="btn primary" onclick="openMultiExamFileImportModal('${esc(selectedSubjectGroup)}')">📥 ورود فایل اکسل/CSV برای این درس</button></div>` : ''}
-            </div>
-          ` : `
-            <div class="surface-box" style="padding:14px; border-radius:14px; margin-bottom:14px;">
-              <div class="row between" style="gap:10px; flex-wrap:wrap;">
-                <div>
-                  <b style="font-size:15px;">📘 کل سوالات درس «${esc(selectedSubjectGroup)}»</b>
-                  <div class="muted small" style="margin-top:3px;">${toFa(totalSubjQ)} سوال در ${toFa(chapters.length)} سرفصل · زمان آزمون کامل: ${toFa(calcExamDurationMin(totalSubjQ))} دقیقه</div>
-                </div>
-                <div class="row" style="gap:8px; flex-wrap:wrap;">
-                  <button type="button" class="btn primary" onclick="openSubjectLessonRunner('${encSubj}', 'exam', '')">⏱ آزمون زمان‌دار کل درس</button>
-                  <button type="button" class="btn" onclick="openSubjectLessonRunner('${encSubj}', 'study', '')">📖 حالت آمادگی کل درس</button>
-                </div>
-              </div>
-            </div>
-
-            <div style="margin-bottom:16px;">
-              <div style="font-size:13.5px; font-weight:800; color:var(--text); margin-bottom:8px;">📑 سرفصل‌های درس «${esc(selectedSubjectGroup)}» (${toFa(chapters.length)} سرفصل):</div>
-              <div class="ex-topic-grid">
-                ${chapters.map(ch => {
-                  const encCh = encodeURIComponent(ch.name);
-                  const chMin = calcExamDurationMin(ch.questions.length);
-                  const chLocked = ch.hasPremium && !userIsVip;
-                  return `
-                    <div class="ex-topic-card">
-                      <div class="row between" style="gap:6px;">
-                        <b style="font-size:14px; color:var(--text);">📑 ${esc(ch.name)}</b>
-                        <span class="pill done">${toFa(ch.questions.length)} سوال · ${toFa(chMin)} د</span>
-                      </div>
-                      ${ch.hasPremium ? `<div><span class="ex-vip-badge">⭐ ویژه VIP</span></div>` : ''}
-                      <div class="row" style="gap:6px; flex-wrap:wrap; margin-top:auto;">
-                        <button type="button" class="btn small primary" style="flex:1; justify-content:center;" onclick="openSubjectLessonRunner('${encSubj}', 'exam', '${encCh}')">${chLocked ? '🔒 ' : '⏱ '}زمان‌دار</button>
-                        <button type="button" class="btn small" style="flex:1; justify-content:center;" onclick="openSubjectLessonRunner('${encSubj}', 'study', '${encCh}')">${chLocked ? '🔒 ' : '📖 '}حالت آمادگی</button>
-                      </div>
-                    </div>
-                  `;
-                }).join('')}
-              </div>
-            </div>
-
-            ${subExams.length > 1 || window.isAdmin ? `
-              <details ${window.isAdmin ? 'open' : ''} class="surface-box" style="padding:12px 14px; border-radius:14px;">
-                <summary style="cursor:pointer; font-weight:800; font-size:13px;">📂 فایل‌ها و آزمون‌های ثبت‌شده زیر این درس (${toFa(subExams.length)})</summary>
-                <div class="exams-grid" style="margin-top:12px;">
-                  ${subExams.map(renderExamCardHtml).join('')}
-                </div>
-              </details>
-            ` : ''}
-          `}
-        `;
-      } else {
-        mainBodyHtml = `
-          <div class="row between" style="gap:10px; flex-wrap:wrap; margin-bottom:14px;">
-            <input id="examLessonSearchInp" value="${esc(examLessonSearch)}" placeholder="جستجوی نام درس (مثلاً: حقوق مدنی، تجارت، جزا)..." style="min-width:220px; flex:1; max-width:360px;" oninput="setExamLessonSearch(this.value)">
-            ${window.isAdmin ? `<button type="button" class="btn small" onclick="go('admin');setTimeout(()=>setAdminExamsSubTab('subjects'),120)">⚙️ مدیریت دروس درس‌به‌درس</button>` : ''}
-          </div>
-          ${!filteredSubjectCards.length ? `
-            <div class="empty-glass-card" style="margin:24px auto;">
-              <div class="empty-icon">📚</div>
-              <h3>درسی با این عنوان پیدا نشد</h3>
-              <p>دروس درس‌به‌درس توسط مدیر تعریف می‌شوند و سوالات هر درس بر اساس سرفصل‌های فایل بارگذاری‌شده دسته‌بندی می‌گردند.</p>
-            </div>
-          ` : `
-            <div class="ex-folder-grid">
-              ${filteredSubjectCards.map(subjName => {
-                const subExs = getSubjectExamsOnly(subjName);
-                const chList = getSubjectChaptersBreakdown(subjName);
-                const qCnt = chList.reduce((sum, c) => sum + c.questions.length, 0);
-                const encName = encodeURIComponent(subjName);
-                return `
-                  <button type="button" class="ex-folder-card" onclick="selectSubjectGroupEnc('${encName}')">
-                    <div class="row between" style="width:100%;">
-                      <span class="ex-f-icon">📘</span>
-                      <span class="pill ${qCnt ? 'done' : ''}">${toFa(qCnt)} سوال · ${toFa(chList.length)} سرفصل</span>
-                    </div>
-                    <div class="ex-f-title">${esc(subjName)}</div>
-                    <div class="ex-f-meta">${subExs.length ? (toFa(subExs.length) + ' فایل بارگذاری‌شده · زمان‌دار و حالت آمادگی') : 'هنوز فایلی زیر این درس بارگذاری نشده'}</div>
-                  </button>
-                `;
-              }).join('')}
-            </div>
-          `}
-        `;
-      }
-    } else {
-      // بخش ۱: آزمون‌های کلی
       mainBodyHtml = `
-        <div class="form-grid" style="grid-template-columns:repeat(auto-fit, minmax(185px, 1fr)); gap:10px; margin-bottom:14px;">
-          <div class="field">
-            <label>جستجو در آزمون‌های کلی</label>
-            <input id="examHubSearchInp" value="${esc(examHubQuery)}" placeholder="نام آزمون، دسته یا سال..." oninput="setExamHubFilters('q', this.value)">
-          </div>
-          ${allCats.length > 1 ? `
-            <div class="field">
-              <label>دسته‌بندی</label>
-              <select onchange="selectExamCategoryEnc(this.value)">
-                <option value="all" ${examHubCat === 'all' ? 'selected' : ''}>همه دسته‌ها (${toFa(generalExams.length)})</option>
-                ${allCats.map(o => `<option value="${encodeURIComponent(o)}" ${examHubCat === o ? 'selected' : ''}>${esc(o)}</option>`).join('')}
-              </select>
-            </div>
-          ` : ''}
-          ${yearSet.length > 1 ? `
-            <div class="field">
-              <label>سال</label>
-              <select onchange="selectExamYearEnc(this.value)">
-                <option value="all" ${examHubFilterYear === 'all' ? 'selected' : ''}>همه سال‌ها</option>
-                ${yearSet.map(y => `<option value="${y}" ${String(examHubFilterYear) === String(y) ? 'selected' : ''}>سال ${toFa(y)}</option>`).join('')}
-              </select>
+        <div class="ex-breadcrumb">
+          <button type="button" class="ex-crumb-btn" onclick="selectMainTitleEnc('')">→ بازگشت به عناوین اصلی</button>
+          <span>›</span>
+          <span class="ex-crumb-btn active">📘 ${esc(selectedMainTitle)} (${toFa(totalSubjQ)} سوال · ${toFa(topics.length)} سرفصل)</span>
+          ${window.isAdmin ? `
+            <div class="row" style="gap:6px; margin-right:auto; flex-wrap:wrap;">
+              <button type="button" class="btn small primary" onclick="openMultiExamFileImportModal('${esc(selectedMainTitle)}')">📥 افزودن فایل زیر این عنوان</button>
+              <button type="button" class="btn small" onclick="adminRenameMainTitle('${encMain}')">✎ تغییر عنوان اصلی</button>
             </div>
           ` : ''}
         </div>
 
-        ${!filteredGeneral.length ? `
+        ${!totalSubjQ ? `
           <div class="empty-glass-card" style="margin:24px auto;">
-            <div class="empty-icon">📝</div>
-            <h3>${generalExams.length ? 'آزمونی با این فیلتر پیدا نشد' : 'هنوز آزمون کلی بارگذاری نشده است'}</h3>
-            <p>${generalExams.length ? 'عبارت جستجو یا فیلتر را تغییر دهید.' : 'آزمون‌های کلی پس از بارگذاری توسط مدیر اینجا نمایش داده می‌شوند.'}</p>
-            ${window.isAdmin ? `<div style="margin-top:16px;"><button type="button" class="btn primary" onclick="openExamMetaModal()">＋ ایجاد اولین آزمون</button></div>` : ''}
+            <div class="empty-icon">📑</div>
+            <h3>هنوز سوالی زیر «${esc(selectedMainTitle)}» ثبت نشده است</h3>
+            ${window.isAdmin ? `<div style="margin-top:14px;"><button type="button" class="btn primary" onclick="openMultiExamFileImportModal('${esc(selectedMainTitle)}')">📥 ورود فایل اکسل/CSV برای این عنوان</button></div>` : ''}
           </div>
         ` : `
-          <div class="exams-grid">
-            ${filteredGeneral.map(renderExamCardHtml).join('')}
+          <div class="surface-box" style="padding:14px; border-radius:14px; margin-bottom:14px;">
+            <div class="row between" style="gap:10px; flex-wrap:wrap;">
+              <div>
+                <b style="font-size:15px;">📘 آزمون کامل «${esc(selectedMainTitle)}»</b>
+                <div class="muted small" style="margin-top:3px;">${toFa(totalSubjQ)} سوال در ${toFa(topics.length)} سرفصل · زمان خودکار: ${toFa(calcExamDurationMin(totalSubjQ))} دقیقه (۲ دقیقه/سوال)</div>
+              </div>
+              <div class="row" style="gap:8px; flex-wrap:wrap;">
+                <button type="button" class="btn primary" onclick="openMainTitleRunner('${encMain}', 'exam', '')">${anyLocked ? '🔒 ' : '⏱ '}آزمون زمان‌دار کل</button>
+                <button type="button" class="btn" onclick="openMainTitleRunner('${encMain}', 'study', '')">${anyLocked ? '🔒 ' : '📖 '}حالت آمادگی کل</button>
+              </div>
+            </div>
+          </div>
+
+          <div style="margin-bottom:16px;">
+            <div style="font-size:13.5px; font-weight:800; color:var(--text); margin-bottom:8px;">📑 سرفصل‌ها و مباحث «${esc(selectedMainTitle)}» (${toFa(topics.length)} سرفصل):</div>
+            <div class="ex-topic-grid">
+              ${topics.map(ch => {
+                const encCh = encodeURIComponent(ch.name);
+                const chMin = calcExamDurationMin(ch.questions.length);
+                const chLocked = ch.hasPremium && !userIsVip;
+                return `
+                  <div class="ex-topic-card">
+                    <div class="row between" style="gap:6px;">
+                      <b style="font-size:14px; color:var(--text);">📑 ${esc(ch.name)}</b>
+                      <span class="pill done">${toFa(ch.questions.length)} سوال · ${toFa(chMin)} د</span>
+                    </div>
+                    ${ch.hasPremium ? `<div><span class="ex-vip-badge">⭐ ویژه VIP</span></div>` : ''}
+                    <div class="row" style="gap:6px; flex-wrap:wrap; margin-top:auto;">
+                      <button type="button" class="btn small primary" style="flex:1; justify-content:center;" onclick="openMainTitleRunner('${encMain}', 'exam', '${encCh}')">${chLocked ? '🔒 ' : '⏱ '}زمان‌دار</button>
+                      <button type="button" class="btn small" style="flex:1; justify-content:center;" onclick="openMainTitleRunner('${encMain}', 'study', '${encCh}')">${chLocked ? '🔒 ' : '📖 '}حالت آمادگی</button>
+                    </div>
+                  </div>
+                `;
+              }).join('')}
+            </div>
+          </div>
+        `}
+
+        ${window.isAdmin ? `
+          <details class="surface-box" style="padding:12px 14px; border-radius:14px;">
+            <summary style="cursor:pointer; font-weight:800; font-size:13px;">⚙️ مدیریت فایل‌ها و آزمون‌های زیر «${esc(selectedMainTitle)}» (${toFa(subExams.length)})</summary>
+            <div class="exams-grid" style="margin-top:12px;">
+              ${subExams.map(renderAdminFileCardHtml).join('')}
+            </div>
+          </details>
+        ` : ''}
+      `;
+    } else {
+      // سطح ۱: فقط عناوین اصلی (تمیز و خلوت)
+      mainBodyHtml = `
+        ${groupsAll.length > 3 ? `
+          <div style="margin-bottom:12px;">
+            <input id="examHubSearchInp" value="${esc(examHubQuery)}" placeholder="جستجوی عنوان اصلی یا نام سرفصل..." style="width:100%; max-width:380px;" oninput="setExamHubFilters('q', this.value)">
+          </div>
+        ` : ''}
+
+        ${!filteredGroups.length ? `
+          <div class="empty-glass-card" style="margin:24px auto;">
+            <div class="empty-icon">📝</div>
+            <h3>${groupsAll.length ? 'عنوانی با این جستجو پیدا نشد' : 'هنوز آزمونی بارگذاری نشده است'}</h3>
+            <p>${groupsAll.length ? 'عبارت جستجو را تغییر دهید.' : 'مدیر می‌تواند با انتخاب عنوان اصلی و فایل CSV/اکسل اولین آزمون را وارد کند.'}</p>
+            ${window.isAdmin ? `<div style="margin-top:16px;"><button type="button" class="btn primary" onclick="openMultiExamFileImportModal()">📥 ورود فایل اکسل / CSV</button></div>` : ''}
+          </div>
+        ` : `
+          <div class="ex-folder-grid">
+            ${filteredGroups.map(g => {
+              const encName = encodeURIComponent(g.name);
+              const locked = g.hasPremium && !userIsVip;
+              const autoMin = calcExamDurationMin(g.totalQ);
+              return `
+                <button type="button" class="ex-folder-card" style="${g.allHidden ? 'opacity:.82; border-style:dashed; border-color:var(--danger,#dc2626);' : ''}" onclick="selectMainTitleEnc('${encName}')">
+                  <div class="row between" style="width:100%; gap:6px;">
+                    <span class="ex-f-icon">${locked ? '🔒' : '📘'}</span>
+                    <span class="pill ${g.totalQ ? 'done' : ''}">${toFa(g.topics.length)} سرفصل · ${toFa(g.totalQ)} سوال</span>
+                  </div>
+                  <div class="ex-f-title">${esc(g.name)}</div>
+                  <div class="row" style="gap:6px; flex-wrap:wrap;">
+                    ${g.hasPremium ? `<span class="ex-vip-badge">⭐ ویژه VIP</span>` : ''}
+                    ${g.allHidden ? `<span class="ex-vis-badge hid">🙈 مخفی (فقط مدیر)</span>` : ''}
+                  </div>
+                  <div class="ex-f-meta">⏱ ${toFa(autoMin)} دقیقه · برای مشاهده سرفصل‌ها کلیک کنید ←</div>
+                </button>
+              `;
+            }).join('')}
           </div>
         `}
       `;
@@ -6910,31 +6935,16 @@
         <div class="panel-head">
           <div>
             <h2>📝 سامانه آزمون‌های حقوقی</h2>
-            <div class="muted small">دو بخش منظم (آزمون‌های کلی و درس‌به‌درس) · دو حالت زمان‌دار (۲ دقیقه/سوال) و آمادگی بدون تایمر · همگام بین وب و اپ</div>
+            <div class="muted small">عنوان اصلی را انتخاب کنید تا سرفصل‌ها و دو حالت زمان‌دار (۲ دقیقه/سوال) و آمادگی بدون تایمر باز شود</div>
           </div>
           <div class="row" style="gap:8px; flex-wrap:wrap;">
-            <button type="button" class="btn small ${examHubSection === 'notebook' ? 'primary' : ''}" onclick="setExamHubSection('notebook')">📓 دفترچه نکات (${toFa(nbCounts.all)})</button>
-            ${window.isAdmin ? `<button type="button" class="btn small primary" onclick="openExamMetaModal()">＋ آزمون جدید</button>` : ''}
-            ${window.isAdmin ? `<button type="button" class="btn small" onclick="openMultiExamFileImportModal()">📥 ورود فایل اکسل/CSV</button>` : ''}
+            <button type="button" class="btn small ${examHubSection === 'notebook' ? 'primary' : ''}" onclick="setExamHubSection('${examHubSection === 'notebook' ? 'exams' : 'notebook'}')">
+              ${examHubSection === 'notebook' ? '📚 بازگشت به آزمون‌ها' : `📓 دفترچه نکات (${toFa(nbCounts.all)})`}
+            </button>
+            ${window.isAdmin ? `<button type="button" class="btn small primary" onclick="openMultiExamFileImportModal('${selectedMainTitle ? esc(selectedMainTitle) : ''}')">📥 ورود فایل اکسل/CSV</button>` : ''}
+            ${window.isAdmin ? `<button type="button" class="btn small" onclick="openExamMetaModal()">＋ ساخت دستی</button>` : ''}
             <button type="button" class="btn small" onclick="forceFullExamSync()">🔄 همگام‌سازی</button>
           </div>
-        </div>
-
-        <div class="ex-section-tabs">
-          <button type="button" class="ex-section-tab-card ${examHubSection === 'exams' ? 'active' : ''}" onclick="setExamHubSection('exams')">
-            <div>
-              <b style="display:block; font-size:15px;">📋 آزمون‌های کلی</b>
-              <span class="muted small">آزمون‌های جامع و سنواتی با تایمر یا حالت آمادگی</span>
-            </div>
-            <span class="pill done">${toFa(generalExams.length)} آزمون</span>
-          </button>
-          <button type="button" class="ex-section-tab-card ${examHubSection === 'lessons' ? 'active' : ''}" onclick="setExamHubSection('lessons')">
-            <div>
-              <b style="display:block; font-size:15px;">📚 آزمون‌های درس‌به‌درس</b>
-              <span class="muted small">تفکیک‌شده به دروس و سرفصل‌های مستقل هر درس</span>
-            </div>
-            <span class="pill done">${toFa(mergedSubjectNames.length)} درس</span>
-          </button>
         </div>
 
         ${mainBodyHtml}
@@ -7008,45 +7018,6 @@
     await persistExamsList(list, target.isPremium ? 'آزمون به حالت ویژه (VIP) تغییر یافت.' : 'آزمون به حالت رایگان تغییر یافت.');
   };
 
-  window.adminAddGlobalSubject = async function() {
-    if (!window.isAdmin) return;
-    const inp = document.getElementById('admNewExamSubjInp');
-    const name = String(inp ? inp.value : '').trim();
-    if (!name) return alert('نام درس را وارد کنید.');
-    const cur = getExamSubjectsList();
-    if (cur.includes(name)) return alert('این درس قبلاً ثبت شده است.');
-    cur.push(name);
-    if (inp) inp.value = '';
-    await saveExamSubjectsList(cur, 'درس «' + name + '» به فهرست درس‌به‌درس اضافه شد.');
-  };
-
-  window.adminRenameGlobalSubject = async function(encOldName) {
-    if (!window.isAdmin) return;
-    const oldName = decodeURIComponent(encOldName || '');
-    const nextName = prompt('نام جدید درس:', oldName);
-    if (!nextName || !nextName.trim() || nextName.trim() === oldName) return;
-    const cleanNext = nextName.trim();
-    const cur = getExamSubjectsList().map(x => x === oldName ? cleanNext : x);
-    await saveExamSubjectsList(cur, 'نام درس ویرایش شد.');
-    const exams = window.getExams();
-    let changedEx = false;
-    exams.forEach(ex => {
-      if (ex.examScope === 'subject' && ex.subjectGroup === oldName) {
-        ex.subjectGroup = cleanNext;
-        changedEx = true;
-      }
-    });
-    if (changedEx) await persistExamsList(exams, 'آزمون‌های مرتبط به نام درس جدید منتقل شدند.');
-  };
-
-  window.adminDeleteGlobalSubject = async function(encName) {
-    if (!window.isAdmin) return;
-    const name = decodeURIComponent(encName || '');
-    if (!confirm('درس «' + name + '» از فهرست درس‌به‌درس حذف شود؟ (آزمون‌های موجود پاک نمی‌شوند)')) return;
-    const cur = getExamSubjectsList().filter(x => x !== name);
-    await saveExamSubjectsList(cur, 'درس از فهرست حذف شد.');
-  };
-
   window.adminAddVipSubscriber = async function() {
     if (!window.isAdmin) return;
     const email = String(document.getElementById('admVipEmailInp')?.value || '').trim().toLowerCase();
@@ -7110,26 +7081,26 @@
     const box = document.getElementById('admExamsList');
     if (!box) return;
     const exams = window.getExams();
-    const globalSubjects = getExamSubjectsList();
     const vipCfg = getVipSettings();
     const examsHtml = !exams.length
-      ? '<div class="muted small surface-box">هنوز آزمونی ثبت نشده است. با دکمه «ایجاد آزمون جدید» یا ورود فایل اکسل آزمون بسازید.</div>'
+      ? '<div class="muted small surface-box">هنوز آزمونی ثبت نشده است. با دکمه «ورود فایل اکسل / CSV» یا «ساخت دستی» آزمون اضافه کنید.</div>'
       : `<div style="display:grid; gap:10px;">${exams.map(ex => {
           const qCount = totalQuestionsCount(ex);
           const autoMin = calcExamDurationMin(qCount);
           const isPub = ex.isPublished !== false;
-          const isSubj = ex.examScope === 'subject';
+          const mainT = getExamMainTitle(ex);
+          const topicsNames = [...new Set((ex.subjects || []).flatMap(sb => (sb.questions || []).map(q => q.chapter || ex.topicTitle || sb.name)).filter(Boolean))];
           return `
             <div class="row between admin-list-row" style="flex-wrap:wrap; gap:8px;">
               <div>
                 <div class="row" style="gap:6px; flex-wrap:wrap; align-items:center;">
-                  <b style="font-size:14px;">${esc(ex.title)}</b>
-                  <span class="pill">${isSubj ? ('📚 درس‌به‌درس: ' + esc(ex.subjectGroup || 'نامشخص')) : '📋 آزمون کلی'}</span>
+                  <span class="art-tag">📘 ${esc(mainT)}</span>
+                  <b style="font-size:14px;">${esc(ex.title || mainT)}</b>
                   ${ex.isPremium ? `<span class="ex-vip-badge">⭐ ویژه VIP</span>` : `<span class="pill">رایگان</span>`}
                   <span class="ex-vis-badge ${isPub ? 'pub' : 'hid'}">${isPub ? 'منتشرشده' : 'مخفی (فقط مدیر)'}</span>
                 </div>
                 <div class="muted small" style="margin-top:4px;">
-                  دسته: <b>${esc(getExamCategory(ex))}</b> · سال ${toFa(ex.year || '۱۴۰۴')} · ${toFa(qCount)} سوال · ⏱ ${toFa(autoMin)} دقیقه خودکار
+                  ${topicsNames.length ? `سرفصل‌ها: <b>${esc(topicsNames.slice(0, 4).join(' · '))}${topicsNames.length > 4 ? ' ...' : ''}</b> · ` : ''}${toFa(qCount)} سوال · ⏱ ${toFa(autoMin)} دقیقه خودکار
                 </div>
               </div>
               <div class="row" style="gap:6px; flex-wrap:wrap;">
@@ -7137,7 +7108,7 @@
                 <button type="button" class="btn small" onclick="toggleExamPremium('${ex.id}')">${ex.isPremium ? '⭐ ویژه' : '🆓 رایگان'}</button>
                 <button type="button" class="btn small ${isPub ? '' : 'primary'}" onclick="toggleExamPublished('${ex.id}')">${isPub ? '🙈 مخفی' : '👁 انتشار'}</button>
                 <button type="button" class="btn small" onclick="openExamBulkImportModal('${ex.id}')">📥 ورود فایل</button>
-                <button type="button" class="btn small" onclick="openExamMetaModal('${ex.id}')">✎ مشخصات</button>
+                <button type="button" class="btn small" onclick="openExamMetaModal('${ex.id}')">✎ عنوان/مبحث</button>
                 <button type="button" class="btn small" onclick="exportExamJson('${ex.id}')">📤 JSON</button>
                 <button type="button" class="btn small danger" onclick="deleteExam('${ex.id}')">✕ حذف</button>
               </div>
@@ -7145,10 +7116,10 @@
           `;
         }).join('')}</div>`;
 
+    if (adminExamsSubTab === 'subjects') adminExamsSubTab = 'list';
     const subTabsHtml = `
       <div class="adm-subtab-bar">
-        <button type="button" class="adm-subtab-btn ${adminExamsSubTab === 'list' ? 'active' : ''}" onclick="setAdminExamsSubTab('list')">فهرست آزمون‌ها (${toFa(exams.length)})</button>
-        <button type="button" class="adm-subtab-btn ${adminExamsSubTab === 'subjects' ? 'active' : ''}" onclick="setAdminExamsSubTab('subjects')">📚 دروس درس‌به‌درس (${toFa(globalSubjects.length)})</button>
+        <button type="button" class="adm-subtab-btn ${adminExamsSubTab === 'list' ? 'active' : ''}" onclick="setAdminExamsSubTab('list')">فهرست آزمون‌ها و فایل‌ها (${toFa(exams.length)})</button>
         <button type="button" class="adm-subtab-btn ${adminExamsSubTab === 'vip' ? 'active' : ''}" onclick="setAdminExamsSubTab('vip')">⭐ اشتراک ویژه (${toFa(vipCfg.subscribers.length)})</button>
         <button type="button" class="adm-subtab-btn ${adminExamsSubTab === 'attempts' ? 'active' : ''}" onclick="setAdminExamsSubTab('attempts')">کارنامه‌ها و آمادگی (${toFa(adminAttemptsCache.length)})</button>
         <button type="button" class="adm-subtab-btn ${adminExamsSubTab === 'tags' ? 'active' : ''}" onclick="setAdminExamsSubTab('tags')">تیک‌های دانشجویان (${toFa(adminStudentTagsCache.length)})</button>
@@ -7161,42 +7132,12 @@
       bodySection = `
         <div class="row between" style="gap:8px; flex-wrap:wrap; margin-bottom:12px;">
           <div class="row" style="gap:8px; flex-wrap:wrap;">
-            <button type="button" class="btn small primary" onclick="openExamMetaModal()">＋ ایجاد آزمون جدید</button>
-            <button type="button" class="btn small" onclick="openMultiExamFileImportModal()">📥 ورود فایل اکسل / CSV</button>
+            <button type="button" class="btn small primary" onclick="openMultiExamFileImportModal()">📥 ورود فایل اکسل / CSV</button>
+            <button type="button" class="btn small" onclick="openExamMetaModal()">＋ ساخت دستی آزمون</button>
           </div>
           ${exams.length ? `<button type="button" class="btn small danger" onclick="deleteAllExams()">🗑 حذف همه (${toFa(exams.length)})</button>` : ''}
         </div>
         ${examsHtml}
-      `;
-    } else if (adminExamsSubTab === 'subjects') {
-      bodySection = `
-        <div class="surface-box" style="padding:12px; border-radius:12px; margin-bottom:12px;">
-          <div class="muted small" style="margin-bottom:8px;">دروس این بخش برای قسمت «آزمون‌های درس‌به‌درس» نمایش داده می‌شوند. هر فایلی که مستقیماً زیر یک درس آپلود شود بر اساس سرفصل‌های آن در همین درس قرار می‌گیرد.</div>
-          <div class="row" style="gap:8px; flex-wrap:wrap;">
-            <input id="admNewExamSubjInp" placeholder="نام درس جدید (مثلاً: حقوق ثبت، متون فقه)..." style="flex:1; min-width:200px;">
-            <button type="button" class="btn small primary" onclick="adminAddGlobalSubject()">＋ افزودن درس</button>
-          </div>
-        </div>
-        <div style="display:grid; gap:8px;">
-          ${globalSubjects.map(sName => {
-            const linked = exams.filter(ex => ex.examScope === 'subject' && ex.subjectGroup === sName);
-            const qCnt = linked.reduce((sum, ex) => sum + totalQuestionsCount(ex), 0);
-            const enc = encodeURIComponent(sName);
-            return `
-              <div class="row between admin-list-row" style="flex-wrap:wrap; gap:8px;">
-                <div>
-                  <b>📘 ${esc(sName)}</b>
-                  <div class="muted small" style="margin-top:2px;">${toFa(linked.length)} فایل آزمون · ${toFa(qCnt)} سوال</div>
-                </div>
-                <div class="row" style="gap:6px; flex-wrap:wrap;">
-                  <button type="button" class="btn small primary" onclick="openMultiExamFileImportModal('${esc(sName)}')">📥 ورود فایل برای این درس</button>
-                  <button type="button" class="btn small" onclick="adminRenameGlobalSubject('${enc}')">✎ تغییر نام</button>
-                  <button type="button" class="btn small danger" onclick="adminDeleteGlobalSubject('${enc}')">✕ حذف</button>
-                </div>
-              </div>
-            `;
-          }).join('')}
-        </div>
       `;
     } else if (adminExamsSubTab === 'vip') {
       bodySection = `
@@ -7309,75 +7250,57 @@ WITH CHECK (key &lt;&gt; 'baraat_exams_private_v1' OR EXISTS (SELECT 1 FROM publ
   window.openExamMetaModal = function(examId) {
     if (!window.isAdmin) { if (typeof toast === 'function') toast('فقط مدیر مجاز به مدیریت آزمون‌هاست.'); return; }
     const existing = examId ? window.getExams().find(x => x.id === examId) : null;
-    const globalSubjects = getExamSubjectsList();
+    const suggestions = getAllMainTitleSuggestions();
     const ex = existing || {
       id: 'ex_' + Date.now(),
+      mainTitle: selectedMainTitle || '',
+      topicTitle: '',
       title: '',
       category: EXAM_ORGS[0],
       org: EXAM_ORGS[0],
-      examScope: 'general',
-      subjectGroup: globalSubjects[0] || 'حقوق مدنی',
       isPremium: false,
       examType: EXAM_TYPES[0],
       year: 1404,
-      durationMinutes: 120,
+      durationMinutes: 60,
       negativeMarking: true,
       isPublished: true,
       description: '',
       subjects: [
-        { id: 'es_' + Date.now() + '_1', name: 'حقوق مدنی', questions: [] },
-        { id: 'es_' + Date.now() + '_2', name: 'آیین دادرسی مدنی', questions: [] },
-        { id: 'es_' + Date.now() + '_3', name: 'حقوق تجارت', questions: [] },
-        { id: 'es_' + Date.now() + '_4', name: 'حقوق جزا', questions: [] },
-        { id: 'es_' + Date.now() + '_5', name: 'آیین دادرسی کیفری', questions: [] },
-        { id: 'es_' + Date.now() + '_6', name: 'اصول فقه', questions: [] }
+        { id: 'es_' + Date.now() + '_1', name: 'سرفصل اول', questions: [] }
       ]
     };
 
     const m = document.getElementById('modal');
     if (!m) return;
-    const isSubjScope = ex.examScope === 'subject';
+    const curMainTitle = existing ? getExamMainTitle(existing) : (ex.mainTitle || '');
     m.innerHTML = `
-      <h2>${existing ? '✏️ ویرایش مشخصات آزمون' : '📝 ایجاد آزمون جدید'}</h2>
+      <h2>${existing ? '✏️ ویرایش عنوان اصلی و مشخصات' : '📝 ساخت دستی آزمون'}</h2>
       <div class="form-grid">
         <div class="field" style="grid-column:1/-1;">
-          <label>عنوان / اسم آزمون *</label>
-          <input id="exMetaTitle" value="${esc(ex.title)}" placeholder="مثلاً: آزمون جزا - تالیفی ۱ یا آزمون وکالت کانون ۱۴۰۳">
-        </div>
-        <div class="field">
-          <label>بخش نمایش در صفحه آزمون‌ها</label>
-          <select id="exMetaScope" onchange="document.getElementById('exMetaSubjGrpWrap').style.display=(this.value==='subject'?'':'none')">
-            <option value="general" ${!isSubjScope ? 'selected' : ''}>📋 آزمون‌های کلی</option>
-            <option value="subject" ${isSubjScope ? 'selected' : ''}>📚 آزمون‌های درس‌به‌درس</option>
-          </select>
-        </div>
-        <div class="field" id="exMetaSubjGrpWrap" style="${isSubjScope ? '' : 'display:none;'}">
-          <label>درس مرتبط (در بخش درس‌به‌درس)</label>
-          <select id="exMetaSubjGrp">
-            ${globalSubjects.map(s => `<option value="${esc(s)}" ${ex.subjectGroup === s ? 'selected' : ''}>${esc(s)}</option>`).join('')}
-          </select>
-        </div>
-        <div class="field">
-          <label>دسته اصلی / رشته / نهاد</label>
-          <input id="exMetaOrg" list="exMetaCatList" value="${esc(getExamCategory(ex))}" placeholder="انتخاب یا تایپ دسته...">
-          <datalist id="exMetaCatList">
-            ${EXAM_ORGS.map(o => `<option value="${esc(o)}">`).join('')}
+          <label>عنوان اصلی * (این عنوان در صفحه اصلی آزمون‌ها نمایش داده می‌شود — هر عنوان دلخواه مثل: مدنی، جزا، آزمون وکالت ۱۴۰۳)</label>
+          <input id="exMetaMainTitle" list="exMetaMainTitleList" value="${esc(curMainTitle)}" placeholder="مثلاً: حقوق مدنی یا آزمون وکالت ۱۴۰۳">
+          <datalist id="exMetaMainTitleList">
+            ${suggestions.map(s => `<option value="${esc(s)}">`).join('')}
           </datalist>
         </div>
+        <div class="field" style="grid-column:1/-1;">
+          <label>عنوان مبحث / سرفصل (اختیاری — برای دسته‌بندی زیر عنوان اصلی)</label>
+          <input id="exMetaTopicTitle" value="${esc(ex.topicTitle || '')}" placeholder="مثلاً: عقود معین، قصاص و دیات، یا خالی بگذارید">
+        </div>
+        <div class="field" style="grid-column:1/-1;">
+          <label>نام نمایشی فایل / آزمون (اختیاری — در صورت خالی بودن از عنوان اصلی و مبحث ساخته می‌شود)</label>
+          <input id="exMetaTitle" value="${esc(ex.title || '')}" placeholder="اختیاری">
+        </div>
         <div class="field">
-          <label>نوع / منبع (تالیفی، سراسری، کانون...)</label>
+          <label>نوع / منبع (اختیاری)</label>
           <input id="exMetaType" list="exMetaTypeList" value="${esc(getExamTypeLabel(ex))}" placeholder="مثلاً: تالیفی یا سراسری">
           <datalist id="exMetaTypeList">
             ${EXAM_TYPES.map(t => `<option value="${esc(t)}">`).join('')}
           </datalist>
         </div>
         <div class="field">
-          <label>سال برگزاری (شمسی)</label>
+          <label>سال (شمسی)</label>
           <input id="exMetaYear" type="number" min="1370" max="1420" value="${Number(ex.year || 1404)}">
-        </div>
-        <div class="field">
-          <label>مدت زمان (محاسبه خودکار: ۲ دقیقه به ازای هر سوال)</label>
-          <input id="exMetaDur" type="number" min="2" max="600" value="${Number(ex.durationMinutes || 60)}" disabled>
         </div>
         <div class="field" style="justify-content:end;">
           <label class="check" style="margin:0; cursor:pointer;">
@@ -7413,11 +7336,11 @@ WITH CHECK (key &lt;&gt; 'baraat_exams_private_v1' OR EXISTS (SELECT 1 FROM publ
 
   window.submitExamMeta = async function(examId, isEdit) {
     if (!window.isAdmin) return;
-    const title = (document.getElementById('exMetaTitle')?.value || '').trim();
-    if (!title) return alert('عنوان آزمون را وارد کنید.');
-    const examScope = (document.getElementById('exMetaScope')?.value === 'subject') ? 'subject' : 'general';
-    const subjectGroup = examScope === 'subject' ? (document.getElementById('exMetaSubjGrp')?.value || '').trim() : '';
-    const cat = (document.getElementById('exMetaOrg')?.value || '').trim() || (subjectGroup || EXAM_ORGS[0]);
+    const mainTitle = (document.getElementById('exMetaMainTitle')?.value || '').trim();
+    if (!mainTitle) return alert('عنوان اصلی را وارد کنید.');
+    const topicTitle = (document.getElementById('exMetaTopicTitle')?.value || '').trim();
+    const rawTitle = (document.getElementById('exMetaTitle')?.value || '').trim();
+    const title = rawTitle || (topicTitle ? (mainTitle + ' · ' + topicTitle) : mainTitle);
     const examType = (document.getElementById('exMetaType')?.value || '').trim() || 'تالیفی';
     const year = Number(toEn(document.getElementById('exMetaYear')?.value || '1404')) || 1404;
     const negativeMarking = !!document.getElementById('exMetaNeg')?.checked;
@@ -7431,16 +7354,20 @@ WITH CHECK (key &lt;&gt; 'baraat_exams_private_v1' OR EXISTS (SELECT 1 FROM publ
       if (target) {
         const qTot = totalQuestionsCount(target);
         Object.assign(target, {
-          title, org: cat, category: cat, examScope, subjectGroup, isPremium,
-          examType, year, durationMinutes: calcExamDurationMin(qTot),
+          mainTitle, topicTitle, title, org: mainTitle, category: mainTitle,
+          isPremium, examType, year, durationMinutes: calcExamDurationMin(qTot),
           negativeMarking, isPublished, description, updatedAt: new Date().toISOString()
         });
       }
     } else {
-      const created = Object.assign({}, window.__tmpNewExamPreset || { id: examId, subjects: [] }, {
+      const preset = window.__tmpNewExamPreset || { id: examId, subjects: [] };
+      if (topicTitle && Array.isArray(preset.subjects) && preset.subjects.length === 1) {
+        preset.subjects[0].name = topicTitle;
+      }
+      const created = Object.assign({}, preset, {
         id: examId,
-        title, org: cat, category: cat, examScope, subjectGroup, isPremium,
-        examType, year, durationMinutes: 60, negativeMarking, isPublished, description,
+        mainTitle, topicTitle, title, org: mainTitle, category: mainTitle,
+        isPremium, examType, year, durationMinutes: 60, negativeMarking, isPublished, description,
         updatedAt: new Date().toISOString()
       });
       list.unshift(created);
@@ -7835,58 +7762,46 @@ WITH CHECK (key &lt;&gt; 'baraat_exams_private_v1' OR EXISTS (SELECT 1 FROM publ
     document.getElementById('modalBack').classList.add('show');
   };
 
-  window.openMultiExamFileImportModal = function(presetSubject) {
+  window.openMultiExamFileImportModal = function(presetMainTitle) {
     if (!window.isAdmin) return;
     const m = document.getElementById('modal');
     if (!m) return;
-    const globalSubjects = getExamSubjectsList();
-    const isSubjPreset = Boolean(presetSubject && String(presetSubject).trim());
-    const chosenSubj = isSubjPreset ? String(presetSubject).trim() : (globalSubjects[0] || 'حقوق مدنی');
+    const suggestions = getAllMainTitleSuggestions();
+    const initialMain = String(presetMainTitle || '').trim();
     m.innerHTML = `
-      <h2>📥 بارگذاری آزمون از فایل CSV / اکسل</h2>
+      <h2>📥 ورود فایل آزمون (CSV / اکسل / JSON)</h2>
       <p class="muted small" style="line-height:1.9;">
-        مشخص کنید این فایل مربوط به <b>آزمون‌های کلی</b> است یا زیر یکی از دروس <b>آزمون‌های درس‌به‌درس</b> قرار بگیرد. اگر ستون <b>سرفصل</b> در فایل باشد سوالات به صورت خودکار بر اساس سرفصل دسته‌بندی می‌شوند و زمان آزمون خودکار ۲ دقیقه به ازای هر سوال محاسبه می‌شود.
+        یک <b>عنوان اصلی</b> بدهید (مثل: مدنی، جزا یا هر عنوان دلخواه) و در صورت تمایل <b>عنوان مبحث / سرفصل</b> را دستی بنویسید یا خالی بگذارید تا مستقیم از ستون «سرفصل / مبحث» داخل فایل CSV خوانده شود. زمان آزمون خودکار ۲ دقیقه به ازای هر سوال محاسبه می‌شود.
       </p>
       <div class="form-grid" style="margin-top:10px; gap:10px;">
-        <div class="field">
-          <label>بخش مقصد آزمون</label>
-          <select id="mImpScope" onchange="document.getElementById('mImpSubjGrpWrap').style.display=(this.value==='subject'?'':'none')">
-            <option value="general" ${!isSubjPreset ? 'selected' : ''}>📋 آزمون‌های کلی</option>
-            <option value="subject" ${isSubjPreset ? 'selected' : ''}>📚 آزمون‌های درس‌به‌درس</option>
-          </select>
-        </div>
-        <div class="field" id="mImpSubjGrpWrap" style="${isSubjPreset ? '' : 'display:none;'}">
-          <label>درس مقصد (در بخش درس‌به‌درس)</label>
-          <select id="mImpSubjGrp">
-            ${globalSubjects.map(s => `<option value="${esc(s)}" ${chosenSubj === s ? 'selected' : ''}>${esc(s)}</option>`).join('')}
-          </select>
+        <div class="field" style="grid-column:1/-1;">
+          <label>عنوان اصلی (در صفحه اصلی آزمون‌ها نمایش داده می‌شود — خالی بگذارید تا از ستون عنوان یا نام فایل خوانده شود)</label>
+          <input id="mImpMainTitle" list="mImpMainTitleList" value="${esc(initialMain)}" placeholder="مثلاً: حقوق مدنی، حقوق جزا، آزمون وکالت ۱۴۰۳...">
+          <datalist id="mImpMainTitleList">${suggestions.map(s => `<option value="${esc(s)}">`).join('')}</datalist>
         </div>
         <div class="field" style="grid-column:1/-1;">
-          <label>نام آزمون (اختیاری — در صورت خالی بودن از نام فایل یا ستون «اسم آزمون» استفاده می‌شود)</label>
-          <input id="mImpDefTitle" value="" placeholder="مثلاً: آزمون جامع حقوق جزا یا سرفصل قصاص">
+          <label>عنوان مبحث / سرفصل (اختیاری — اگر خالی بگذارید از ستون «سرفصل / مبحث» داخل فایل CSV خوانده می‌شود)</label>
+          <input id="mImpTopicTitle" value="" placeholder="مثلاً: عقود معین یا قصاص (یا خالی بگذارید برای خواندن از CSV)">
         </div>
         <div class="field">
-          <label>دسته اصلی (اختیاری)</label>
-          <input id="mImpDefCat" list="mImpCatList" value="${isSubjPreset ? esc(chosenSubj) : ''}" placeholder="مثلاً: آزمون وکالت یا نام درس">
-          <datalist id="mImpCatList">${EXAM_ORGS.map(o => `<option value="${esc(o)}">`).join('')}</datalist>
-        </div>
-        <div class="field">
-          <label>نوع / منبع پیش‌فرض (اختیاری)</label>
+          <label>منبع / نوع (اختیاری)</label>
           <input id="mImpDefType" list="mImpTypeList" value="" placeholder="مثلاً: تالیفی یا سراسری">
           <datalist id="mImpTypeList">${EXAM_TYPES.map(t => `<option value="${esc(t)}">`).join('')}</datalist>
         </div>
         <div class="field">
-          <label>سال پیش‌فرض (اختیاری)</label>
+          <label>سال (اختیاری)</label>
           <input id="mImpDefYear" type="number" value="" placeholder="مثلاً: 1404">
         </div>
-        <div class="field">
-          <label>درس پیش‌فرض (فقط در نبود سرفصل)</label>
-          <input id="mImpDefSubj" value="${isSubjPreset ? esc(chosenSubj) : ''}" placeholder="اختیاری">
-        </div>
-        <div class="field" style="grid-column:1/-1;">
+        <div class="field" style="justify-content:end;">
           <label class="check" style="margin:0; cursor:pointer;">
             <input type="checkbox" id="mImpVip">
-            <span>⭐ آزمون ویژه (فقط کاربران دارای اشتراک VIP)</span>
+            <span>⭐ آزمون ویژه (VIP)</span>
+          </label>
+        </div>
+        <div class="field" style="justify-content:end;">
+          <label class="check" style="margin:0; cursor:pointer;">
+            <input type="checkbox" id="mImpPub" checked>
+            <span>👁 انتشار فوری برای همه کاربران</span>
           </label>
         </div>
       </div>
@@ -7907,10 +7822,10 @@ WITH CHECK (key &lt;&gt; 'baraat_exams_private_v1' OR EXISTS (SELECT 1 FROM publ
   window.downloadExamSampleCsv = function() {
     const bom = '\uFEFF';
     const rows = [
-      ['سرفصل', 'منبع سوال', 'سال', 'صورت سوال', 'گزینه ۱', 'گزینه ۲', 'گزینه ۳', 'گزینه ۴', 'پاسخ', 'پاسخ تشریحی'],
-      ['مسئولیت کیفری', 'آزمون وکلا', '1400', 'شرط تحقق مسئولیت کیفری در قبال جرایم عمدی کدام است؟', 'بلوغ و عقل و اختیار', 'صرف علم به حکم', 'سوگند متهم', 'عدم سابقه کیفری', '1', 'مطابق مواد ۱۴۰ تا ۱۴۶ قانون مجازات اسلامی'],
-      ['قصاص و دیات', 'ارشد', '98', 'در چه صورتی قصاص نفس با گذشت ساقط می‌شود؟', 'با گذشت اولیای دم', 'با اقرار متهم', 'با تغییر قاضی', 'با مرور زمان', '1', 'مطابق قانون مجازات اسلامی'],
-      ['تعزیرات', 'تالیفی', '', 'حداقل سن مسئولیت کیفری در پسران کدام است؟', '۱۵ سال تمام قمری', '۱۸ سال شمسی', '۱۲ سال شمسی', '۹ سال قمری', '1', 'ماده ۱۴۷ قانون مجازات اسلامی']
+      ['عنوان اصلی', 'سرفصل', 'منبع سوال', 'سال', 'صورت سوال', 'گزینه ۱', 'گزینه ۲', 'گزینه ۳', 'گزینه ۴', 'پاسخ', 'پاسخ تشریحی'],
+      ['حقوق جزا', 'مسئولیت کیفری', 'آزمون وکلا', '1400', 'شرط تحقق مسئولیت کیفری در قبال جرایم عمدی کدام است؟', 'بلوغ و عقل و اختیار', 'صرف علم به حکم', 'سوگند متهم', 'عدم سابقه کیفری', '1', 'مطابق مواد ۱۴۰ تا ۱۴۶ قانون مجازات اسلامی'],
+      ['حقوق جزا', 'قصاص و دیات', 'ارشد', '98', 'در چه صورتی قصاص نفس با گذشت ساقط می‌شود؟', 'با گذشت اولیای دم', 'با اقرار متهم', 'با تغییر قاضی', 'با مرور زمان', '1', 'مطابق قانون مجازات اسلامی'],
+      ['حقوق جزا', 'تعزیرات', 'تالیفی', '', 'حداقل سن مسئولیت کیفری در پسران کدام است؟', '۱۵ سال تمام قمری', '۱۸ سال شمسی', '۱۲ سال شمسی', '۹ سال قمری', '1', 'ماده ۱۴۷ قانون مجازات اسلامی']
     ];
     const sample = rows.map(r => r.map(v => `"${String(v).replace(/"/g, '""')}"`).join(',')).join('\r\n');
     const blob = new Blob([bom + sample], { type: 'text/csv;charset=utf-8;' });
@@ -8056,12 +7971,14 @@ WITH CHECK (key &lt;&gt; 'baraat_exams_private_v1' OR EXISTS (SELECT 1 FROM publ
     const f = inputEl && inputEl.files && inputEl.files[0];
     if (!f) return;
     const isAutoMode = examId === '__AUTO__';
-    const defTitle = (document.getElementById('mImpDefTitle')?.value || '').trim();
-    const defSubj = (document.getElementById(isAutoMode ? 'mImpDefSubj' : 'impDefSubj')?.value || '').trim();
-    const defCat = (document.getElementById('mImpDefCat')?.value || '').trim();
+    const manualMainTitle = isAutoMode ? (document.getElementById('mImpMainTitle')?.value || '').trim() : '';
+    const manualTopicTitle = isAutoMode ? (document.getElementById('mImpTopicTitle')?.value || '').trim() : '';
+    const defSubj = (document.getElementById('impDefSubj')?.value || '').trim();
     const defType = (document.getElementById('mImpDefType')?.value || '').trim();
     const defYearRaw = toEn(document.getElementById('mImpDefYear')?.value || '').trim();
     const defYear = defYearRaw ? Number(defYearRaw) : '';
+    const impIsPremium = isAutoMode ? !!document.getElementById('mImpVip')?.checked : false;
+    const impIsPublished = isAutoMode ? (document.getElementById('mImpPub') ? !!document.getElementById('mImpPub').checked : true) : true;
 
     const list = window.getExams();
     const targetSingleExam = isAutoMode ? null : list.find(x => x.id === examId);
@@ -8082,7 +7999,10 @@ WITH CHECK (key &lt;&gt; 'baraat_exams_private_v1' OR EXISTS (SELECT 1 FROM publ
         arr.forEach(item => {
           if (!item || typeof item !== 'object') return;
           if (Array.isArray(item.subjects)) {
-            list.unshift(normalizeExamRecord(Object.assign({ id: 'ex_' + Date.now() + '_' + Math.random().toString(36).slice(2, 5) }, item)));
+            const extra = { id: 'ex_' + Date.now() + '_' + Math.random().toString(36).slice(2, 5) };
+            if (manualMainTitle) extra.mainTitle = manualMainTitle;
+            if (manualTopicTitle) extra.topicTitle = manualTopicTitle;
+            list.unshift(normalizeExamRecord(Object.assign(extra, item)));
             addedEx++;
           }
         });
@@ -8123,13 +8043,14 @@ WITH CHECK (key &lt;&gt; 'baraat_exams_private_v1' OR EXISTS (SELECT 1 FROM publ
       };
 
       const ciNum = findCol(['شماره', 'شماره سوال', 'شماره تست', 'ردیف', 'کد', 'کد سوال', 'no', 'num', 'number', 'row', 'id', '#'], ['شماره سوال', 'شماره تست', 'ردیف']);
+      const ciMainTitle = findCol(['عنوان اصلی', 'بخش اصلی', 'سردسته', 'نام درس اصلی', 'main title', 'maintitle'], ['عنوان اصلی', 'بخش اصلی', 'maintitle']);
       const ciCat = findCol(['دسته', 'دسته بندی', 'نهاد', 'رشته', 'category', 'org'], ['دسته', 'نهاد', 'category']);
       const ciSource = findCol(['منبع سوال', 'منبع', 'مرجع', 'آزمون مبدا', 'source', 'origin'], ['منبع', 'مرجع', 'مبدا', 'source', 'origin']);
       const ciType = findCol(['نوع', 'نوع سوال', 'نوع آزمون', 'ماهیت', 'تالیفی', 'type', 'examtype'], ['تالیفی', 'نوع آزمون', 'نوع سوال', 'examtype']);
       const ciYear = findCol(['سال', 'سال آزمون', 'year'], ['سال', 'year']);
       const ciTitle = findCol(['اسم آزمون', 'نام آزمون', 'عنوان آزمون', 'عنوان', 'exam', 'examtitle', 'title'], ['اسم آزمون', 'نام آزمون', 'عنوان آزمون', 'title']);
       const ciSubj = findCol(['درس', 'subject'], ['درس', 'subject']);
-      const ciChap = findCol(['سرفصل', 'فصل', 'مبحث', 'موضوع', 'بخش', 'chapter', 'topic'], ['سرفصل', 'فصل', 'مبحث', 'chapter', 'topic']);
+      const ciChap = findCol(['سرفصل', 'عنوان مبحث', 'مبحث', 'فصل', 'موضوع', 'بخش', 'chapter', 'topic'], ['سرفصل', 'مبحث', 'فصل', 'chapter', 'topic']);
       const ciQ = findCol(['سوال', 'سؤال', 'صورت سوال', 'متن سوال', 'question'], ['سوال', 'سؤال', 'صورت', 'question']);
       const ciA = findCol(['الف', 'ا', 'a', '1', '۱', 'گزینه الف', 'گزینه 1', 'گزینه ۱', 'گزینه اول', 'opt1', 'option1', 'option a'], ['گزینه الف', 'گزینه 1', 'گزینه ۱', 'opt1', 'option 1', 'option a']);
       const ciB = findCol(['ب', 'b', '2', '۲', 'گزینه ب', 'گزینه 2', 'گزینه ۲', 'گزینه دوم', 'opt2', 'option2', 'option b'], ['گزینه ب', 'گزینه 2', 'گزینه ۲', 'opt2', 'option 2', 'option b']);
@@ -8220,7 +8141,7 @@ WITH CHECK (key &lt;&gt; 'baraat_exams_private_v1' OR EXISTS (SELECT 1 FROM publ
         return 0;
       };
 
-      const fileBaseTitle = defTitle || f.name.replace(/\.[^.]+$/, '').replace(/_/g, ' ').trim() || 'آزمون بارگذاری‌شده';
+      const fileBaseTitle = f.name.replace(/\.[^.]+$/, '').replace(/_/g, ' ').trim() || 'آزمون بارگذاری‌شده';
       const parsedRows = [];
       let fileQSeq = 0;
 
@@ -8237,6 +8158,7 @@ WITH CHECK (key &lt;&gt; 'baraat_exams_private_v1' OR EXISTS (SELECT 1 FROM publ
 
         fileQSeq++;
         const explicitNum = ciNum >= 0 ? toEn(String(r[ciNum] || '').trim()) : '';
+        const rowMain = ciMainTitle >= 0 ? String(r[ciMainTitle] || '').trim() : '';
         const rowSub = ciSubj >= 0 ? String(r[ciSubj] || '').trim() : '';
         const chName = ciChap >= 0 ? String(r[ciChap] || '').trim() : '';
         const rowSource = ciSource >= 0 ? String(r[ciSource] || '').trim() : '';
@@ -8245,8 +8167,9 @@ WITH CHECK (key &lt;&gt; 'baraat_exams_private_v1' OR EXISTS (SELECT 1 FROM publ
         const sourceLabel = buildExamSourceLabel(rowSource, rowType, rowYearRaw);
 
         parsedRows.push({
+          rowMain,
           rowTitle: (ciTitle >= 0 && String(r[ciTitle] || '').trim()) || '',
-          rowCat: (ciCat >= 0 && String(r[ciCat] || '').trim()) || defCat,
+          rowCat: (ciCat >= 0 && String(r[ciCat] || '').trim()) || '',
           rowType: rowType || 'تالیفی',
           rowYear: rowYearRaw ? (Number(rowYearRaw) || '') : '',
           rowSub,
@@ -8264,41 +8187,38 @@ WITH CHECK (key &lt;&gt; 'baraat_exams_private_v1' OR EXISTS (SELECT 1 FROM publ
 
       if (!parsedRows.length) return alert('سوال معتبری در فایل اکسل/CSV یافت نشد.');
 
-      const impScope = isAutoMode && document.getElementById('mImpScope')?.value === 'subject' ? 'subject' : 'general';
-      const impSubjGrp = impScope === 'subject' ? (document.getElementById('mImpSubjGrp')?.value || defSubj || '').trim() : '';
-      const impIsPremium = isAutoMode ? !!document.getElementById('mImpVip')?.checked : false;
-
-      const distinctExplicitSubjects = new Set(parsedRows.map(x => x.rowSub).filter(Boolean));
-      const hasChapters = parsedRows.some(x => Boolean(x.chName));
-      const useChapterAsBucket = impScope === 'subject' || (hasChapters && distinctExplicitSubjects.size <= 1);
-
       let added = 0;
+      let firstImportedMainTitle = '';
       parsedRows.forEach(item => {
-        const bucketName = useChapterAsBucket
-          ? (item.chName || item.rowSub || defSubj || impSubjGrp || 'سوالات آزمون')
-          : (item.rowSub || item.chName || defSubj || 'سوالات آزمون');
+        // عنوان اصلی: اولویت با ورودی دستی مدیر -> ستون عنوان اصلی CSV -> ستون عنوان/دسته CSV -> نام فایل
+        const effectiveMainTitle = manualMainTitle || item.rowMain || item.rowTitle || item.rowCat || fileBaseTitle;
+        // عنوان مبحث/سرفصل: اولویت با ورودی دستی مدیر -> ستون سرفصل/مبحث CSV -> ستون درس CSV -> پیش‌فرض
+        const effectiveTopic = isAutoMode
+          ? (manualTopicTitle || item.chName || item.rowSub || 'سوالات عمومی')
+          : (item.chName || item.rowSub || defSubj || 'سوالات عمومی');
+
+        if (!firstImportedMainTitle) firstImportedMainTitle = effectiveMainTitle;
 
         let destExam = targetSingleExam;
         if (isAutoMode) {
-          const examTitle = item.rowTitle || fileBaseTitle;
-          const examCat = impScope === 'subject'
-            ? (impSubjGrp || item.rowCat || defCat || examTitle)
-            : (item.rowCat || defCat || (distinctExplicitSubjects.size === 1 ? [...distinctExplicitSubjects][0] : examTitle));
-          destExam = list.find(x => x.title === examTitle && x.examScope === impScope && (impScope !== 'subject' || x.subjectGroup === impSubjGrp));
+          const examDisplayTitle = manualTopicTitle
+            ? (effectiveMainTitle + ' · ' + manualTopicTitle)
+            : (item.rowTitle && item.rowTitle !== effectiveMainTitle ? (effectiveMainTitle + ' · ' + item.rowTitle) : (fileBaseTitle !== effectiveMainTitle ? (effectiveMainTitle + ' · ' + fileBaseTitle) : effectiveMainTitle));
+          destExam = list.find(x => getExamMainTitle(x) === effectiveMainTitle && x.title === examDisplayTitle);
           if (!destExam) {
             destExam = normalizeExamRecord({
               id: 'ex_' + Date.now() + '_' + Math.random().toString(36).slice(2, 6),
-              title: examTitle,
-              category: examCat,
-              org: examCat,
-              examScope: impScope,
-              subjectGroup: impSubjGrp,
+              mainTitle: effectiveMainTitle,
+              topicTitle: manualTopicTitle || '',
+              title: examDisplayTitle,
+              category: effectiveMainTitle,
+              org: effectiveMainTitle,
               isPremium: impIsPremium,
               examType: defType || item.rowType || 'تالیفی',
               year: defYear || item.rowYear || '',
               durationMinutes: 60,
               negativeMarking: true,
-              isPublished: true,
+              isPublished: impIsPublished,
               subjects: []
             });
             list.unshift(destExam);
@@ -8306,15 +8226,15 @@ WITH CHECK (key &lt;&gt; 'baraat_exams_private_v1' OR EXISTS (SELECT 1 FROM publ
         }
 
         destExam.subjects = destExam.subjects || [];
-        let targetSubj = destExam.subjects.find(x => x.name === bucketName);
+        let targetSubj = destExam.subjects.find(x => x.name === effectiveTopic);
         if (!targetSubj) {
-          targetSubj = { id: 'es_' + Date.now() + '_' + Math.random().toString(36).slice(2, 5), name: bucketName, questions: [] };
+          targetSubj = { id: 'es_' + Date.now() + '_' + Math.random().toString(36).slice(2, 5), name: effectiveTopic, questions: [] };
           destExam.subjects.push(targetSubj);
         }
         targetSubj.questions.push({
           id: 'eq_' + Date.now() + '_' + Math.random().toString(36).slice(2, 6),
           q: item.qText,
-          chapter: item.chName || (impScope === 'subject' ? bucketName : ''),
+          chapter: effectiveTopic,
           sourceLabel: item.sourceLabel,
           csvQuestionNum: item.csvQuestionNum,
           csvRowIndex: item.csvRowIndex,
@@ -8326,7 +8246,11 @@ WITH CHECK (key &lt;&gt; 'baraat_exams_private_v1' OR EXISTS (SELECT 1 FROM publ
         added++;
       });
 
-      await persistExamsList(list, toFa(added) + ' سوال با دسته‌بندی سرفصل و زمان خودکار (۲ دقیقه/سوال) از فایل وارد شد.');
+      if (isAutoMode && firstImportedMainTitle) {
+        examHubSection = 'exams';
+        selectedMainTitle = firstImportedMainTitle;
+      }
+      await persistExamsList(list, toFa(added) + ' سوال زیر عنوان «' + (firstImportedMainTitle || 'آزمون') + '» با زمان خودکار (۲ دقیقه/سوال) وارد شد.');
       if (isAutoMode) closeModal();
       else window.openExamQuestionsEditor(examId);
     } catch (e) {
