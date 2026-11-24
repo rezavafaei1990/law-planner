@@ -535,7 +535,7 @@ body{margin:0;background:var(--bg);color:var(--text);font-family:'Vazirmatn',-ap
 <div class="modal-back" id="authBack"><div class="modal"><h2>ورود / ثبت‌نام</h2><div class="field"><label>ایمیل</label><input id="authEmail" type="email" dir="ltr"></div><div class="field" style="margin-top:10px"><label>رمز عبور (حداقل ۶ کاراکتر)</label><input id="authPass" type="password" dir="ltr"></div><p class="muted small" id="authMsg"></p><div class="modal-actions"><button class="btn" onclick="document.getElementById('authBack').classList.remove('show')">بستن</button><button class="btn" onclick="doAuth('up')">ثبت‌نام</button><button class="btn primary" onclick="doAuth('in')">ورود</button></div></div></div>
 <div class="modal-back" id="modalBack"><div class="modal" id="modal"></div></div>
 <div class="toast" id="toast">ذخیره شد</div>
-<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.110.9/dist/umd/supabase.js"></script>
+<script src="./supabase.min.js"></script>
 <script>
 const SUPA_URL="https://xfmdpeeuzhuvqwoalfea.supabase.co";
 const SUPA_KEY="sb_publishable_ndrrbpAGh5VfuiVfETIE8g_IS-jfJD4";
@@ -2966,8 +2966,45 @@ A('admAddBtn').addEventListener('click',()=>runAdmin(async()=>{const sel=A('admA
 </script>
 <script>
 (function(){
- if(!CLOUD||!window.supabase){document.getElementById("cfgWarn").classList.remove("hidden");document.getElementById("out").innerHTML='<div class="empty">تنظیمات Supabase کامل نیست.</div>';}
- else{window.sb=sb=supabase.createClient(SUPA_URL,SUPA_KEY);LAWDB.init();initAuth();}
+ function startSupaApp(){
+   const warnEl=document.getElementById("cfgWarn");
+   if(warnEl)warnEl.classList.add("hidden");
+   window.sb=sb=window.supabase.createClient(SUPA_URL,SUPA_KEY);
+   LAWDB.init();
+   initAuth();
+   if(typeof window.syncAllFromSupabase==="function")window.syncAllFromSupabase(true);
+ }
+ function loadScriptFallback(urls,idx){
+   if(window.supabase){startSupaApp();return;}
+   if(idx>=urls.length){
+     const warnEl=document.getElementById("cfgWarn");
+     if(warnEl){
+       warnEl.innerHTML='اتصال به سرور برقرار نشد (اینترنت را بررسی کنید یا یک‌بار صفحه را رفرش کنید). <button type="button" class="btn small primary" style="margin-right:8px" onclick="location.reload()">🔄 تلاش مجدد</button>';
+       warnEl.classList.remove("hidden");
+     }
+     const outEl=document.getElementById("out");
+     if(outEl&&!outEl.innerHTML.trim()){
+       outEl.innerHTML='<div class="empty">اتصال به سرور برقرار نشد. لطفاً اتصال اینترنت را بررسی کرده و صفحه را دوباره باز کنید.</div>';
+     }
+     return;
+   }
+   const s=document.createElement("script");
+   s.src=urls[idx];
+   s.onload=function(){if(window.supabase)startSupaApp();else loadScriptFallback(urls,idx+1);};
+   s.onerror=function(){loadScriptFallback(urls,idx+1);};
+   document.head.appendChild(s);
+ }
+ if(!CLOUD){
+   document.getElementById("cfgWarn").classList.remove("hidden");
+   document.getElementById("out").innerHTML='<div class="empty">تنظیمات Supabase کامل نیست.</div>';
+ }else if(window.supabase){
+   startSupaApp();
+ }else{
+   loadScriptFallback([
+     "https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.110.9/dist/umd/supabase.js",
+     "https://unpkg.com/@supabase/supabase-js@2.110.9/dist/umd/supabase.js"
+   ],0);
+ }
  go((location.hash||"#search").slice(1));
 })();
 </script>
