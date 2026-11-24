@@ -2540,8 +2540,42 @@ const LISTB=NM+'(?:(?:\\s*(?:،|,|و|تا|الی)\\s*|\\s+)'+NM+')*';
 const REFSRC='(ماده)\\s*\\(?\\s*('+LISTA+')(?:\\s*\\))?|(مواد|مفاد)\\s*\\(?\\s*('+LISTB+')(?:\\s*\\))?';
 const STOPW=/^(و|یا|را|است|می|در|که|به|با|از|مصوب|بود|باشد|نیز|همچنین|مقرر|مذکور|مربوط|برای|تا|هم|بر|اگر|مگر|ولی|اما|پس|آمده|اشاره)$/;
 // قانونِ مقصد را از کلمات بعد از شماره تشخیص می‌دهد. نام ناقص فقط وقتی پذیرفته می‌شود که کلمهٔ بعدی بخشی از نام قانونِ دیگری نباشد
+const LAW_ABBR_RULES=[
+  {re:/^(?:ق\.?\s*آ\.?\s*د\.?\s*م|آ\.?\s*د\.?\s*م|ا\.?\s*د\.?\s*م)\b/, kw:['آیین','دادرسی','مدنی']},
+  {re:/^(?:ق\.?\s*آ\.?\s*د\.?\s*ک|آ\.?\s*د\.?\s*ک|ا\.?\s*د\.?\s*ک)\b/, kw:['آیین','دادرسی','کیفری']},
+  {re:/^(?:ق\.?\s*م\.?\s*ا|ق\.?\s*م\.?\s*ج)\b/, kw:['مجازات','اسلامی']},
+  {re:/^(?:ق\.?\s*ا\.?\s*ا\.?\s*م|ا\.?\s*ا\.?\s*م)\b/, kw:['اجرای','احکام','مدنی']},
+  {re:/^(?:ق\.?\s*م\.?\s*م)\b/, kw:['مسئولیت','مدنی']},
+  {re:/^(?:ق\.?\s*ت|ل\.?\s*ا\.?\s*ق\.?\s*ت)\b/, kw:['تجارت']},
+  {re:/^(?:ق\.?\s*م)\b/, kw:['مدنی']}
+];
+function matchLawByKeywords(kw){
+  const laws=[...new Set(DB.map(o=>o.law))];
+  return laws.filter(l=>{const n=norm(l);return kw.every(k=>n.includes(norm(k)));});
+}
+function inferLawFromSubjectHint(hint){
+  const h=norm(hint||'');
+  if(!h||!DB.length)return null;
+  const laws=[...new Set(DB.map(o=>o.law))];
+  const exact=laws.find(l=>norm(l)===h);
+  if(exact)return exact;
+  if(h.includes('آیین دادرسی مدنی')||h.includes('ادرس مدنی')||h.includes('آ.د.م')){const m=matchLawByKeywords(['آیین','دادرسی','مدنی']);if(m.length)return m[0];}
+  if(h.includes('آیین دادرسی کیفری')||h.includes('آ.د.ک')){const m=matchLawByKeywords(['آیین','دادرسی','کیفری']);if(m.length)return m[0];}
+  if(h.includes('جزا')||h.includes('کیفری')||h.includes('مجازات')){const m=matchLawByKeywords(['مجازات','اسلامی']);if(m.length)return m[0];}
+  if(h.includes('تجارت')||h.includes('شرکت')||h.includes('اسناد تجاری')||h.includes('چک')){const m=matchLawByKeywords(['تجارت']);if(m.length)return m[0];}
+  if(h.includes('مدنی')){const m=laws.find(l=>norm(l)==='قانون مدنی')||matchLawByKeywords(['قانون','مدنی']).find(l=>!norm(l).includes('آیین')&&!norm(l).includes('مسئولیت')&&!norm(l).includes('اجرای'));if(m)return m;}
+  if(h.includes('اساسی')){const m=matchLawByKeywords(['اساسی']);if(m.length)return m[0];}
+  return null;
+}
 function resolveLaws(after,curLaw){
-  const cut=after.split(/[\n،,؛;.()«»:]|ماده|مواد|مفاد|تبصره|بند/)[0];
+  const cutRaw=String(after||'').split(/[\n،,؛;()«»:]|ماده|مواد|مفاد|تبصره|بند/)[0].trim();
+  for(const rule of LAW_ABBR_RULES){
+    if(rule.re.test(cutRaw)){
+      const hit=matchLawByKeywords(rule.kw);
+      if(hit.length)return{laws:hit.includes(curLaw)?[curLaw]:hit};
+    }
+  }
+  const cut=String(after||'').split(/[\n،,؛;.()«»:]|ماده|مواد|مفاد|تبصره|بند/)[0];
   const ws=norm(cut).split(' ').filter(Boolean).slice(0,7);
   if(!ws.length||/^(این|همین|فوق|مذکور|سابق|بالا)$/.test(ws[0]))return{laws:[curLaw]};
   const laws=[...new Set(DB.map(o=>o.law))],lw=l=>norm(l).split(' ');
@@ -2558,13 +2592,15 @@ function resolveLaws(after,curLaw){
   if(/^(قانون|آیین|آئین|لایحه|قوانین)$/.test(ws[0])&&ws.length>1)return{laws:[],unknown:ws.slice(0,4).join(' ')};
   return{laws:[curLaw]};
 }
-function relBtn(unit,info){const laws=(info.laws||[]).filter(Boolean),nums=unit.nums.map(x=>x.n+(x.mk?'m':'')).join(',');
-  return `<button type="button" class="precedent-link" data-rel-nums="${nums}" data-rel-laws="${esc(JSON.stringify(laws))}" data-rel-unknown="${esc(info.unknown||'')}" aria-expanded="false">${disp(unit.label)}</button>`;}
-function linkRefs(text,H,curLaw){
+function relBtn(unit,info,extraCls,afterCtx,subjHint){const laws=(info.laws||[]).filter(Boolean),nums=unit.nums.map(x=>x.n+(x.mk?'m':'')).join(',');
+  const extraAttrs=(extraCls&&extraCls.includes('exam-law-ref-btn'))?` data-rel-after="${esc(afterCtx||'')}" data-rel-hint="${esc(subjHint||'')}"`:'';
+  return `<button type="button" class="${extraCls||'precedent-link'}" data-rel-nums="${nums}" data-rel-laws="${esc(JSON.stringify(laws))}" data-rel-unknown="${esc(info.unknown||'')}"${extraAttrs} aria-expanded="false">${disp(unit.label)}</button>`;}
+function linkRefs(text,H,curLaw,extraCls,subjHint){
   text=String(text);const refs=scanRefs(text);if(!refs.length)return H(text);let out='',last=0;
   refs.forEach(r=>{out+=H(text.slice(last,r.start))+H(text.slice(r.start,r.kwEnd));
-    const info=resolveLaws(text.slice(r.end,r.end+90),curLaw);let cur=r.kwEnd;
-    r.units.forEach(u=>{out+=H(text.slice(cur,u.start))+relBtn(u,info);cur=u.end;});last=r.end;});
+    const afterCtx=text.slice(r.end,r.end+90);
+    const info=resolveLaws(afterCtx,curLaw);let cur=r.kwEnd;
+    r.units.forEach(u=>{out+=H(text.slice(cur,u.start))+relBtn(u,info,extraCls,afterCtx,subjHint);cur=u.end;});last=r.end;});
   return out+H(text.slice(last));
 }
 
@@ -2845,9 +2881,45 @@ function syncShowAllBtn(){
   btn.textContent=showAll?'✕ بستن کل مواد':'📋 دیدن کل مواد';
   btn.classList.toggle('primary',!!showAll);
 }
+function lookupLawRefHtml(numsCsv,lawsArr,unkStr,afterCtx,subjHint){
+  const toks=String(numsCsv||'').split(',').filter(Boolean);
+  let laws=Array.isArray(lawsArr)?lawsArr.filter(Boolean):[];
+  let effUnk=unkStr||'';
+  if(!laws.length&&DB.length&&(afterCtx||subjHint)){
+    const reInfo=resolveLaws(afterCtx||'',inferLawFromSubjectHint(subjHint||''));
+    if(reInfo&&reInfo.laws&&reInfo.laws.length){laws=reInfo.laws.filter(Boolean);effUnk='';}
+    else if(reInfo&&reInfo.unknown){effUnk=reInfo.unknown;}
+  }
+  if(!laws.length&&!effUnk)laws=[...new Set(DB.map(o=>o.law))];
+  let rows=[];const miss=[];
+  toks.forEach(t=>{
+    const mk=t.endsWith('m'),n=t.replace(/m$/,'');
+    let c=[];
+    laws.forEach(l=>{c=c.concat((IDX[l]||{})[n]||[]);});
+    const ex=c.filter(o=>/مکرر/.test(norm(o.numText))===mk);
+    if(ex.length)c=ex;
+    if(c.length)rows=rows.concat(c);
+    else miss.push(n);
+  });
+  const CAP=24,total=rows.length;
+  rows=rows.slice(0,CAP);
+  const msg=effUnk?`«${disp(effUnk)}» در پایگاه قوانین ثبت نشده است.`:(!DB.length?'پایگاه قوانین هنوز در حال بارگذاری است. لطفاً چند لحظه بعد دوباره امتحان کنید.':'ماده‌ای با این شماره در پایگاه قوانین پیدا نشد.');
+  const html=(rows.length
+    ? rows.map(o=>`<div class="rel-art" style="--h:${hue(o.law)}"><div class="head"><span class="law">${esc(o.law)}</span><span class="num">${disp(numLabel(o))}</span></div>${o.path.length?`<div class="path">${disp(o.path.join(' › '))}</div>`:''}<div class="txt">${linkRefs(formatLegalText(o.text),disp,o.law,'precedent-link exam-law-ref-btn',o.law)}</div>${secHtml(o,disp)}</div>`).join('')
+    : `<div class="path">${msg}</div>`)
+    +(total>CAP?`<div class="path">${disp(String(total-CAP))} ماده‌ی دیگر نمایش داده نشد.</div>`:'')
+    +(rows.length&&miss.length?`<div class="path">در پایگاه ثبت نشده: ${disp(miss.join(' · '))}</div>`:'');
+  return {html,count:rows.length};
+}
+function linkifyExamExp(text,subjectHint){
+  if(!text)return '';
+  const curLaw=inferLawFromSubjectHint(subjectHint);
+  return linkRefs(String(text),disp,curLaw,'precedent-link exam-law-ref-btn',subjectHint||'');
+}
 window.LAWDB={
   init:async()=>{await loadDB();refreshMeta();renderSearch();},
   names:()=>LAWS.map(l=>l.name),textHtml,noteRefs,autoLink,admRefresh,
+  linkifyExamExp,lookupLawRefHtml,
   toggle(id){SHOW[id]=SHOW[id]?0:25;render();},more(id){SHOW[id]=(SHOW[id]||0)+25;render();},
   toggleShowAll(){if(!ADMIN)return;showAll=!showAll;shown=showAll?200:100;syncShowAllBtn();renderSearch();},
   onAdmin(){ADMIN=isAdmin;if(!ADMIN)showAll=false;syncShowAllBtn();renderSearch();admRefresh();},
@@ -2931,6 +3003,6 @@ if ('serviceWorker' in navigator) {
   });
 }
 </script>
-<script src="./baraat_engine.js?v=20261123_4"></script>
+<script src="./baraat_engine.js?v=20261123_5"></script>
 </body>
 </html>
