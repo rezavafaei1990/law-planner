@@ -4678,6 +4678,43 @@
       .ex-section-tab-card.active { border-color:var(--main); background:var(--soft); box-shadow:0 4px 14px rgba(0,0,0,.05); }
       .exam-q-dot.res-bad { background:rgba(239,68,68,.18) !important; border-color:#ef4444 !important; color:#b91c1c !important; }
       [data-theme="dark"] .exam-q-dot.res-bad { color:#fca5a5 !important; }
+      /* نوار پیشرفت روی کارت‌های عنوان اصلی و سرفصل */
+      .ex-prog-wrap { width:100%; display:flex; flex-direction:column; gap:4px; margin-top:2px; }
+      .ex-prog-head { display:flex; align-items:center; justify-content:space-between; gap:6px; font-size:11.5px; color:var(--muted); font-weight:700; flex-wrap:wrap; }
+      .ex-prog-bar { width:100%; height:6px; border-radius:99px; background:var(--soft); border:1px solid var(--line); overflow:hidden; }
+      .ex-prog-fill { height:100%; border-radius:99px; background:linear-gradient(90deg, var(--main), #10b981); transition:width .25s ease; }
+      /* فیلتر پاسخ‌داده‌نشده و غلط‌های اخیر داخل سرفصل‌ها */
+      .ex-filter-bar { display:flex; align-items:center; gap:6px; flex-wrap:wrap; margin:0 0 12px; padding:10px 12px; border-radius:12px; background:var(--soft); border:1px solid var(--line); }
+      .ex-filter-lbl { font-size:12px; font-weight:800; color:var(--muted); margin-left:4px; }
+      /* دکمه گزینه‌های قابل کلیک در دفترچه نکات */
+      .ex-nb-opt-btn { width:100%; text-align:right; font-family:inherit; cursor:pointer; }
+      .ex-nb-opt-btn:hover { border-color:var(--main); }
+      /* لینک ماده قانون داخل پاسخ تشریحی + پاپ‌آپ سریع ماده قانون */
+      .exam-exp-box .exam-law-ref-btn { display:inline; background:rgba(13,148,136,.12); color:var(--main); border:none; border-bottom:1.5px dashed var(--main); border-radius:5px; padding:1px 6px; margin:0 1px; font-family:inherit; font-size:inherit; font-weight:800; cursor:pointer; transition:all .15s ease; }
+      .exam-exp-box .exam-law-ref-btn:hover { background:var(--main); color:#fff; }
+      #examLawRefPopup { position:fixed; inset:0; z-index:99999; display:flex; align-items:center; justify-content:center; padding:14px; background:rgba(15,23,42,.58); backdrop-filter:blur(3px); }
+      .ex-law-popup-card { width:100%; max-width:680px; max-height:84vh; display:flex; flex-direction:column; background:var(--panel); color:var(--text); border:1px solid var(--line); border-radius:16px; box-shadow:0 20px 50px rgba(0,0,0,.35); overflow:hidden; }
+      .ex-law-popup-head { display:flex; align-items:center; justify-content:space-between; gap:8px; padding:12px 16px; border-bottom:1px solid var(--line); background:var(--soft); }
+      .ex-law-popup-body { padding:14px 16px; overflow-y:auto; display:grid; gap:12px; line-height:1.9; font-size:13.5px; }
+      .ex-law-popup-body .exam-law-ref-btn { display:inline; background:rgba(13,148,136,.12); color:var(--main); border:none; border-bottom:1.5px dashed var(--main); border-radius:5px; padding:0 5px; font-family:inherit; font-size:inherit; font-weight:800; cursor:pointer; }
+      /* کنترل فونت A- / A+ و شیت پرش سریع روی موبایل */
+      .ex-font-ctrl { display:inline-flex; align-items:center; gap:2px; padding:2px 4px; border-radius:9px; border:1px solid var(--line); background:var(--soft); }
+      .ex-font-btn { border:none; background:transparent; color:var(--text); font-family:inherit; font-size:12px; font-weight:800; padding:3px 7px; border-radius:6px; cursor:pointer; line-height:1.2; }
+      .ex-font-btn:hover { background:var(--panel); color:var(--main); }
+      .ex-font-val { font-size:11px; font-weight:800; color:var(--muted); min-width:34px; text-align:center; user-select:none; }
+      #examRunnerOverlay .exam-q-stem { font-size:calc(15px * var(--exam-font-scale, 1)); line-height:1.95; }
+      #examRunnerOverlay .exam-opt-btn { font-size:calc(13.8px * var(--exam-font-scale, 1)); line-height:1.75; }
+      #examRunnerOverlay .exam-exp-box { font-size:calc(13.2px * var(--exam-font-scale, 1)); line-height:1.85; }
+      #examQuickJumpSheet { position:fixed; inset:0; z-index:99990; display:flex; align-items:flex-end; justify-content:center; background:rgba(15,23,42,.54); backdrop-filter:blur(2px); }
+      @media (min-width: 720px) {
+        #examQuickJumpSheet { align-items:center; padding:16px; }
+      }
+      .ex-qj-card { width:100%; max-width:560px; max-height:80vh; display:flex; flex-direction:column; background:var(--panel); color:var(--text); border:1px solid var(--line); border-radius:18px 18px 0 0; box-shadow:0 -12px 40px rgba(0,0,0,.28); overflow:hidden; }
+      @media (min-width: 720px) {
+        .ex-qj-card { border-radius:16px; }
+      }
+      .ex-qj-head { display:flex; align-items:center; justify-content:space-between; gap:8px; padding:12px 16px; border-bottom:1px solid var(--line); background:var(--soft); }
+      .ex-qj-body { padding:14px 16px; overflow-y:auto; display:grid; gap:14px; }
     `;
     document.head.appendChild(st);
   }
@@ -5994,12 +6031,333 @@
   let examNbGroup = 'all';
   let examNbSearch = '';
   const examNbExpanded = {};
+  const examNbPicked = {};
+  let examTopicFilter = 'all';
   let examHubCat = 'all';
   let examHubFilterType = 'all';
   let examHubFilterYear = 'all';
   let examHubFilterChapter = 'all';
   let examHubQuery = '';
   let examHubSubViewMode = 'list';
+
+  // --- کمک‌تابع‌های پیشرفت دانشجو، فیلتر سرفصل، پاپ‌آپ ماده قانون، فونت و پرش سریع ---
+  const EXAM_FONT_SCALE_KEY = 'baraat_exam_font_scale_v1';
+  let examLawPopupStack = [];
+
+  function getExamFontScale() {
+    try {
+      const raw = parseFloat(localStorage.getItem(EXAM_FONT_SCALE_KEY) || '1');
+      if (Number.isFinite(raw) && raw >= 0.8 && raw <= 1.5) return Math.round(raw * 100) / 100;
+    } catch (e) {}
+    return 1;
+  }
+
+  function applyExamFontScale() {
+    const sc = getExamFontScale();
+    const overlay = document.getElementById('examRunnerOverlay');
+    if (overlay) overlay.style.setProperty('--exam-font-scale', String(sc));
+    const lbl = document.getElementById('exFontScaleLabel');
+    if (lbl) lbl.textContent = toFa(Math.round(sc * 100)) + '٪';
+  }
+
+  window.changeExamFontScale = function(delta) {
+    const cur = getExamFontScale();
+    const next = delta === 0 ? 1 : Math.min(1.45, Math.max(0.85, Math.round((cur + delta) * 100) / 100));
+    try { localStorage.setItem(EXAM_FONT_SCALE_KEY, String(next)); } catch (e) {}
+    applyExamFontScale();
+  };
+
+  function renderExamFontControlsHtml() {
+    const pct = Math.round(getExamFontScale() * 100);
+    return `
+      <div class="ex-font-ctrl" title="تغییر اندازه متن سوال و گزینه‌ها">
+        <button type="button" class="ex-font-btn" onclick="changeExamFontScale(-0.1)" aria-label="کوچک کردن فونت">A-</button>
+        <button type="button" class="ex-font-btn ex-font-val" id="exFontScaleLabel" onclick="changeExamFontScale(0)" title="بازگشت به اندازه پیش‌فرض">${toFa(pct)}٪</button>
+        <button type="button" class="ex-font-btn" onclick="changeExamFontScale(0.1)" aria-label="بزرگ کردن فونت">A+</button>
+      </div>
+    `;
+  }
+
+  function buildStudentQuestionProgressMap() {
+    const map = {};
+    const prepMap = getExamPrepHistoryMap();
+    Object.keys(prepMap || {}).forEach(qId => {
+      const rec = prepMap[qId];
+      if (!rec || typeof rec !== 'object') return;
+      const ts = Date.parse(rec.updatedAt || '') || 0;
+      map[qId] = {
+        seen: true,
+        lastCorrect: !!rec.isCorrect,
+        lastWrong: !rec.isCorrect,
+        latestTs: ts
+      };
+    });
+
+    const results = getExamResults().slice().reverse();
+    results.forEach(res => {
+      const ans = (res && res.answers && typeof res.answers === 'object') ? res.answers : {};
+      const snap = Array.isArray(res && res.questionsSnapshot) ? res.questionsSnapshot : [];
+      if (!snap.length) return;
+      const ts = Date.parse(res.updatedAt || res.createdAt || '') || 1;
+      snap.forEach(item => {
+        if (!item || !item.id) return;
+        const picked = ans[item.id];
+        if (picked === undefined || picked === null) return;
+        const ok = Number(picked) === Number(item.answer);
+        const existing = map[item.id];
+        if (!existing || ts >= existing.latestTs) {
+          map[item.id] = {
+            seen: true,
+            lastCorrect: ok,
+            lastWrong: !ok,
+            latestTs: ts
+          };
+        }
+      });
+    });
+    return map;
+  }
+
+  function calcQuestionsProgressStats(questions, progMap) {
+    const list = Array.isArray(questions) ? questions : [];
+    let practiced = 0, correctLast = 0, wrongLast = 0;
+    list.forEach(q => {
+      const st = q && q.id ? progMap[q.id] : null;
+      if (st && st.seen) {
+        practiced++;
+        if (st.lastCorrect) correctLast++;
+        else wrongLast++;
+      }
+    });
+    const total = list.length;
+    const unseen = Math.max(0, total - practiced);
+    const pctPracticed = total ? Math.round((practiced / total) * 100) : 0;
+    const accuracyPct = practiced ? Math.round((correctLast / practiced) * 100) : null;
+    return { total, practiced, unseen, wrong: wrongLast, correctLast, pctPracticed, accuracyPct };
+  }
+
+  function filterQuestionsByPracticeMode(questions, filterMode, progMap) {
+    const list = Array.isArray(questions) ? questions : [];
+    if (filterMode === 'unseen') return list.filter(q => !(q && q.id && progMap[q.id] && progMap[q.id].seen));
+    if (filterMode === 'wrong') return list.filter(q => !!(q && q.id && progMap[q.id] && progMap[q.id].lastWrong));
+    return list;
+  }
+
+  function renderProgressStripHtml(st, compact) {
+    if (!st || !st.total) return '';
+    const accText = st.accuracyPct !== null
+      ? ` · دقت: <b style="color:${st.accuracyPct >= 60 ? 'var(--ok,#16a34a)' : 'var(--danger,#dc2626)'};">${toFa(st.accuracyPct)}٪</b>`
+      : '';
+    const wrongText = (!compact && st.wrong > 0)
+      ? ` · غلط اخیر: <b style="color:var(--danger,#dc2626);">${toFa(st.wrong)}</b>`
+      : '';
+    return `
+      <div class="ex-prog-wrap">
+        <div class="ex-prog-head">
+          <span>تمرین‌شده: <b>${toFa(st.practiced)}</b> از ${toFa(st.total)} (${toFa(st.pctPracticed)}٪)${accText}${wrongText}</span>
+        </div>
+        <div class="ex-prog-bar"><div class="ex-prog-fill" style="width:${st.pctPracticed}%;"></div></div>
+      </div>
+    `;
+  }
+
+  function formatExamExplanationHtml(expText, subjectHint) {
+    const raw = String(expText || '');
+    if (!raw) return '';
+    try {
+      if (window.LAWDB && typeof window.LAWDB.linkifyExamExp === 'function') {
+        return window.LAWDB.linkifyExamExp(raw, subjectHint || '');
+      }
+    } catch (e) {}
+    return esc(raw);
+  }
+
+  function renderExamLawRefPopupContent(entry) {
+    let pop = document.getElementById('examLawRefPopup');
+    if (!pop) {
+      pop = document.createElement('div');
+      pop.id = 'examLawRefPopup';
+      pop.addEventListener('click', (ev) => {
+        if (ev.target === pop) window.closeExamLawRefPopup();
+      });
+      document.body.appendChild(pop);
+    }
+    const canBack = examLawPopupStack.length > 1;
+    pop.innerHTML = `
+      <div class="ex-law-popup-card" role="dialog" aria-modal="true">
+        <div class="ex-law-popup-head">
+          <div class="row" style="gap:8px; align-items:center; flex-wrap:wrap;">
+            ${canBack ? `<button type="button" class="btn small" onclick="backExamLawRefPopup()">→ بازگشت</button>` : ''}
+            <b style="font-size:14px;">⚖️ ${esc(entry.title || 'ماده قانون مرتبط')}</b>
+          </div>
+          <button type="button" class="btn small" onclick="closeExamLawRefPopup()">✕ بستن</button>
+        </div>
+        <div class="ex-law-popup-body">
+          ${entry.html}
+        </div>
+      </div>
+    `;
+  }
+
+  window.openExamLawRefPopup = async function(btnEl) {
+    if (!btnEl) return;
+    if (!window.LAWDB || typeof window.LAWDB.lookupLawRefHtml !== 'function') {
+      if (typeof toast === 'function') toast('بانک قوانین هنوز بارگذاری نشده است.');
+      return;
+    }
+    const numsCsv = btnEl.getAttribute('data-rel-nums') || '';
+    const lawsRaw = btnEl.getAttribute('data-rel-laws') || '';
+    const unkStr = btnEl.getAttribute('data-rel-unknown') || '';
+    const afterCtx = btnEl.getAttribute('data-rel-after') || '';
+    const subjHint = btnEl.getAttribute('data-rel-hint') || '';
+    let lawsArr = [];
+    if (lawsRaw) {
+      try {
+        const parsed = JSON.parse(lawsRaw);
+        if (Array.isArray(parsed)) lawsArr = parsed.filter(Boolean);
+      } catch (e) {
+        lawsArr = lawsRaw.split('||').filter(Boolean);
+      }
+    }
+    const label = (btnEl.textContent || '').trim() || 'ماده قانون مرتبط';
+    if (!window.LAWDB.ready && typeof window.LAWDB.init === 'function') {
+      renderExamLawRefPopupContent({ title: label, html: '<div class="muted small">در حال بارگذاری متن ماده از پایگاه قوانین...</div>' });
+      try { await window.LAWDB.init(); } catch (e) {}
+    }
+    const res = window.LAWDB.lookupLawRefHtml(numsCsv, lawsArr, unkStr, afterCtx, subjHint);
+    const entry = { title: label, html: res.html };
+    examLawPopupStack.push(entry);
+    renderExamLawRefPopupContent(entry);
+  };
+
+  window.backExamLawRefPopup = function() {
+    if (examLawPopupStack.length <= 1) {
+      window.closeExamLawRefPopup();
+      return;
+    }
+    examLawPopupStack.pop();
+    renderExamLawRefPopupContent(examLawPopupStack[examLawPopupStack.length - 1]);
+  };
+
+  window.closeExamLawRefPopup = function() {
+    examLawPopupStack = [];
+    const pop = document.getElementById('examLawRefPopup');
+    if (pop) pop.remove();
+  };
+
+  if (!window._baraatExamLawRefBound) {
+    window._baraatExamLawRefBound = true;
+    document.addEventListener('click', (ev) => {
+      const btn = ev.target && ev.target.closest ? ev.target.closest('.exam-law-ref-btn') : null;
+      if (!btn) return;
+      ev.preventDefault();
+      ev.stopPropagation();
+      window.openExamLawRefPopup(btn);
+    });
+    document.addEventListener('keydown', (ev) => {
+      if (ev.key !== 'Escape') return;
+      if (document.getElementById('examLawRefPopup')) {
+        window.closeExamLawRefPopup();
+        return;
+      }
+      if (document.getElementById('examQuickJumpSheet')) {
+        window.closeExamQuickJumpSheet();
+      }
+    });
+  }
+
+  window.closeExamQuickJumpSheet = function() {
+    const sheet = document.getElementById('examQuickJumpSheet');
+    if (sheet) sheet.remove();
+  };
+
+  window.examJumpFromSheet = function(sIdx, qIdx, qId) {
+    window.closeExamQuickJumpSheet();
+    if (!examSession) return;
+    if (examSession.mode === 'exam' && examSession.viewMode === 'single') {
+      window.examSelectSubjQ(sIdx, qIdx);
+      return;
+    }
+    window.examJumpToQ(qId);
+  };
+
+  window.examJumpToFirstUnanswered = function() {
+    if (!examSession) return;
+    const s = examSession;
+    for (let sIdx = 0; sIdx < (s.subjects || []).length; sIdx++) {
+      const sQs = (s.subjects[sIdx] && s.subjects[sIdx].questions) || [];
+      for (let qIdx = 0; qIdx < sQs.length; qIdx++) {
+        const q = sQs[qIdx];
+        if (s.answers[q.id] === undefined || s.answers[q.id] === null) {
+          window.examJumpFromSheet(sIdx, qIdx, q.id);
+          return;
+        }
+      }
+    }
+    window.closeExamQuickJumpSheet();
+    if (typeof toast === 'function') toast('به همه سوالات این آزمون پاسخ داده‌اید ✓');
+  };
+
+  window.openExamQuickJumpSheet = function() {
+    if (!examSession) return;
+    const s = examSession;
+    let sheet = document.getElementById('examQuickJumpSheet');
+    if (!sheet) {
+      sheet = document.createElement('div');
+      sheet.id = 'examQuickJumpSheet';
+      sheet.addEventListener('click', (ev) => {
+        if (ev.target === sheet) window.closeExamQuickJumpSheet();
+      });
+      document.body.appendChild(sheet);
+    }
+    const totalQAll = s.subjects.reduce((acc, sb) => acc + (sb.questions || []).length, 0);
+    const answeredAll = Object.keys(s.answers || {}).length;
+    const remainAll = Math.max(0, totalQAll - answeredAll);
+
+    sheet.innerHTML = `
+      <div class="ex-qj-card" role="dialog" aria-modal="true">
+        <div class="ex-qj-head">
+          <div>
+            <b style="font-size:14px;">🔢 پرش سریع بین سوالات</b>
+            <div class="muted small">پاسخ‌داده‌شده: ${toFa(answeredAll)} از ${toFa(totalQAll)} · باقی‌مانده: ${toFa(remainAll)}</div>
+          </div>
+          <button type="button" class="btn small" onclick="closeExamQuickJumpSheet()">✕ بستن</button>
+        </div>
+        <div class="ex-qj-body">
+          <div class="row between" style="gap:8px; flex-wrap:wrap;">
+            <button type="button" class="btn small primary" onclick="examJumpToFirstUnanswered()" ${remainAll ? '' : 'disabled'}>🎯 پرش به اولین سوال نزده</button>
+            ${renderExamFontControlsHtml()}
+          </div>
+          ${s.subjects.map((sb, sIdx) => {
+            const sQs = sb.questions || [];
+            return `
+              <div>
+                <div style="font-size:12px; font-weight:800; color:var(--main); margin-bottom:6px;">${esc(sb.name)} (${toFa(sQs.length)})</div>
+                <div class="exam-palette-grid" style="margin-top:0;">
+                  ${sQs.map((q, qi) => {
+                    const picked = s.answers[q.id];
+                    const isPicked = picked !== undefined && picked !== null;
+                    let stCls = '';
+                    if (s.mode === 'study') {
+                      const isRev = !!s.revealed[q.id];
+                      const isRight = isPicked && Number(picked) === Number(q.answer);
+                      const isWrong = isPicked && Number(picked) !== Number(q.answer);
+                      stCls = isWrong ? 'res-bad' : ((isRight || isRev) ? 'res-ok' : (isPicked ? 'answered' : ''));
+                    } else {
+                      const isFlag = !!s.flags[q.id];
+                      const isCur = s.viewMode === 'single' && sIdx === s.activeSubjIdx && qi === s.activeQIdx;
+                      stCls = `${isPicked ? 'answered' : ''} ${isFlag ? 'flagged' : ''} ${isCur ? 'current' : ''}`;
+                    }
+                    return `<button type="button" class="exam-q-dot ${stCls}" onclick="examJumpFromSheet(${sIdx}, ${qi}, '${q.id}')">${toFa(qi + 1)}</button>`;
+                  }).join('')}
+                </div>
+              </div>
+            `;
+          }).join('')}
+        </div>
+      </div>
+    `;
+  };
 
   function syncStudentsSubTabsActive() {
     const isNotebookActive = window._studentsSub === 'exams' && examHubSection === 'notebook';
@@ -6022,12 +6380,19 @@
   };
 
   window.selectMainTitleEnc = function(encName) {
+    const nextTitle = decodeURIComponent(encName || '');
+    if (nextTitle !== selectedMainTitle) examTopicFilter = 'all';
     examHubSection = 'exams';
-    selectedMainTitle = decodeURIComponent(encName || '');
+    selectedMainTitle = nextTitle;
     syncStudentsSubTabsActive();
     window.renderExamsHub();
   };
   window.selectSubjectGroupEnc = window.selectMainTitleEnc;
+
+  window.setExamTopicFilter = function(flt) {
+    examTopicFilter = (flt === 'unseen' || flt === 'wrong') ? flt : 'all';
+    window.renderExamsHub();
+  };
 
   window.setExamLessonSearch = function(val) {
     examLessonSearch = String(val || '');
@@ -6073,8 +6438,28 @@
   };
 
   window.toggleExamNbExpand = function(qId) {
+    const prevY = window.scrollY;
     examNbExpanded[qId] = !examNbExpanded[qId];
     window.renderExamsHub();
+    window.scrollTo(0, prevY);
+  };
+
+  window.pickNotebookOption = function(qId, optIdx, rightIdx) {
+    const prevY = window.scrollY;
+    const isCorrect = Number(optIdx) === Number(rightIdx);
+    examNbPicked[qId] = { choiceIdx: Number(optIdx), isCorrect };
+    examNbExpanded[qId] = true;
+    recordExamPrepAnswer(qId, Number(optIdx), isCorrect);
+    window.renderExamsHub();
+    window.scrollTo(0, prevY);
+  };
+
+  window.resetNotebookCardPick = function(qId) {
+    const prevY = window.scrollY;
+    delete examNbPicked[qId];
+    delete examNbExpanded[qId];
+    window.renderExamsHub();
+    window.scrollTo(0, prevY);
   };
 
   window.openStudentExamNotebook = function() {
@@ -6182,7 +6567,7 @@
                 `;
               }).join('')}
             </div>
-            ${item.exp ? `<div class="exam-exp-box"><b>💡 پاسخ تشریحی:</b> ${esc(item.exp)}</div>` : ''}
+            ${item.exp ? `<div class="exam-exp-box"><b>💡 پاسخ تشریحی:</b> ${formatExamExplanationHtml(item.exp, item.subjName || rec.examTitle)}</div>` : ''}
             ${renderQuestionTagBarHtml(item.id, rec.examTitle || '', item.subjName || '', item.q || '', 'past_' + attemptId)}
             ${renderQuestionNoteBoxHtml(item.id, 'past_' + attemptId)}
           </div>
@@ -6321,24 +6706,34 @@
     });
   }
 
-  window.openMainTitleRunner = function(encMainTitle, mode, encTopicName) {
+  window.openMainTitleRunner = function(encMainTitle, mode, encTopicName, filterMode) {
     const mainTitle = decodeURIComponent(encMainTitle || '');
     const topicFilter = encTopicName ? decodeURIComponent(encTopicName) : '';
+    const practiceFilter = (filterMode === 'unseen' || filterMode === 'wrong') ? filterMode : 'all';
     const subExams = getExamsForMainTitle(mainTitle);
     if (!subExams.length) {
       if (typeof toast === 'function') toast('آزمونی زیر این عنوان یافت نشد.');
       return;
     }
-    const topics = getMainTitleTopicsBreakdown(mainTitle).filter(ch => !topicFilter || ch.name === topicFilter);
-    if (!topics.length) {
+    const baseTopics = getMainTitleTopicsBreakdown(mainTitle).filter(ch => !topicFilter || ch.name === topicFilter);
+    if (!baseTopics.length) {
       if (typeof toast === 'function') toast('سوالی در این سرفصل یافت نشد.');
       return;
     }
-    const requiresVip = topics.some(ch => ch.hasPremium) && !isCurrentUserVip();
+    const requiresVip = baseTopics.some(ch => ch.hasPremium) && !isCurrentUserVip();
     if (requiresVip) {
       showVipLockModal(mainTitle + (topicFilter ? ' · ' + topicFilter : ''));
       return;
     }
+
+    const progMap = practiceFilter !== 'all' ? buildStudentQuestionProgressMap() : {};
+    const topics = practiceFilter === 'all'
+      ? baseTopics
+      : baseTopics.map(ch => ({
+          name: ch.name,
+          hasPremium: ch.hasPremium,
+          questions: filterQuestionsByPracticeMode(ch.questions, practiceFilter, progMap)
+        })).filter(ch => ch.questions.length > 0);
 
     const rawSubjs = topics.map((ch, idx) => ({
       id: 'mtch_' + idx,
@@ -6347,7 +6742,11 @@
     }));
     const totalQ = rawSubjs.reduce((a, s) => a + s.questions.length, 0);
     if (!totalQ) {
-      if (typeof toast === 'function') toast('برای این بخش هنوز سوالی ثبت نشده است.');
+      if (typeof toast === 'function') {
+        if (practiceFilter === 'unseen') toast('همه سوالات این بخش را قبلاً پاسخ داده‌اید!');
+        else if (practiceFilter === 'wrong') toast('سوال غلط ثبت‌شده‌ای در این بخش ندارید 🎉');
+        else toast('برای این بخش هنوز سوالی ثبت نشده است.');
+      }
       return;
     }
 
@@ -6355,6 +6754,9 @@
     const runMode = mode === 'exam' ? 'exam' : 'study';
     const defaultSeconds = calcExamDurationMin(totalQ) * 60;
     const stableId = 'mt_' + mainTitle + (topicFilter ? '__' + topicFilter : '');
+    const fltSuffix = practiceFilter === 'unseen'
+      ? ' · فقط پاسخ‌داده‌نشده‌ها'
+      : (practiceFilter === 'wrong' ? ' · فقط اشتباهات اخیر' : '');
 
     examSession = {
       exam: {
@@ -6367,10 +6769,10 @@
         examType: topicFilter ? 'سرفصل / مبحث' : 'آزمون کامل',
         negativeMarking: subExams.every(e => e.negativeMarking !== false)
       },
-      retryParams: { type: 'mainTitle', encMainTitle, encTopicName: encTopicName || '' },
+      retryParams: { type: 'mainTitle', encMainTitle, encTopicName: encTopicName || '', filterMode: practiceFilter },
       mode: runMode,
       subjects: rawSubjs,
-      scopeLabel: topicFilter ? (mainTitle + ' · مبحث: ' + topicFilter) : (mainTitle + ' (همه سرفصل‌ها)'),
+      scopeLabel: (topicFilter ? (mainTitle + ' · مبحث: ' + topicFilter) : (mainTitle + ' (همه سرفصل‌ها)')) + fltSuffix,
       activeSubjIdx: 0,
       activeQIdx: 0,
       viewMode: 'list',
@@ -6829,12 +7231,12 @@
     if (!examSession) return;
     if (examSession.retryParams && examSession.retryParams.type === 'mainTitle') {
       const p = examSession.retryParams;
-      window.openMainTitleRunner(p.encMainTitle, newMode, p.encTopicName);
+      window.openMainTitleRunner(p.encMainTitle, newMode, p.encTopicName, p.filterMode || 'all');
       return;
     }
     if (examSession.retryParams && examSession.retryParams.type === 'subjectLesson') {
       const p = examSession.retryParams;
-      window.openMainTitleRunner(p.encSubjectName, newMode, p.encChapterName);
+      window.openMainTitleRunner(p.encSubjectName, newMode, p.encChapterName, p.filterMode || 'all');
       return;
     }
     if (examSession.retryParams && examSession.retryParams.type === 'notebook') {
@@ -6900,6 +7302,7 @@
     });
 
     const userIsVip = isCurrentUserVip();
+    const progMap = buildStudentQuestionProgressMap();
     const resultsAll = getExamResults();
     const resultsTimedCount = resultsAll.filter(r => r.mode !== 'prep').length;
     const resultsPrepCount = resultsAll.filter(r => r.mode === 'prep').length;
@@ -7019,6 +7422,7 @@
             ${nbFilteredObj.visible.map((item, idx) => {
               if (item.hasFullQuestion) registerCopyableQuestion(item, item.subjectName, item.qNumber || idx + 1);
               const isExp = !!examNbExpanded[item.id];
+              const nbPick = examNbPicked[item.id] || null;
               const themeIdx = hashSubjectColorIdx(item.subjectName);
               const rightIdx = Number(item.answer || 0);
               const rightOptText = (item.options || [])[rightIdx] || '';
@@ -7040,29 +7444,41 @@
                       ${(item.options || []).map((opt, oi) => {
                         if (!opt) return '';
                         const isRight = isExp && oi === rightIdx;
-                        const isWrongPick = isExp && item.isWrong && item.lastWrongPicked === oi && oi !== rightIdx;
+                        const isPickedNow = nbPick && nbPick.choiceIdx === oi;
+                        const isPickedNowWrong = isPickedNow && oi !== rightIdx;
+                        const isPrevWrongPick = isExp && !nbPick && item.isWrong && item.lastWrongPicked === oi && oi !== rightIdx;
+                        const isWrongCls = isPickedNowWrong || isPrevWrongPick;
+                        const badgeText = isPickedNow && isRight
+                          ? ' <small style="font-weight:800;">✓ انتخاب صحیح شما</small>'
+                          : (isRight
+                              ? ' <small style="font-weight:800;">✓ صحیح</small>'
+                              : (isPickedNowWrong
+                                  ? ' <small style="font-weight:800;">✕ انتخاب شما</small>'
+                                  : (isPrevWrongPick ? ' <small style="font-weight:800;">✕ انتخاب قبلی</small>' : '')));
                         return `
-                          <div class="exam-opt-btn ${isRight ? 'correct' : ''} ${isWrongPick ? 'wrong' : ''}" style="cursor:default;">
+                          <button type="button" class="exam-opt-btn ex-nb-opt-btn ${isRight ? 'correct' : ''} ${isWrongCls ? 'wrong' : ''}" onclick="pickNotebookOption('${item.id}', ${oi}, ${rightIdx})">
                             <span class="exam-opt-letter">${EXAM_LETTERS[oi] || toFa(oi + 1)}</span>
-                            <span>${esc(opt)}${isRight ? ' <small style="font-weight:800;">✓ صحیح</small>' : ''}${isWrongPick ? ' <small style="font-weight:800;">✕ انتخاب قبلی</small>' : ''}</span>
-                          </div>
+                            <span>${esc(opt)}${badgeText}</span>
+                          </button>
                         `;
                       }).join('')}
                     </div>
                   ` : ''}
-                  <div style="margin-top:12px;">
+                  <div class="row" style="gap:8px; flex-wrap:wrap; margin-top:12px;">
                     <button type="button" class="btn small ${isExp ? '' : 'primary'}" onclick="toggleExamNbExpand('${item.id}')">
                       ${isExp ? '▲ بستن پاسخ و یادداشت' : '👁 مشاهده پاسخ و یادداشت'}
                     </button>
+                    ${nbPick ? `<button type="button" class="btn small" onclick="resetNotebookCardPick('${item.id}')">🔄 تمرین مجدد این کارت</button>` : ''}
                   </div>
                   ${isExp ? `
                     ${item.hasFullQuestion ? `
                       <div class="exam-exp-box" style="margin-top:10px; padding:10px 12px;">
+                        ${nbPick ? `<div style="margin-bottom:6px;">${nbPick.isCorrect ? '<b style="color:var(--ok,#16a34a);">✅ آفرین! انتخاب شما صحیح بود.</b>' : '<b style="color:var(--danger,#dc2626);">❌ انتخاب شما اشتباه بود.</b>'}</div>` : ''}
                         <div><b>✅ پاسخ صحیح: گزینه ${EXAM_LETTERS[rightIdx] || toFa(rightIdx + 1)}</b>${rightOptText ? ` — ${esc(rightOptText)}` : ''}</div>
-                        ${item.exp ? `<div style="margin-top:8px;"><b>💡 پاسخ تشریحی:</b> ${esc(item.exp)}</div>` : ''}
+                        ${item.exp ? `<div style="margin-top:8px;"><b>💡 پاسخ تشریحی:</b> ${formatExamExplanationHtml(item.exp, item.subjectName || item.examTitle)}</div>` : ''}
                       </div>
                     ` : `
-                      ${item.exp ? `<div class="exam-exp-box" style="margin-top:10px;"><b>💡 پاسخ تشریحی:</b> ${esc(item.exp)}</div>` : ''}
+                      ${item.exp ? `<div class="exam-exp-box" style="margin-top:10px;"><b>💡 پاسخ تشریحی:</b> ${formatExamExplanationHtml(item.exp, item.subjectName || item.examTitle)}</div>` : ''}
                       <div class="muted small" style="margin-top:10px; padding:8px 10px; border-radius:10px; background:var(--soft); border:1px dashed var(--line);">
                         ℹ️ گزینه‌ها و پاسخ این سوال در آزمون‌های فعلی پیدا نشد (احتمالاً آزمون منبع قبلاً حذف یا مخفی شده است؛ با انتشار یا آپلود مجدد فایل آزمون به‌صورت خودکار بازیابی می‌شود).
                       </div>
@@ -7080,7 +7496,10 @@
       // سطح ۲: نمایش سرفصل‌ها / مباحث زیر عنوان اصلی انتخاب‌شده
       const subExams = getExamsForMainTitle(selectedMainTitle);
       const topics = getMainTitleTopicsBreakdown(selectedMainTitle);
-      const totalSubjQ = topics.reduce((s, c) => s + c.questions.length, 0);
+      const allMainQs = topics.flatMap(c => c.questions || []);
+      const totalSubjQ = allMainQs.length;
+      const mainProg = calcQuestionsProgressStats(allMainQs, progMap);
+      const mainFilteredCount = filterQuestionsByPracticeMode(allMainQs, examTopicFilter, progMap).length;
       const encMain = encodeURIComponent(selectedMainTitle);
       const anyLocked = topics.some(ch => ch.hasPremium) && !userIsVip;
 
@@ -7104,15 +7523,27 @@
             ${window.isAdmin ? `<div style="margin-top:14px;"><button type="button" class="btn primary" onclick="openMultiExamFileImportModal('${esc(selectedMainTitle)}')">📥 ورود فایل اکسل/CSV برای این عنوان</button></div>` : ''}
           </div>
         ` : `
+          <div class="ex-filter-bar">
+            <span class="ex-filter-lbl">🎯 فیلتر سوالات تمرین:</span>
+            <button type="button" class="btn small ${examTopicFilter === 'all' ? 'primary' : ''}" onclick="setExamTopicFilter('all')">همه سوالات (${toFa(totalSubjQ)})</button>
+            <button type="button" class="btn small ${examTopicFilter === 'unseen' ? 'primary' : ''}" onclick="setExamTopicFilter('unseen')">🆕 پاسخ‌داده‌نشده‌ها (${toFa(mainProg.unseen)})</button>
+            <button type="button" class="btn small ${examTopicFilter === 'wrong' ? 'primary' : ''}" onclick="setExamTopicFilter('wrong')">❌ اشتباهات اخیر (${toFa(mainProg.wrong)})</button>
+          </div>
+
           <div class="surface-box" style="padding:14px; border-radius:14px; margin-bottom:14px;">
             <div class="row between" style="gap:10px; flex-wrap:wrap;">
-              <div>
+              <div style="flex:1; min-width:220px;">
                 <b style="font-size:15px;">📘 آزمون کامل «${esc(selectedMainTitle)}»</b>
-                <div class="muted small" style="margin-top:3px;">${toFa(totalSubjQ)} سوال در ${toFa(topics.length)} سرفصل · زمان خودکار: ${toFa(calcExamDurationMin(totalSubjQ))} دقیقه (۲ دقیقه/سوال)</div>
+                <div class="muted small" style="margin-top:3px;">
+                  ${examTopicFilter === 'all'
+                    ? `${toFa(totalSubjQ)} سوال در ${toFa(topics.length)} سرفصل · زمان خودکار: ${toFa(calcExamDurationMin(totalSubjQ))} دقیقه`
+                    : `فیلتر فعال: ${toFa(mainFilteredCount)} سوال از ${toFa(totalSubjQ)} · زمان خودکار: ${toFa(calcExamDurationMin(mainFilteredCount))} دقیقه`}
+                </div>
+                <div style="margin-top:8px; max-width:440px;">${renderProgressStripHtml(mainProg, false)}</div>
               </div>
               <div class="row" style="gap:8px; flex-wrap:wrap;">
-                <button type="button" class="btn primary" onclick="openMainTitleRunner('${encMain}', 'exam', '')">${anyLocked ? '🔒 ' : '⏱ '}آزمون زمان‌دار کل</button>
-                <button type="button" class="btn" onclick="openMainTitleRunner('${encMain}', 'study', '')">${anyLocked ? '🔒 ' : '📖 '}حالت آمادگی کل</button>
+                <button type="button" class="btn primary" ${mainFilteredCount ? '' : 'disabled'} onclick="openMainTitleRunner('${encMain}', 'exam', '', '${examTopicFilter}')">${anyLocked ? '🔒 ' : '⏱ '}آزمون زمان‌دار کل${examTopicFilter !== 'all' ? ` (${toFa(mainFilteredCount)})` : ''}</button>
+                <button type="button" class="btn" ${mainFilteredCount ? '' : 'disabled'} onclick="openMainTitleRunner('${encMain}', 'study', '', '${examTopicFilter}')">${anyLocked ? '🔒 ' : '📖 '}حالت آمادگی کل${examTopicFilter !== 'all' ? ` (${toFa(mainFilteredCount)})` : ''}</button>
               </div>
             </div>
           </div>
@@ -7122,18 +7553,22 @@
             <div class="ex-topic-grid">
               ${topics.map(ch => {
                 const encCh = encodeURIComponent(ch.name);
-                const chMin = calcExamDurationMin(ch.questions.length);
+                const chProg = calcQuestionsProgressStats(ch.questions, progMap);
+                const chFilteredCount = filterQuestionsByPracticeMode(ch.questions, examTopicFilter, progMap).length;
+                const chRunCount = examTopicFilter === 'all' ? ch.questions.length : chFilteredCount;
+                const chMin = calcExamDurationMin(chRunCount || ch.questions.length);
                 const chLocked = ch.hasPremium && !userIsVip;
                 return `
-                  <div class="ex-topic-card">
+                  <div class="ex-topic-card" style="${examTopicFilter !== 'all' && !chFilteredCount ? 'opacity:.62;' : ''}">
                     <div class="row between" style="gap:6px;">
                       <b style="font-size:14px; color:var(--text);">📑 ${esc(ch.name)}</b>
-                      <span class="pill done">${toFa(ch.questions.length)} سوال · ${toFa(chMin)} د</span>
+                      <span class="pill ${chRunCount ? 'done' : ''}">${toFa(chRunCount)} سوال · ${toFa(chMin)} د</span>
                     </div>
+                    ${renderProgressStripHtml(chProg, true)}
                     ${ch.hasPremium ? `<div><span class="ex-vip-badge">⭐ ویژه VIP</span></div>` : ''}
                     <div class="row" style="gap:6px; flex-wrap:wrap; margin-top:auto;">
-                      <button type="button" class="btn small primary" style="flex:1; justify-content:center;" onclick="openMainTitleRunner('${encMain}', 'exam', '${encCh}')">${chLocked ? '🔒 ' : '⏱ '}زمان‌دار</button>
-                      <button type="button" class="btn small" style="flex:1; justify-content:center;" onclick="openMainTitleRunner('${encMain}', 'study', '${encCh}')">${chLocked ? '🔒 ' : '📖 '}حالت آمادگی</button>
+                      <button type="button" class="btn small primary" style="flex:1; justify-content:center;" ${chRunCount ? '' : 'disabled'} onclick="openMainTitleRunner('${encMain}', 'exam', '${encCh}', '${examTopicFilter}')">${chLocked ? '🔒 ' : '⏱ '}زمان‌دار</button>
+                      <button type="button" class="btn small" style="flex:1; justify-content:center;" ${chRunCount ? '' : 'disabled'} onclick="openMainTitleRunner('${encMain}', 'study', '${encCh}', '${examTopicFilter}')">${chLocked ? '🔒 ' : '📖 '}حالت آمادگی</button>
                     </div>
                   </div>
                 `;
@@ -7173,6 +7608,8 @@
               const encName = encodeURIComponent(g.name);
               const locked = g.hasPremium && !userIsVip;
               const autoMin = calcExamDurationMin(g.totalQ);
+              const gAllQs = g.topics.flatMap(t => t.questions || []);
+              const gProg = calcQuestionsProgressStats(gAllQs, progMap);
               return `
                 <button type="button" class="ex-folder-card" style="${g.allHidden ? 'opacity:.82; border-style:dashed; border-color:var(--danger,#dc2626);' : ''}" onclick="selectMainTitleEnc('${encName}')">
                   <div class="row between" style="width:100%; gap:6px;">
@@ -7181,6 +7618,7 @@
                   </div>
                   <div class="ex-f-title">${esc(g.name)}</div>
                   ${g.topics.length ? `<div class="ex-f-meta" style="color:var(--text); opacity:.78;">سرفصل‌ها: ${esc(g.topics.slice(0, 3).map(t => t.name).join(' · '))}${g.topics.length > 3 ? ' ...' : ''}</div>` : ''}
+                  ${renderProgressStripHtml(gProg, true)}
                   <div class="row" style="gap:6px; flex-wrap:wrap;">
                     ${g.hasPremium ? `<span class="ex-vip-badge">⭐ ویژه VIP</span>` : ''}
                     ${g.allHidden ? `<span class="ex-vis-badge hid">🙈 مخفی (فقط مدیر)</span>` : ''}
@@ -8754,6 +9192,8 @@ WITH CHECK (key &lt;&gt; 'baraat_exams_private_v1' OR EXISTS (SELECT 1 FROM publ
     const closingSession = examSession;
     const shouldSavePrep = !!(closingSession && closingSession.mode === 'study' && Object.keys(closingSession.answers || {}).length > 0);
     stopExamTimer();
+    window.closeExamLawRefPopup();
+    window.closeExamQuickJumpSheet();
     examSession = null;
     const overlay = document.getElementById('examRunnerOverlay');
     if (overlay) {
@@ -8765,6 +9205,8 @@ WITH CHECK (key &lt;&gt; 'baraat_exams_private_v1' OR EXISTS (SELECT 1 FROM publ
       flushPrepReportSave(false, closingSession).then(() => {
         if (window.renderExamsHub) window.renderExamsHub();
       }).catch(() => {});
+    } else if (window.renderExamsHub) {
+      window.renderExamsHub();
     }
   };
 
@@ -8871,7 +9313,7 @@ WITH CHECK (key &lt;&gt; 'baraat_exams_private_v1' OR EXISTS (SELECT 1 FROM publ
                   : ''}
                 <b>پاسخ صحیح: گزینه ${EXAM_LETTERS[rightIdx]}</b>${rightOptText ? ` — ${esc(rightOptText)}` : ''}
               </div>
-              ${qObj.exp ? `<div style="margin-top:8px;"><b>📖 تشریح و مستند قانونی:</b> ${esc(qObj.exp)}</div>` : ''}
+              ${qObj.exp ? `<div style="margin-top:8px;"><b>📖 تشریح و مستند قانونی:</b> ${formatExamExplanationHtml(qObj.exp, subjName || s.exam.title)}</div>` : ''}
             </div>
             ${prevRec ? `
               <div class="ex-prev-history-box ${prevRec.isCorrect ? 'ok' : 'bad'}">
@@ -9188,6 +9630,7 @@ WITH CHECK (key &lt;&gt; 'baraat_exams_private_v1' OR EXISTS (SELECT 1 FROM publ
 
   function renderExamRunner() {
     injectExamUpgradeStyles();
+    applyExamFontScale();
     const overlay = document.getElementById('examRunnerOverlay');
     if (!overlay || !examSession) return;
     const s = examSession;
@@ -9220,6 +9663,7 @@ WITH CHECK (key &lt;&gt; 'baraat_exams_private_v1' OR EXISTS (SELECT 1 FROM publ
             <div class="muted small">${esc(s.scopeLabel)} · ${toFa(sc.total)} سوال</div>
           </div>
           <div class="row" style="gap:8px; flex-wrap:wrap;">
+            ${renderExamFontControlsHtml()}
             <button type="button" class="btn small" onclick="examRestartSession('study')">📖 حالت آمادگی</button>
             <button type="button" class="btn small" onclick="examRestartSession('exam')">🔄 آزمون مجدد</button>
             <button type="button" class="btn primary small" onclick="closeExamRunner(true)">✕ بستن و بازگشت</button>
@@ -9308,7 +9752,7 @@ WITH CHECK (key &lt;&gt; 'baraat_exams_private_v1' OR EXISTS (SELECT 1 FROM publ
                         `;
                       }).join('')}
                     </div>
-                    ${item.q.exp ? `<div class="exam-exp-box"><b>💡 توضیح و مستند قانونی:</b> ${esc(item.q.exp)}</div>` : ''}
+                    ${item.q.exp ? `<div class="exam-exp-box"><b>💡 توضیح و مستند قانونی:</b> ${formatExamExplanationHtml(item.q.exp, item.subjName || s.exam.title)}</div>` : ''}
                     ${renderQuestionTagBarHtml(item.q.id, s.exam.title || '', item.subjName || '', item.q.q || '', 'rev')}
                     ${renderQuestionNoteBoxHtml(item.q.id, 'rev')}
                   </div>
@@ -9336,6 +9780,8 @@ WITH CHECK (key &lt;&gt; 'baraat_exams_private_v1' OR EXISTS (SELECT 1 FROM publ
             </div>
           </div>
           <div class="row" style="gap:8px; flex-wrap:wrap;">
+            ${renderExamFontControlsHtml()}
+            <button type="button" class="btn small" onclick="openExamQuickJumpSheet()" title="پرش سریع بین سوالات و اولین سوال نزده">🔢 پرش سریع</button>
             <button type="button" class="btn small" onclick="examSavePrepReportNow()" title="ثبت فوری گزارش آمادگی در کارنامه شما و پنل مدیر">
               💾 ثبت گزارش آمادگی
             </button>
@@ -9431,6 +9877,8 @@ WITH CHECK (key &lt;&gt; 'baraat_exams_private_v1' OR EXISTS (SELECT 1 FROM publ
             <span id="exTimerDisplay">${formatMmSs(s.secondsLeft)}</span>
             <button type="button" class="btn small" style="padding:2px 8px; font-size:11px;" onclick="examTogglePause()">${s.paused ? '▶ ادامه' : '⏸ توقف'}</button>
           </div>
+          ${renderExamFontControlsHtml()}
+          <button type="button" class="btn small" onclick="openExamQuickJumpSheet()" title="پرش سریع بین سوالات و اولین سوال نزده">🔢 پرش سریع</button>
           <button type="button" class="btn small" onclick="examSwitchSessionMode('study')">📖 حالت آمادگی</button>
           <button type="button" class="btn small" onclick="examToggleViewMode('${s.viewMode === 'single' ? 'list' : 'single'}')">
             ${s.viewMode === 'single' ? '☰ نمای لیستی' : '🎯 تک‌سوالی'}
