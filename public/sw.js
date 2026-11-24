@@ -1,5 +1,5 @@
 // Service Worker سامانه گروه حقوقی برائت
-const CACHE_NAME = 'baraat-cache-v29';
+const CACHE_NAME = 'baraat-cache-v30';
 
 function scopeUrl(rel) {
   return new URL(rel, self.registration.scope).href;
@@ -7,6 +7,7 @@ function scopeUrl(rel) {
 
 const CORE_REL_ASSETS = [
   './',
+  './supabase.min.js',
   './manifest.json',
   './icons/icon-192.png',
   './icons/icon-512.png',
@@ -48,8 +49,13 @@ self.addEventListener('fetch', event => {
 
   const url = new URL(req.url);
 
-  // Fonts: Cache-First (immutable font files)
-  if (url.origin.includes('fonts.googleapis.com') || url.origin.includes('fonts.gstatic.com')) {
+  // Fonts & CDN SDK fallbacks: Cache-First so PWA never breaks on slow/offline networks
+  if (
+    url.origin.includes('fonts.googleapis.com') ||
+    url.origin.includes('fonts.gstatic.com') ||
+    url.origin.includes('cdn.jsdelivr.net') ||
+    url.origin.includes('unpkg.com')
+  ) {
     event.respondWith(
       caches.match(req).then(cached => {
         if (cached) return cached;
@@ -67,6 +73,23 @@ self.addEventListener('fetch', event => {
 
   // Only handle same-origin static requests; never intercept Supabase, /api/, or .apk binaries
   if (url.origin !== self.location.origin || url.pathname.startsWith('/api/') || url.pathname.endsWith('.apk')) {
+    return;
+  }
+
+  // Self-hosted Supabase SDK: Cache-First for instant offline/PWA startup
+  if (url.pathname.endsWith('/supabase.min.js')) {
+    event.respondWith(
+      caches.match(req).then(cached => {
+        if (cached) return cached;
+        return fetch(req).then(res => {
+          if (res && res.status === 200) {
+            const clone = res.clone();
+            caches.open(CACHE_NAME).then(c => c.put(req, clone));
+          }
+          return res;
+        }).catch(() => cached);
+      })
+    );
     return;
   }
 
