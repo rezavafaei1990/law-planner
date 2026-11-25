@@ -17,7 +17,7 @@
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link rel="preconnect" href="https://xfmdpeeuzhuvqwoalfea.supabase.co" crossorigin>
 <link rel="preload" href="./supabase.min.js" as="script">
-<link rel="preload" href="./baraat_engine.js?v=20261124_1" as="script">
+<link rel="preload" href="./baraat_engine.js?v=20261125_1" as="script">
 <script>
 window.__deferredPWA=null;
 window.addEventListener('beforeinstallprompt',function(e){e.preventDefault();window.__deferredPWA=e;});
@@ -1967,13 +1967,35 @@ function updateAuthUI(){
   }
 }
 
+const ADMIN_UID_CACHE_KEY = 'baraat_last_admin_uid_v1';
+let _afterAuthRunningFor = '';
 async function afterAuth(user){
+  if (!user || !user.id) return;
+  if (_afterAuthRunningFor === user.id && window.me && window.me.id === user.id && window._authResolved) return;
+  _afterAuthRunningFor = user.id;
   me = user;
+  window.me = me;
+  let cachedAdmin = false;
+  try { cachedAdmin = localStorage.getItem(ADMIN_UID_CACHE_KEY) === user.id; } catch (e) {}
+  if (cachedAdmin) {
+    isAdmin = true;
+    window.isAdmin = true;
+    document.body.classList.add('is-admin');
+    updateAuthUI();
+  }
   try {
     const r = await sb.from("admins").select("user_id").eq("user_id", user.id).maybeSingle();
-    isAdmin = !!(r.data && r.data.user_id);
+    if (!r.error) {
+      isAdmin = !!(r.data && r.data.user_id);
+      try {
+        if (isAdmin) localStorage.setItem(ADMIN_UID_CACHE_KEY, user.id);
+        else localStorage.removeItem(ADMIN_UID_CACHE_KEY);
+      } catch (e) {}
+    } else {
+      isAdmin = cachedAdmin;
+    }
   } catch(e) {
-    isAdmin = false;
+    isAdmin = cachedAdmin;
   }
   window.isAdmin = isAdmin;
   window.me = me;
@@ -1991,7 +2013,9 @@ async function afterAuth(user){
   if (window.LAWDB) LAWDB.onAdmin();
   await loadPlanner();
   if (!document.getElementById("tab-planner").classList.contains("hidden")) enterPlanner();
+  _afterAuthRunningFor = '';
 }
+window.afterAuth = afterAuth;
 async function applyAdminAssignedPlans(currentState){
   if (!sb || !me || !me.email) return { state: currentState, updated: false };
   try {
@@ -2256,8 +2280,28 @@ document.addEventListener("visibilitychange",()=>{
 window.addEventListener("focus",()=>{triggerForegroundSync(false);});
 window.addEventListener("online",()=>{triggerForegroundSync(true);});
 window.addEventListener("baraat-app-resume",()=>{triggerForegroundSync(true);});
-async function logout(){await sb.auth.signOut();location.reload()}
-function initAuth(){sb.auth.getSession().then(async r=>{if(r.data&&r.data.session)await afterAuth(r.data.session.user);else{window._authResolved=true;updateAuthUI();}}).catch(()=>{window._authResolved=true;updateAuthUI();});}
+async function logout(){
+  try{localStorage.removeItem(ADMIN_UID_CACHE_KEY);localStorage.removeItem("baraat_exams_private_v1");}catch(e){}
+  await sb.auth.signOut();
+  location.reload();
+}
+let _authListenerBound=false;
+function initAuth(){
+  if(!_authListenerBound && sb && sb.auth && typeof sb.auth.onAuthStateChange==="function"){
+    _authListenerBound=true;
+    sb.auth.onAuthStateChange((event,session)=>{
+      if((event==="SIGNED_IN"||event==="TOKEN_REFRESHED") && session && session.user){
+        if(!window.me || window.me.id!==session.user.id || !window._authResolved){
+          afterAuth(session.user);
+        }
+      }
+    });
+  }
+  sb.auth.getSession().then(async r=>{
+    if(r.data&&r.data.session)await afterAuth(r.data.session.user);
+    else{window._authResolved=true;updateAuthUI();}
+  }).catch(()=>{window._authResolved=true;updateAuthUI();});
+}
 function enterPlanner(){const ok=!!me;document.getElementById("plannerGate").classList.toggle("hidden",ok);document.getElementById("plannerApp").classList.toggle("hidden",!ok);if(ok&&!ready)loadPlanner();else if(ok&&ready&&window.refreshAssignedPlannerForMe)window.refreshAssignedPlannerForMe();}
 const ALL_TABS=["search","planner","cases","articles","deadlines","calculator","about","contact","admin"];
 function go(tab){
@@ -3042,6 +3086,6 @@ if ('serviceWorker' in navigator) {
   });
 }
 </script>
-<script src="./baraat_engine.js?v=20261124_1"></script>
+<script src="./baraat_engine.js?v=20261125_1"></script>
 </body>
 </html>
