@@ -19,6 +19,91 @@
   let _lastSyncAt = 0;
   let _hasSyncedOnce = false;
   let _syncedAsAdmin = false;
+  let _lastEmptyExamsSyncAt = 0;
+
+  // ذخیره پایدار آزمون‌ها در RAM و IndexedDB تا محدودیت ۵ مگابایتی localStorage در PWA هرگز باعث ناپدید شدن آزمون‌ها نشود
+  let _memPubExams = null;
+  let _memPrivExams = null;
+  let _examsIdbPromise = null;
+  function openExamsIdb() {
+    if (_examsIdbPromise) return _examsIdbPromise;
+    _examsIdbPromise = new Promise((resolve, reject) => {
+      try {
+        if (typeof indexedDB === 'undefined') return resolve(null);
+        const req = indexedDB.open('baraat_exams_idb', 1);
+        req.onupgradeneeded = () => {
+          const db = req.result;
+          if (!db.objectStoreNames.contains('kv')) db.createObjectStore('kv');
+        };
+        req.onsuccess = () => resolve(req.result);
+        req.onerror = () => { _examsIdbPromise = null; resolve(null); };
+      } catch (e) {
+        _examsIdbPromise = null;
+        resolve(null);
+      }
+    });
+    return _examsIdbPromise;
+  }
+  async function idbExamsGet(key) {
+    try {
+      const db = await openExamsIdb();
+      if (!db) return null;
+      return await new Promise(resolve => {
+        const tx = db.transaction('kv', 'readonly');
+        const req = tx.objectStore('kv').get(key);
+        req.onsuccess = () => resolve(req.result !== undefined ? req.result : null);
+        req.onerror = () => resolve(null);
+      });
+    } catch (e) { return null; }
+  }
+  async function idbExamsSet(key, val) {
+    try {
+      const db = await openExamsIdb();
+      if (!db) return;
+      await new Promise(resolve => {
+        const tx = db.transaction('kv', 'readwrite');
+        tx.objectStore('kv').put(val, key);
+        tx.oncomplete = () => resolve();
+        tx.onerror = () => resolve();
+      });
+    } catch (e) {}
+  }
+  async function idbExamsDel(key) {
+    try {
+      const db = await openExamsIdb();
+      if (!db) return;
+      await new Promise(resolve => {
+        const tx = db.transaction('kv', 'readwrite');
+        tx.objectStore('kv').delete(key);
+        tx.oncomplete = () => resolve();
+        tx.onerror = () => resolve();
+      });
+    } catch (e) {}
+  }
+  async function hydrateExamsFromIdb() {
+    try {
+      const [pubData, privData] = await Promise.all([
+        idbExamsGet(EXAMS_KEY),
+        idbExamsGet(EXAMS_PRIVATE_KEY)
+      ]);
+      let hydrated = false;
+      if (Array.isArray(pubData) && pubData.length && !_memPubExams) {
+        _memPubExams = pubData;
+        hydrated = true;
+      }
+      if (Array.isArray(privData) && privData.length && !_memPrivExams) {
+        _memPrivExams = privData;
+        hydrated = true;
+      }
+      if (hydrated) {
+        invalidateExamsCache();
+        const examsVisible = document.getElementById('hub-students') && !document.getElementById('hub-students').classList.contains('hidden')
+          && document.getElementById('tab-exams') && !document.getElementById('tab-exams').classList.contains('hidden');
+        const runnerOpen = !!(document.getElementById('examRunnerOverlay') && !document.getElementById('examRunnerOverlay').classList.contains('hidden'));
+        if (examsVisible && !runnerOpen && window.renderExamsHub) window.renderExamsHub();
+      }
+    } catch (e) {}
+  }
 
   async function syncToSupabase(key, data) {
     try {
@@ -118,10 +203,15 @@
         });
 
         const writeIfChanged = (k, val) => {
-          const s = JSON.stringify(val);
-          if (localStorage.getItem(k) === s) return false;
-          localStorage.setItem(k, s);
-          return true;
+          try {
+            const s = JSON.stringify(val);
+            if (localStorage.getItem(k) === s) return false;
+            localStorage.setItem(k, s);
+            return true;
+          } catch (e) {
+            console.warn('localStorage write skipped (quota/private mode) for ' + k + ':', e && e.name);
+            return true;
+          }
         };
         const isSectionVisible = (id) => {
           const el = document.getElementById(id);
@@ -187,10 +277,14 @@
             const hasServerPriv = Array.isArray(map[EXAMS_PRIVATE_KEY]);
             let privListRaw = hasServerPriv ? map[EXAMS_PRIVATE_KEY] : [];
             if (!hasServerPriv) {
-              try {
-                const cachedPriv = JSON.parse(localStorage.getItem(EXAMS_PRIVATE_KEY) || '[]');
-                if (Array.isArray(cachedPriv)) privListRaw = cachedPriv;
-              } catch (e) {}
+              if (Array.isArray(_memPrivExams)) {
+                privListRaw = _memPrivExams;
+              } else {
+                try {
+                  const cachedPriv = JSON.parse(localStorage.getItem(EXAMS_PRIVATE_KEY) || '[]');
+                  if (Array.isArray(cachedPriv)) privListRaw = cachedPriv;
+                } catch (e) {}
+              }
             }
             const legacyHiddenInPub = pubListRaw.filter(x => x && x.isPublished === false);
             const cleanPub = pubListRaw.filter(x => !x || x.isPublished !== false);
@@ -199,9 +293,13 @@
             legacyHiddenInPub.forEach(x => { if (x && x.id && !mergedPrivMap.has(x.id)) mergedPrivMap.set(x.id, Object.assign({}, x, { isPublished: false })); });
             const cleanPriv = [...mergedPrivMap.values()];
             if (Array.isArray(map[EXAMS_KEY])) {
+              _memPubExams = cleanPub;
+              idbExamsSet(EXAMS_KEY, cleanPub);
               if (writeIfChanged(EXAMS_KEY, cleanPub)) examsChanged = true;
             }
             if (hasServerPriv || legacyHiddenInPub.length > 0) {
+              _memPrivExams = cleanPriv;
+              idbExamsSet(EXAMS_PRIVATE_KEY, cleanPriv);
               if (writeIfChanged(EXAMS_PRIVATE_KEY, cleanPriv)) examsChanged = true;
             }
             // پاکسازی خودکار آزمون‌های مخفی قدیمی از کلید عمومی
@@ -210,8 +308,13 @@
               await syncToSupabase(EXAMS_KEY, cleanPub.map(normalizeExamRecord));
             }
           } else {
-            if (writeIfChanged(EXAMS_KEY, pubListRaw.filter(x => !x || x.isPublished !== false))) examsChanged = true;
+            const pubOnly = pubListRaw.filter(x => !x || x.isPublished !== false);
+            _memPubExams = pubOnly;
+            idbExamsSet(EXAMS_KEY, pubOnly);
+            if (writeIfChanged(EXAMS_KEY, pubOnly)) examsChanged = true;
             if (window._authResolved) {
+              _memPrivExams = null;
+              idbExamsDel(EXAMS_PRIVATE_KEY);
               try {
                 if (localStorage.getItem(EXAMS_PRIVATE_KEY) !== null) {
                   localStorage.removeItem(EXAMS_PRIVATE_KEY);
@@ -220,9 +323,9 @@
               } catch (e) {}
             }
           }
-          if (examsChanged) invalidateExamsCache();
+          invalidateExamsCache();
           const runnerOpen = !!(document.getElementById('examRunnerOverlay') && !document.getElementById('examRunnerOverlay').classList.contains('hidden'));
-          if ((examsChanged || !_hasSyncedOnce) && !runnerOpen && isSectionVisible('hub-students') && isSectionVisible('tab-exams') && window.renderExamsHub) {
+          if ((examsChanged || !_hasSyncedOnce || (window.isAdmin && !_syncedAsAdmin)) && !runnerOpen && isSectionVisible('hub-students') && isSectionVisible('tab-exams') && window.renderExamsHub) {
             window.renderExamsHub();
           }
         }
@@ -5035,38 +5138,40 @@
     }, 80);
   };
 
-  let _examsMemCache = { pubRaw: null, privRaw: null, isAdmin: null, list: null };
+  let _examsMemCache = { pubRaw: null, privRaw: null, pubRef: null, privRef: null, isAdmin: null, list: null };
   function invalidateExamsCache() {
-    _examsMemCache = { pubRaw: null, privRaw: null, isAdmin: null, list: null };
+    _examsMemCache = { pubRaw: null, privRaw: null, pubRef: null, privRef: null, isAdmin: null, list: null };
   }
 
   window.getExams = function() {
     try {
       const adm = !!window.isAdmin;
-      const pubRaw = localStorage.getItem(EXAMS_KEY);
-      const privRaw = adm ? localStorage.getItem(EXAMS_PRIVATE_KEY) : null;
+      const pubRaw = _memPubExams ? null : localStorage.getItem(EXAMS_KEY);
+      const privRaw = (adm && !_memPrivExams) ? localStorage.getItem(EXAMS_PRIVATE_KEY) : null;
       if (
         _examsMemCache.list &&
         _examsMemCache.isAdmin === adm &&
+        _examsMemCache.pubRef === _memPubExams &&
+        _examsMemCache.privRef === (adm ? _memPrivExams : null) &&
         _examsMemCache.pubRaw === pubRaw &&
         _examsMemCache.privRaw === privRaw
       ) {
         return _examsMemCache.list.slice();
       }
-      const pubParsed = pubRaw ? JSON.parse(pubRaw) : [];
+      const pubParsed = Array.isArray(_memPubExams) ? _memPubExams : (pubRaw ? JSON.parse(pubRaw) : []);
       const pubList = Array.isArray(pubParsed) ? pubParsed.map(normalizeExamRecord) : [];
       let out;
       if (!adm) {
         out = pubList.filter(ex => ex && ex.isPublished !== false);
       } else {
-        const privParsed = privRaw ? JSON.parse(privRaw) : [];
+        const privParsed = Array.isArray(_memPrivExams) ? _memPrivExams : (privRaw ? JSON.parse(privRaw) : []);
         const privList = Array.isArray(privParsed) ? privParsed.map(ex => normalizeExamRecord(Object.assign({}, ex, { isPublished: false }))) : [];
         const map = new Map();
         pubList.forEach(ex => { if (ex && ex.id) map.set(ex.id, ex); });
         privList.forEach(ex => { if (ex && ex.id) map.set(ex.id, ex); });
         out = [...map.values()];
       }
-      _examsMemCache = { pubRaw, privRaw, isAdmin: adm, list: out };
+      _examsMemCache = { pubRaw, privRaw, pubRef: _memPubExams, privRef: adm ? _memPrivExams : null, isAdmin: adm, list: out };
       return out.slice();
     } catch (e) {
       return [];
@@ -5083,12 +5188,16 @@
     const normalized = (list || []).map(normalizeExamRecord);
     const pubList = normalized.filter(ex => ex.isPublished !== false);
     const privList = normalized.filter(ex => ex.isPublished === false);
-    invalidateExamsCache();
-    localStorage.setItem(EXAMS_KEY, JSON.stringify(pubList));
+    _memPubExams = pubList;
+    idbExamsSet(EXAMS_KEY, pubList);
+    try { localStorage.setItem(EXAMS_KEY, JSON.stringify(pubList)); } catch (e) {}
     const canSyncPriv = window.isAdmin && (_syncedAsAdmin || privList.length > 0);
     if (canSyncPriv) {
-      localStorage.setItem(EXAMS_PRIVATE_KEY, JSON.stringify(privList));
+      _memPrivExams = privList;
+      idbExamsSet(EXAMS_PRIVATE_KEY, privList);
+      try { localStorage.setItem(EXAMS_PRIVATE_KEY, JSON.stringify(privList)); } catch (e) {}
     }
+    invalidateExamsCache();
     if (window.renderExamsHub) window.renderExamsHub();
     if (typeof renderAdminPanels === 'function') renderAdminPanels();
     const resPub = await syncToSupabase(EXAMS_KEY, pubList);
@@ -7348,6 +7457,10 @@
       selectedMainTitle = '';
     }
     const groupsAll = (!isNotebookView && !selectedMainTitle) ? getMainTitleGroupsSummary() : [];
+    if (!isNotebookView && !selectedMainTitle && !groupsAll.length && navigator.onLine && window.sb && !_syncPromise && (Date.now() - _lastEmptyExamsSyncAt > 5000)) {
+      _lastEmptyExamsSyncAt = Date.now();
+      window.syncAllFromSupabase(true);
+    }
 
     const qNorm = examHubQuery.trim().toLowerCase();
     const filteredGroups = groupsAll.filter(g => {
@@ -10553,6 +10666,9 @@ WITH CHECK (key &lt;&gt; 'baraat_exams_private_v1' OR EXISTS (SELECT 1 FROM publ
           showBaraatAuthErr('ورود ناموفق: ' + msg);
           return;
         }
+        if (res.data && res.data.session && res.data.session.user && typeof window.afterAuth === 'function') {
+          await window.afterAuth(res.data.session.user);
+        }
         if (typeof closeModal === 'function') closeModal();
         if (typeof toast === 'function') toast('خوش آمدید! ورود با موفقیت انجام شد.');
       } else {
@@ -10562,6 +10678,9 @@ WITH CHECK (key &lt;&gt; 'baraat_exams_private_v1' OR EXISTS (SELECT 1 FROM publ
           return;
         }
         if (res.data && res.data.session) {
+          if (res.data.session.user && typeof window.afterAuth === 'function') {
+            await window.afterAuth(res.data.session.user);
+          }
           if (typeof closeModal === 'function') closeModal();
           if (typeof toast === 'function') toast('حساب کاربری شما با موفقیت ساخته شد.');
           return;
@@ -10595,6 +10714,9 @@ WITH CHECK (key &lt;&gt; 'baraat_exams_private_v1' OR EXISTS (SELECT 1 FROM publ
       if (res.error) {
         showBaraatAuthErr('کد تأیید نامعتبر یا منقضی شده است.');
         return;
+      }
+      if (res.data && res.data.session && res.data.session.user && typeof window.afterAuth === 'function') {
+        await window.afterAuth(res.data.session.user);
       }
       if (typeof closeModal === 'function') closeModal();
       if (typeof toast === 'function') toast('ایمیل شما با موفقیت تأیید شد! خوش آمدید.');
@@ -10655,6 +10777,7 @@ WITH CHECK (key &lt;&gt; 'baraat_exams_private_v1' OR EXISTS (SELECT 1 FROM publ
     upgradeLegacyAuthModal();
     setTimeout(upgradeLegacyAuthModal, 400);
     const curTab = (location.hash || '#search').replace('#', '') || 'search';
+    hydrateExamsFromIdb();
     window.go(curTab);
     checkStandalone();
     updateOnlineStatus();
