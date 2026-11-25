@@ -117,6 +117,17 @@
           }
         });
 
+        const writeIfChanged = (k, val) => {
+          const s = JSON.stringify(val);
+          if (localStorage.getItem(k) === s) return false;
+          localStorage.setItem(k, s);
+          return true;
+        };
+        const isSectionVisible = (id) => {
+          const el = document.getElementById(id);
+          return !!(el && !el.classList.contains('hidden'));
+        };
+
         serverStatus.checked = true;
         serverStatus.lastError = '';
         if (Array.isArray(map[ARTICLES_KEY])) {
@@ -124,46 +135,53 @@
           serverStatus.articlesCount = data.length;
           const localArts = window.getArticles();
           if (data.length > 0 || !window.isAdmin || localArts.length === 0) {
-            localStorage.setItem(ARTICLES_KEY, JSON.stringify(data));
-            window.renderArticles();
+            if (writeIfChanged(ARTICLES_KEY, data) && isSectionVisible('tab-articles')) {
+              window.renderArticles();
+            }
           }
         } else {
           serverStatus.articlesCount = 0;
         }
 
         if (Array.isArray(map[DEADLINES_KEY]) && map[DEADLINES_KEY].length > 0) {
-          localStorage.setItem(DEADLINES_KEY, JSON.stringify(map[DEADLINES_KEY]));
-          window.renderDeadlines();
+          if (writeIfChanged(DEADLINES_KEY, map[DEADLINES_KEY]) && isSectionVisible('hub-lawyers') && isSectionVisible('tab-deadlines')) {
+            window.renderDeadlines();
+          }
         }
         if (Array.isArray(map[CALC_CUSTOM_KEY]) && map[CALC_CUSTOM_KEY].length > 0) {
-          localStorage.setItem(CALC_CUSTOM_KEY, JSON.stringify(map[CALC_CUSTOM_KEY]));
-          window.renderCalculators();
+          if (writeIfChanged(CALC_CUSTOM_KEY, map[CALC_CUSTOM_KEY]) && isSectionVisible('hub-lawyers') && isSectionVisible('tab-calculator')) {
+            window.renderCalculators();
+          }
         }
         if (map[ABOUT_KEY] && typeof map[ABOUT_KEY] === 'object') {
-          localStorage.setItem(ABOUT_KEY, JSON.stringify(map[ABOUT_KEY]));
-          if (window.renderAbout) window.renderAbout();
+          if (writeIfChanged(ABOUT_KEY, map[ABOUT_KEY]) && isSectionVisible('tab-about') && window.renderAbout) {
+            window.renderAbout();
+          }
         }
         if (map[CONTACT_KEY] && typeof map[CONTACT_KEY] === 'object') {
-          localStorage.setItem(CONTACT_KEY, JSON.stringify(map[CONTACT_KEY]));
-          if (window.renderContact) window.renderContact();
+          if (writeIfChanged(CONTACT_KEY, map[CONTACT_KEY]) && isSectionVisible('tab-contact') && window.renderContact) {
+            window.renderContact();
+          }
         }
         if (map[QUESTION_REPLIES_KEY] && typeof map[QUESTION_REPLIES_KEY] === 'object') {
-          localStorage.setItem(QUESTION_REPLIES_KEY, JSON.stringify(map[QUESTION_REPLIES_KEY]));
-          if (window.renderStudentProgressView) window.renderStudentProgressView();
+          if (writeIfChanged(QUESTION_REPLIES_KEY, map[QUESTION_REPLIES_KEY]) && isSectionVisible('hub-students') && window.renderStudentProgressView) {
+            window.renderStudentProgressView();
+          }
         }
         if (Array.isArray(map[EXAM_DELETED_ATTEMPTS_KEY])) {
-          localStorage.setItem(EXAM_DELETED_ATTEMPTS_KEY, JSON.stringify(map[EXAM_DELETED_ATTEMPTS_KEY]));
+          writeIfChanged(EXAM_DELETED_ATTEMPTS_KEY, map[EXAM_DELETED_ATTEMPTS_KEY]);
         }
         if (Array.isArray(map[EXAM_SUBJECTS_KEY]) && map[EXAM_SUBJECTS_KEY].length > 0) {
-          localStorage.setItem(EXAM_SUBJECTS_KEY, JSON.stringify(map[EXAM_SUBJECTS_KEY]));
+          writeIfChanged(EXAM_SUBJECTS_KEY, map[EXAM_SUBJECTS_KEY]);
         }
         if (map[VIP_SETTINGS_KEY] && typeof map[VIP_SETTINGS_KEY] === 'object') {
-          localStorage.setItem(VIP_SETTINGS_KEY, JSON.stringify(map[VIP_SETTINGS_KEY]));
+          writeIfChanged(VIP_SETTINGS_KEY, map[VIP_SETTINGS_KEY]);
         }
         if (window.isAdmin && Array.isArray(map[EXAM_ATTEMPTS_KEY])) {
-          localStorage.setItem(EXAM_ATTEMPTS_KEY, JSON.stringify(map[EXAM_ATTEMPTS_KEY]));
+          writeIfChanged(EXAM_ATTEMPTS_KEY, map[EXAM_ATTEMPTS_KEY]);
         }
         if (Array.isArray(map[EXAMS_KEY]) || (window.isAdmin && Array.isArray(map[EXAMS_PRIVATE_KEY]))) {
+          let examsChanged = false;
           const pubListRaw = Array.isArray(map[EXAMS_KEY]) ? map[EXAMS_KEY] : [];
           if (window.isAdmin) {
             const hasServerPriv = Array.isArray(map[EXAMS_PRIVATE_KEY]);
@@ -181,10 +199,10 @@
             legacyHiddenInPub.forEach(x => { if (x && x.id && !mergedPrivMap.has(x.id)) mergedPrivMap.set(x.id, Object.assign({}, x, { isPublished: false })); });
             const cleanPriv = [...mergedPrivMap.values()];
             if (Array.isArray(map[EXAMS_KEY])) {
-              localStorage.setItem(EXAMS_KEY, JSON.stringify(cleanPub));
+              if (writeIfChanged(EXAMS_KEY, cleanPub)) examsChanged = true;
             }
             if (hasServerPriv || legacyHiddenInPub.length > 0) {
-              localStorage.setItem(EXAMS_PRIVATE_KEY, JSON.stringify(cleanPriv));
+              if (writeIfChanged(EXAMS_PRIVATE_KEY, cleanPriv)) examsChanged = true;
             }
             // پاکسازی خودکار آزمون‌های مخفی قدیمی از کلید عمومی
             if (legacyHiddenInPub.length > 0) {
@@ -192,24 +210,34 @@
               await syncToSupabase(EXAMS_KEY, cleanPub.map(normalizeExamRecord));
             }
           } else {
-            localStorage.setItem(EXAMS_KEY, JSON.stringify(pubListRaw.filter(x => !x || x.isPublished !== false)));
+            if (writeIfChanged(EXAMS_KEY, pubListRaw.filter(x => !x || x.isPublished !== false))) examsChanged = true;
             if (window._authResolved) {
-              try { localStorage.removeItem(EXAMS_PRIVATE_KEY); } catch (e) {}
+              try {
+                if (localStorage.getItem(EXAMS_PRIVATE_KEY) !== null) {
+                  localStorage.removeItem(EXAMS_PRIVATE_KEY);
+                  examsChanged = true;
+                }
+              } catch (e) {}
             }
           }
-          if (window.renderExamsHub) window.renderExamsHub();
+          if (examsChanged) invalidateExamsCache();
+          const runnerOpen = !!(document.getElementById('examRunnerOverlay') && !document.getElementById('examRunnerOverlay').classList.contains('hidden'));
+          if ((examsChanged || !_hasSyncedOnce) && !runnerOpen && isSectionVisible('hub-students') && isSectionVisible('tab-exams') && window.renderExamsHub) {
+            window.renderExamsHub();
+          }
         }
         if (window.isAdmin && Array.isArray(map[CASES_KEY])) {
-          localStorage.setItem(CASES_KEY, JSON.stringify(map[CASES_KEY]));
-          if (window.renderCases) window.renderCases();
+          if (writeIfChanged(CASES_KEY, map[CASES_KEY]) && isSectionVisible('hub-lawyers') && isSectionVisible('tab-cases') && window.renderCases) {
+            window.renderCases();
+          }
         }
         if (window.isAdmin && map[ASSIGNED_PLANS_KEY] && typeof map[ASSIGNED_PLANS_KEY] === 'object') {
-          localStorage.setItem(ASSIGNED_PLANS_KEY, JSON.stringify(map[ASSIGNED_PLANS_KEY]));
+          writeIfChanged(ASSIGNED_PLANS_KEY, map[ASSIGNED_PLANS_KEY]);
         }
-        if (window.isAdmin && window.refreshAdminMonitor) {
-          window.refreshAdminMonitor();
+        if (window.isAdmin && isSectionVisible('tab-admin')) {
+          if (window.refreshAdminMonitor) window.refreshAdminMonitor();
+          if (typeof renderAdminPanels === 'function') renderAdminPanels();
         }
-        if (typeof renderAdminPanels === 'function') renderAdminPanels();
 
         _lastSyncAt = Date.now();
         _hasSyncedOnce = true;
@@ -5007,21 +5035,39 @@
     }, 80);
   };
 
+  let _examsMemCache = { pubRaw: null, privRaw: null, isAdmin: null, list: null };
+  function invalidateExamsCache() {
+    _examsMemCache = { pubRaw: null, privRaw: null, isAdmin: null, list: null };
+  }
+
   window.getExams = function() {
     try {
+      const adm = !!window.isAdmin;
       const pubRaw = localStorage.getItem(EXAMS_KEY);
+      const privRaw = adm ? localStorage.getItem(EXAMS_PRIVATE_KEY) : null;
+      if (
+        _examsMemCache.list &&
+        _examsMemCache.isAdmin === adm &&
+        _examsMemCache.pubRaw === pubRaw &&
+        _examsMemCache.privRaw === privRaw
+      ) {
+        return _examsMemCache.list.slice();
+      }
       const pubParsed = pubRaw ? JSON.parse(pubRaw) : [];
       const pubList = Array.isArray(pubParsed) ? pubParsed.map(normalizeExamRecord) : [];
-      if (!window.isAdmin) {
-        return pubList.filter(ex => ex && ex.isPublished !== false);
+      let out;
+      if (!adm) {
+        out = pubList.filter(ex => ex && ex.isPublished !== false);
+      } else {
+        const privParsed = privRaw ? JSON.parse(privRaw) : [];
+        const privList = Array.isArray(privParsed) ? privParsed.map(ex => normalizeExamRecord(Object.assign({}, ex, { isPublished: false }))) : [];
+        const map = new Map();
+        pubList.forEach(ex => { if (ex && ex.id) map.set(ex.id, ex); });
+        privList.forEach(ex => { if (ex && ex.id) map.set(ex.id, ex); });
+        out = [...map.values()];
       }
-      const privRaw = localStorage.getItem(EXAMS_PRIVATE_KEY);
-      const privParsed = privRaw ? JSON.parse(privRaw) : [];
-      const privList = Array.isArray(privParsed) ? privParsed.map(ex => normalizeExamRecord(Object.assign({}, ex, { isPublished: false }))) : [];
-      const map = new Map();
-      pubList.forEach(ex => { if (ex && ex.id) map.set(ex.id, ex); });
-      privList.forEach(ex => { if (ex && ex.id) map.set(ex.id, ex); });
-      return [...map.values()];
+      _examsMemCache = { pubRaw, privRaw, isAdmin: adm, list: out };
+      return out.slice();
     } catch (e) {
       return [];
     }
@@ -5037,6 +5083,7 @@
     const normalized = (list || []).map(normalizeExamRecord);
     const pubList = normalized.filter(ex => ex.isPublished !== false);
     const privList = normalized.filter(ex => ex.isPublished === false);
+    invalidateExamsCache();
     localStorage.setItem(EXAMS_KEY, JSON.stringify(pubList));
     const canSyncPriv = window.isAdmin && (_syncedAsAdmin || privList.length > 0);
     if (canSyncPriv) {
@@ -6432,9 +6479,11 @@
     window.renderExamsHub();
   };
 
+  let _examSearchDebT = 0;
   window.setExamNbSearch = function(val) {
     examNbSearch = String(val || '');
-    window.renderExamsHub();
+    clearTimeout(_examSearchDebT);
+    _examSearchDebT = setTimeout(() => window.renderExamsHub(), 120);
   };
 
   window.toggleExamNbExpand = function(qId) {
@@ -6481,7 +6530,12 @@
     if (kind === 'type') examHubFilterType = val || 'all';
     if (kind === 'year') examHubFilterYear = val || 'all';
     if (kind === 'chapter') examHubFilterChapter = val || 'all';
-    if (kind === 'q') examHubQuery = String(val || '');
+    if (kind === 'q') {
+      examHubQuery = String(val || '');
+      clearTimeout(_examSearchDebT);
+      _examSearchDebT = setTimeout(() => window.renderExamsHub(), 120);
+      return;
+    }
     if (kind === 'view') examHubSubViewMode = val || 'auto';
     window.renderExamsHub();
   };
@@ -7289,10 +7343,11 @@
       ? document.activeElement.selectionEnd
       : null;
 
-    const groupsAll = getMainTitleGroupsSummary();
-    if (selectedMainTitle && !groupsAll.some(g => g.name === selectedMainTitle)) {
+    const isNotebookView = examHubSection === 'notebook';
+    if (!isNotebookView && selectedMainTitle && !getExamsForMainTitle(selectedMainTitle).length) {
       selectedMainTitle = '';
     }
+    const groupsAll = (!isNotebookView && !selectedMainTitle) ? getMainTitleGroupsSummary() : [];
 
     const qNorm = examHubQuery.trim().toLowerCase();
     const filteredGroups = groupsAll.filter(g => {
@@ -7302,7 +7357,7 @@
     });
 
     const userIsVip = isCurrentUserVip();
-    const progMap = buildStudentQuestionProgressMap();
+    const progMap = isNotebookView ? {} : buildStudentQuestionProgressMap();
     const resultsAll = getExamResults();
     const resultsTimedCount = resultsAll.filter(r => r.mode !== 'prep').length;
     const resultsPrepCount = resultsAll.filter(r => r.mode === 'prep').length;
@@ -7312,19 +7367,41 @@
       return true;
     });
 
-    const nbAll = buildStudentNotebookEntries();
-    const nbCounts = {
-      all: nbAll.length,
-      noted: nbAll.filter(x => !!x.note).length,
-      review: nbAll.filter(x => x.tag && getTagFlagsArr(x.tag).includes('review')).length,
-      noteworthy: nbAll.filter(x => x.tag && getTagFlagsArr(x.tag).includes('noteworthy')).length,
-      careless: nbAll.filter(x => x.tag && getTagFlagsArr(x.tag).includes('careless')).length,
-      hard: nbAll.filter(x => x.tag && x.tag.difficulty === 'hard').length,
-      medium: nbAll.filter(x => x.tag && x.tag.difficulty === 'medium').length,
-      easy: nbAll.filter(x => x.tag && x.tag.difficulty === 'easy').length,
-      wrong: nbAll.filter(x => x.isWrong).length
-    };
-    const nbFilteredObj = examHubSection === 'notebook' ? getFilteredNotebookEntries(nbAll) : { base: [], groups: [], visible: [] };
+    let nbAll = [];
+    let nbCounts = { all: 0, noted: 0, review: 0, noteworthy: 0, careless: 0, hard: 0, medium: 0, easy: 0, wrong: 0 };
+    if (isNotebookView) {
+      nbAll = buildStudentNotebookEntries();
+      nbCounts = {
+        all: nbAll.length,
+        noted: nbAll.filter(x => !!x.note).length,
+        review: nbAll.filter(x => x.tag && getTagFlagsArr(x.tag).includes('review')).length,
+        noteworthy: nbAll.filter(x => x.tag && getTagFlagsArr(x.tag).includes('noteworthy')).length,
+        careless: nbAll.filter(x => x.tag && getTagFlagsArr(x.tag).includes('careless')).length,
+        hard: nbAll.filter(x => x.tag && x.tag.difficulty === 'hard').length,
+        medium: nbAll.filter(x => x.tag && x.tag.difficulty === 'medium').length,
+        easy: nbAll.filter(x => x.tag && x.tag.difficulty === 'easy').length,
+        wrong: nbAll.filter(x => x.isWrong).length
+      };
+    } else {
+      const fastIds = new Set();
+      const notesM = getExamNotesMap();
+      Object.keys(notesM || {}).forEach(k => { if (String(notesM[k] || '').trim()) fastIds.add(k); });
+      const tagsM = getExamTagsMap();
+      Object.keys(tagsM || {}).forEach(k => {
+        const tg = tagsM[k];
+        if (tg && (tg.difficulty || getTagFlagsArr(tg).length)) fastIds.add(k);
+      });
+      resultsAll.forEach(r => {
+        const ans = (r && r.answers) || {};
+        (Array.isArray(r && r.questionsSnapshot) ? r.questionsSnapshot : []).forEach(it => {
+          if (!it || !it.id) return;
+          const pk = ans[it.id];
+          if (pk !== undefined && pk !== null && Number(pk) !== Number(it.answer)) fastIds.add(it.id);
+        });
+      });
+      nbCounts.all = fastIds.size;
+    }
+    const nbFilteredObj = isNotebookView ? getFilteredNotebookEntries(nbAll) : { base: [], groups: [], visible: [] };
     const nbPlayableCount = nbFilteredObj.visible.filter(x => x.hasFullQuestion).length;
 
     const renderAdminFileCardHtml = (ex) => {
@@ -10300,9 +10377,9 @@ WITH CHECK (key &lt;&gt; 'baraat_exams_private_v1' OR EXISTS (SELECT 1 FROM publ
   }
 
   function applyPlannerSubjectColors() {
-    injectExamUpgradeStyles();
     const plannerRoot = document.getElementById('tab-planner') || document.getElementById('hub-students');
-    if (!plannerRoot) return;
+    if (!plannerRoot || plannerRoot.classList.contains('hidden')) return;
+    injectExamUpgradeStyles();
     const blockById = new Map();
     const subjNameById = new Map();
     try {
@@ -10581,7 +10658,6 @@ WITH CHECK (key &lt;&gt; 'baraat_exams_private_v1' OR EXISTS (SELECT 1 FROM publ
     window.go(curTab);
     checkStandalone();
     updateOnlineStatus();
-    window.syncAllFromSupabase(true);
   }
 
   if (document.readyState === 'complete' || document.readyState === 'interactive') {

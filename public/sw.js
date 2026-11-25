@@ -1,5 +1,5 @@
 // Service Worker سامانه گروه حقوقی برائت
-const CACHE_NAME = 'baraat-cache-v30';
+const CACHE_NAME = 'baraat-cache-v31';
 
 function scopeUrl(rel) {
   return new URL(rel, self.registration.scope).href;
@@ -43,13 +43,54 @@ self.addEventListener('message', event => {
   }
 });
 
+// Fast Network with 850ms Cache Fallback: instant open on slow mobile/offline, fresh on fast networks
+function networkWithFastCacheFallback(req, cacheKey, timeoutMs) {
+  return caches.match(cacheKey).then(cached => {
+    const netPromise = fetch(new Request(req, { cache: 'no-store' })).then(res => {
+      if (res && res.status === 200) {
+        const clone = res.clone();
+        caches.open(CACHE_NAME).then(c => c.put(cacheKey, clone));
+      }
+      return res;
+    });
+
+    if (!cached) {
+      return netPromise;
+    }
+
+    return new Promise(resolve => {
+      let settled = false;
+      const timer = setTimeout(() => {
+        if (!settled) {
+          settled = true;
+          resolve(cached);
+        }
+      }, timeoutMs);
+
+      netPromise.then(res => {
+        clearTimeout(timer);
+        if (!settled) {
+          settled = true;
+          resolve(res);
+        }
+      }).catch(() => {
+        clearTimeout(timer);
+        if (!settled) {
+          settled = true;
+          resolve(cached);
+        }
+      });
+    });
+  });
+}
+
 self.addEventListener('fetch', event => {
   const req = event.request;
   if (req.method !== 'GET') return;
 
   const url = new URL(req.url);
 
-  // Fonts & CDN SDK fallbacks: Cache-First so PWA never breaks on slow/offline networks
+  // Fonts & CDN SDK fallbacks: Cache-First so PWA never blocks on external CDNs
   if (
     url.origin.includes('fonts.googleapis.com') ||
     url.origin.includes('fonts.gstatic.com') ||
@@ -76,8 +117,11 @@ self.addEventListener('fetch', event => {
     return;
   }
 
-  // Self-hosted Supabase SDK: Cache-First for instant offline/PWA startup
-  if (url.pathname.endsWith('/supabase.min.js')) {
+  // Self-hosted Supabase SDK & versioned baraat_engine.js?v=...: Cache-First for <5ms startup
+  if (
+    url.pathname.endsWith('/supabase.min.js') ||
+    (url.pathname.endsWith('/baraat_engine.js') && url.searchParams.has('v'))
+  ) {
     event.respondWith(
       caches.match(req).then(cached => {
         if (cached) return cached;
@@ -93,19 +137,15 @@ self.addEventListener('fetch', event => {
     return;
   }
 
-  // Navigation & unhashed entry files: Network-First (no-store) so updates appear immediately in PWA & Web
-  if (req.mode === 'navigate' || url.pathname.endsWith('/index.html') || url.pathname.endsWith('/manifest.json') || url.pathname.endsWith('/baraat_engine.js')) {
-    const rootKey = scopeUrl('./');
-    event.respondWith(
-      fetch(new Request(req, { cache: 'no-store' })).then(res => {
-        if (res && res.status === 200) {
-          const clone = res.clone();
-          const cacheKey = req.mode === 'navigate' ? rootKey : req;
-          caches.open(CACHE_NAME).then(c => c.put(cacheKey, clone));
-        }
-        return res;
-      }).catch(() => caches.match(req).then(m => m || (req.mode === 'navigate' ? caches.match(rootKey) : undefined)))
-    );
+  // Navigation & unhashed entry files: Network with 850ms cache fallback + background refresh
+  if (
+    req.mode === 'navigate' ||
+    url.pathname.endsWith('/index.html') ||
+    url.pathname.endsWith('/manifest.json') ||
+    url.pathname.endsWith('/baraat_engine.js')
+  ) {
+    const cacheKey = req.mode === 'navigate' ? scopeUrl('./') : req;
+    event.respondWith(networkWithFastCacheFallback(req, cacheKey, 850));
     return;
   }
 
