@@ -15,14 +15,16 @@
 <title>برائت | سامانه جامع گروه حقوقی برائت</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link rel="preconnect" href="https://cdn.jsdelivr.net" crossorigin>
 <link rel="preconnect" href="https://xfmdpeeuzhuvqwoalfea.supabase.co" crossorigin>
+<link rel="preload" href="./supabase.min.js" as="script">
+<link rel="preload" href="./baraat_engine.js?v=20261124_1" as="script">
 <script>
 window.__deferredPWA=null;
 window.addEventListener('beforeinstallprompt',function(e){e.preventDefault();window.__deferredPWA=e;});
 (function(){try{var t=localStorage.getItem('baraat_theme_v1');if(t==='dark'){document.documentElement.dataset.theme='dark';var m=document.querySelector('meta[name="theme-color"]');if(m)m.setAttribute('content','#0f141d');}}catch(e){}})();
 </script>
-<link href="https://fonts.googleapis.com/css2?family=Vazirmatn:wght@400;500;700;800&display=swap" rel="stylesheet">
+<link rel="preload" as="style" href="https://fonts.googleapis.com/css2?family=Vazirmatn:wght@400;500;700;800&display=swap" onload="this.onload=null;this.rel='stylesheet'">
+<noscript><link href="https://fonts.googleapis.com/css2?family=Vazirmatn:wght@400;500;700;800&display=swap" rel="stylesheet"></noscript>
 <style>
 :root{--bg:#f8fafc;--text:#0f172a;color-scheme:light}
 html[data-theme="dark"]{--bg:#0f141d;--text:#eef2f7;color-scheme:dark}
@@ -2666,10 +2668,8 @@ function renderSearch(){
   const res=dec?[]:inLaw.filter(o=>(!exactPath||pk(o)===exactPath)&&(num===null||o.num===num)&&words.every(w=>(o[f]||'').includes(w)));
   // رأی‌ها فقط در حالت «آرای وحدت رویه» جستجو می‌شوند
   const decisionResults=dec?DECISIONS.filter(d=>{
-    const dn=digits(d.number).replace(/\D/g,''),dy=digits(d.year).replace(/\D/g,'');
-    if(num!==null&&dn!==num&&dy!==num)return false;
-    const corpus=norm([d.number,d.year,d.date,d.subject,d.text].join(' '));
-    return words.every(w=>corpus.includes(w));
+    if(num!==null&&d._dn!==num&&d._dy!==num)return false;
+    return words.every(w=>(d._searchNorm||'').includes(w));
   }):[];
   const cap=ADMIN?shown:50;
   $('count').textContent=(SA&&noQ&&!exactPath?'نمایش کل مواد: ':'')+persianDigits(dec?decisionResults.length+' رأی':res.length+' نتیجه')+(!ADMIN&&(res.length>50||decisionResults.length>50)?' — ۵۰ مورد اول نمایش داده شد؛ جستجو را دقیق‌تر کنید':'');
@@ -2681,7 +2681,7 @@ function renderSearch(){
   const part=res.slice(0,cap).map(o=>{
     const k=pk(o);let g='';
     if(grouped&&k!==prev){prev=k;g=`<div class="grp" style="--h:${hue(o.law)}"><span class="law">${esc(o.law)}</span> ${H(o.path.join(' › ')||'بدون موضوع')} <small>(${persianDigits(gc[k])} ماده)</small></div>`;}
-    return g+cardHtml(DB.indexOf(o),grouped);
+    return g+cardHtml(o._idx,grouped);
   }).join('');
   const decisionPart=decisionResults.slice(0,cap).map(d=>{
     const title=`رأی وحدت رویه شماره ${d.number} - سال ${d.year}`;
@@ -2695,9 +2695,10 @@ function renderSearch(){
 }
 
 /* ---------- رویدادها ---------- */
+let _searchDebounceT=0;
 document.querySelectorAll('input[name=mode]').forEach(r=>r.addEventListener('change',e=>{mode=e.target.value;shown=100;renderSearch();}));
 $('pathchip').addEventListener('click',e=>{if(e.target.dataset.clr){exactPath='';shown=100;renderSearch();}});
-$('q').addEventListener('input',()=>{shown=100;renderSearch();});
+$('q').addEventListener('input',()=>{clearTimeout(_searchDebounceT);_searchDebounceT=setTimeout(()=>{shown=100;renderSearch();},120);});
 $('lawSel').addEventListener('change',()=>{shown=showAll?200:100;renderSearch();});
 $('out').addEventListener('click',e=>{
   const c=e.target.closest('[data-decision-number]');
@@ -2735,14 +2736,15 @@ const A=id=>document.getElementById(id);
 function buildIdx(){IDX={};DB.forEach(o=>{(IDX[o.law]=IDX[o.law]||{});(IDX[o.law][o.num]=IDX[o.law][o.num]||[]).push(o);});}
 function refreshMeta(){const laws=[...new Set(DB.map(o=>o.law))];const cur=$('lawSel').value;$('lawSel').innerHTML='<option value="">همه قوانین پایگاه</option>'+laws.map(l=>`<option>${esc(l)}</option>`).join('');if(laws.includes(cur))$('lawSel').value=cur;}
 /* حافظه‌ی نهان در مرورگر تا هر بازدید دوباره همه‌ی متن‌ها دانلود نشود */
-const idb=()=>new Promise((res,rej)=>{const r=indexedDB.open('lawdb',1);r.onupgradeneeded=()=>r.result.createObjectStore('kv');r.onsuccess=()=>res(r.result);r.onerror=()=>rej(r.error);});
+let _idbConn=null;
+const idb=()=>_idbConn||(_idbConn=new Promise((res,rej)=>{const r=indexedDB.open('lawdb',1);r.onupgradeneeded=()=>r.result.createObjectStore('kv');r.onsuccess=()=>res(r.result);r.onerror=()=>{_idbConn=null;rej(r.error);};}));
 async function idbGet(k){try{const db=await idb();return await new Promise((res,rej)=>{const q=db.transaction('kv').objectStore('kv').get(k);q.onsuccess=()=>res(q.result);q.onerror=()=>rej(q.error);});}catch(e){return null;}}
 async function idbSet(k,v){try{const db=await idb();await new Promise((res,rej)=>{const t=db.transaction('kv','readwrite');t.objectStore('kv').put(v,k);t.oncomplete=res;t.onerror=()=>rej(t.error);});}catch(e){}}
 async function idbDel(k){try{const db=await idb();await new Promise((res,rej)=>{const t=db.transaction('kv','readwrite');t.objectStore('kv').delete(k);t.oncomplete=res;t.onerror=()=>rej(t.error);});}catch(e){}}
 async function fetchAll(table,cols,orders){const out=[];for(let from=0;;from+=1000){let q=sb.from(table).select(cols);orders.forEach(o=>{q=q.order(o);});const r=await q.range(from,from+999);if(r.error)throw r.error;out.push(...r.data);if(r.data.length<1000)break;}return out;}
 function applyDB(o){const nm=new Map(o.laws.map(l=>[l.id,l.name]));LAWS=o.laws;
-  DB=o.arts.map(a=>({id:a.id,lawId:a.law_id,ord:a.ord,law:nm.get(a.law_id)||'؟',num:String(a.num),numText:a.num_text||String(a.num),text:a.text||'',path:a.path||[],sections:a.sections||[]}));
-  DB.forEach(fill);DECISIONS=o.decs.map(d=>({number:d.number,year:d.year,date:d.date||'',subject:d.subject||'',text:d.text||''}));buildIdx();}
+  DB=o.arts.map((a,idx)=>{const item={_idx:idx,id:a.id,lawId:a.law_id,ord:a.ord,law:nm.get(a.law_id)||'؟',num:String(a.num),numText:a.num_text||String(a.num),text:a.text||'',path:a.path||[],sections:a.sections||[]};fill(item);return item;});
+  DECISIONS=o.decs.map(d=>{const numS=d.number,yrS=d.year,dt=d.date||'',sbj=d.subject||'',tx=d.text||'';return {number:numS,year:yrS,date:dt,subject:sbj,text:tx,_dn:digits(numS).replace(/\D/g,''),_dy:digits(yrS).replace(/\D/g,''),_searchNorm:norm([numS,yrS,dt,sbj,tx].join(' '))};});buildIdx();}
 async function refreshLawDbInBg(cachedVer){
   if(!navigator.onLine||!sb)return;
   try{
@@ -3040,6 +3042,6 @@ if ('serviceWorker' in navigator) {
   });
 }
 </script>
-<script src="./baraat_engine.js?v=20261123_5"></script>
+<script src="./baraat_engine.js?v=20261124_1"></script>
 </body>
 </html>
