@@ -4846,6 +4846,16 @@
       }
       .ex-qj-head { display:flex; align-items:center; justify-content:space-between; gap:8px; padding:12px 16px; border-bottom:1px solid var(--line); background:var(--soft); }
       .ex-qj-body { padding:14px 16px; overflow-y:auto; display:grid; gap:14px; }
+      /* دسته‌بندی منظم آزمون‌ها بر اساس عنوان اصلی در پنل مدیریت */
+      .adm-exam-filter-bar { display:flex; flex-wrap:wrap; gap:6px; align-items:center; padding:10px 12px; margin-bottom:12px; border-radius:12px; background:var(--soft); border:1px solid var(--line); }
+      .adm-exam-group { border:1px solid var(--line); border-radius:14px; background:var(--panel); overflow:hidden; }
+      .adm-exam-group-head { display:flex; align-items:center; justify-content:space-between; gap:10px; flex-wrap:wrap; padding:11px 14px; background:var(--soft); border-bottom:1px solid var(--line); }
+      .adm-exam-group.collapsed .adm-exam-group-head { border-bottom:none; }
+      .adm-exam-group-toggle { display:flex; align-items:center; gap:8px; flex-wrap:wrap; background:transparent; border:none; padding:0; color:var(--text); font-family:inherit; cursor:pointer; text-align:right; }
+      .adm-exam-group-toggle:hover .adm-exam-group-title { color:var(--main); }
+      .adm-exam-group-title { font-size:14.5px; font-weight:800; color:var(--text); transition:color .15s ease; }
+      .adm-exam-group-body { display:grid; gap:8px; padding:10px 12px; }
+      .adm-exam-group.collapsed .adm-exam-group-body { display:none; }
     `;
     document.head.appendChild(st);
   }
@@ -7895,9 +7905,51 @@
 
   // --- محیط اختصاصی مدیر برای مدیریت آزمون‌ها، نمایش/عدم نمایش، ورود فایل و حذف نتایج ---
   let adminExamsSubTab = 'list';
+  let adminExamsMainFilter = 'all';
+  const adminExamsCollapsedGroups = {};
+
   window.setAdminExamsSubTab = function(tabName) {
     adminExamsSubTab = tabName || 'list';
     window.renderAdminExamsList();
+  };
+
+  window.setAdminExamsMainFilterEnc = function(encName) {
+    adminExamsMainFilter = encName === 'all' ? 'all' : decodeURIComponent(encName || 'all');
+    window.renderAdminExamsList();
+  };
+
+  window.toggleAdminExamsGroupEnc = function(encName) {
+    const name = decodeURIComponent(encName || '');
+    if (!name) return;
+    adminExamsCollapsedGroups[name] = !adminExamsCollapsedGroups[name];
+    window.renderAdminExamsList();
+  };
+
+  window.adminToggleAllExamGroups = function(collapseAll) {
+    const exams = window.getExams();
+    const names = [...new Set(exams.map(getExamMainTitle))];
+    names.forEach(n => { adminExamsCollapsedGroups[n] = !!collapseAll; });
+    window.renderAdminExamsList();
+  };
+
+  window.adminSetGroupPublished = async function(encMainTitle, shouldPublish) {
+    if (!window.isAdmin) return;
+    const mainTitle = decodeURIComponent(encMainTitle || '');
+    if (!mainTitle) return;
+    const list = window.getExams();
+    const targets = list.filter(ex => getExamMainTitle(ex) === mainTitle && (ex.isPublished !== false) !== !!shouldPublish);
+    if (!targets.length) {
+      if (typeof toast === 'function') toast(shouldPublish ? 'همه آزمون‌های این عنوان از قبل منتشر شده‌اند.' : 'همه آزمون‌های این عنوان از قبل مخفی هستند.');
+      return;
+    }
+    const actionTxt = shouldPublish ? 'منتشر و برای همه کاربران فعال' : 'مخفی (فقط مدیر)';
+    if (!confirm(`آیا همه ${toFa(targets.length)} آزمون زیر عنوان «${mainTitle}» ${actionTxt} شوند؟`)) return;
+    const nowIso = new Date().toISOString();
+    targets.forEach(ex => {
+      ex.isPublished = !!shouldPublish;
+      ex.updatedAt = nowIso;
+    });
+    await persistExamsList(list, `${toFa(targets.length)} آزمون زیر عنوان «${mainTitle}» ${shouldPublish ? 'منتشر شدند ✓' : 'مخفی شدند.'}`);
   };
 
   window.toggleExamPremium = async function(examId) {
@@ -7974,37 +8026,103 @@
     if (!box) return;
     const exams = window.getExams();
     const vipCfg = getVipSettings();
+
+    // دسته‌بندی منظم همه آزمون‌ها بر اساس عنوان اصلی (هر عنوان اصلی در بخش جداگانه)
+    const groupedMap = new Map();
+    exams.forEach(ex => {
+      const mainT = getExamMainTitle(ex);
+      if (!groupedMap.has(mainT)) {
+        groupedMap.set(mainT, { name: mainT, items: [], totalQ: 0, pubCount: 0, hidCount: 0 });
+      }
+      const g = groupedMap.get(mainT);
+      g.items.push(ex);
+      g.totalQ += totalQuestionsCount(ex);
+      if (ex.isPublished !== false) g.pubCount++;
+      else g.hidCount++;
+    });
+    const groups = [...groupedMap.values()].sort((a, b) => a.name.localeCompare(b.name, 'fa'));
+    if (adminExamsMainFilter !== 'all' && !groupedMap.has(adminExamsMainFilter)) {
+      adminExamsMainFilter = 'all';
+    }
+    const visibleGroups = adminExamsMainFilter === 'all'
+      ? groups
+      : groups.filter(g => g.name === adminExamsMainFilter);
+    const anyExpanded = visibleGroups.some(g => !adminExamsCollapsedGroups[g.name]);
+
+    const renderAdminExamRowHtml = (ex) => {
+      const qCount = totalQuestionsCount(ex);
+      const autoMin = calcExamDurationMin(qCount);
+      const isPub = ex.isPublished !== false;
+      const mainT = getExamMainTitle(ex);
+      const topicsNames = [...new Set((ex.subjects || []).flatMap(sb => (sb.questions || []).map(q => q.chapter || ex.topicTitle || sb.name)).filter(Boolean))];
+      return `
+        <div class="row between admin-list-row" style="flex-wrap:wrap; gap:8px;">
+          <div>
+            <div class="row" style="gap:6px; flex-wrap:wrap; align-items:center;">
+              <b style="font-size:13.5px;">${esc(ex.title || mainT)}</b>
+              ${ex.isPremium ? `<span class="ex-vip-badge">⭐ ویژه VIP</span>` : `<span class="pill">رایگان</span>`}
+              <span class="ex-vis-badge ${isPub ? 'pub' : 'hid'}">${isPub ? 'منتشرشده' : 'مخفی (فقط مدیر)'}</span>
+            </div>
+            <div class="muted small" style="margin-top:4px;">
+              ${topicsNames.length ? `سرفصل‌ها: <b>${esc(topicsNames.slice(0, 4).join(' · '))}${topicsNames.length > 4 ? ' ...' : ''}</b> · ` : ''}${toFa(qCount)} سوال · ⏱ ${toFa(autoMin)} دقیقه خودکار
+            </div>
+          </div>
+          <div class="row" style="gap:6px; flex-wrap:wrap;">
+            <button type="button" class="btn small primary" onclick="openExamQuestionsEditor('${ex.id}')">📝 سوالات و ویرایش تکی</button>
+            <button type="button" class="btn small" onclick="toggleExamPremium('${ex.id}')">${ex.isPremium ? '⭐ ویژه' : '🆓 رایگان'}</button>
+            <button type="button" class="btn small ${isPub ? '' : 'primary'}" onclick="toggleExamPublished('${ex.id}')">${isPub ? '🙈 مخفی' : '👁 انتشار'}</button>
+            <button type="button" class="btn small" onclick="openExamBulkImportModal('${ex.id}')">📥 ورود فایل</button>
+            <button type="button" class="btn small" onclick="openExamMetaModal('${ex.id}')">✎ عنوان/مبحث</button>
+            <button type="button" class="btn small" onclick="exportExamJson('${ex.id}')">📤 JSON</button>
+            <button type="button" class="btn small danger" onclick="deleteExam('${ex.id}')">✕ حذف</button>
+          </div>
+        </div>
+      `;
+    };
+
+    const filterBarHtml = groups.length > 1 ? `
+      <div class="adm-exam-filter-bar">
+        <span class="muted small" style="font-weight:800; margin-left:4px;">📂 تفکیک عنوان اصلی:</span>
+        <button type="button" class="ex-crumb-btn ${adminExamsMainFilter === 'all' ? 'active' : ''}" onclick="setAdminExamsMainFilterEnc('all')">همه عناوین (${toFa(exams.length)})</button>
+        ${groups.map(g => `
+          <button type="button" class="ex-crumb-btn ${adminExamsMainFilter === g.name ? 'active' : ''}" onclick="setAdminExamsMainFilterEnc('${encodeURIComponent(g.name)}')">${esc(g.name)} (${toFa(g.items.length)})</button>
+        `).join('')}
+      </div>
+    ` : '';
+
     const examsHtml = !exams.length
       ? '<div class="muted small surface-box">هنوز آزمونی ثبت نشده است. با دکمه «ورود فایل اکسل / CSV» یا «ساخت دستی» آزمون اضافه کنید.</div>'
-      : `<div style="display:grid; gap:10px;">${exams.map(ex => {
-          const qCount = totalQuestionsCount(ex);
-          const autoMin = calcExamDurationMin(qCount);
-          const isPub = ex.isPublished !== false;
-          const mainT = getExamMainTitle(ex);
-          const topicsNames = [...new Set((ex.subjects || []).flatMap(sb => (sb.questions || []).map(q => q.chapter || ex.topicTitle || sb.name)).filter(Boolean))];
+      : `${filterBarHtml}<div style="display:grid; gap:14px;">${visibleGroups.map(g => {
+          const encName = encodeURIComponent(g.name);
+          const isCollapsed = adminExamsMainFilter === 'all' && !!adminExamsCollapsedGroups[g.name];
+          const themeIdx = hashSubjectColorIdx(g.name);
+          const sortedItems = g.items.slice().sort((a, b) => {
+            const pa = a.isPublished !== false ? 0 : 1;
+            const pb = b.isPublished !== false ? 0 : 1;
+            if (pa !== pb) return pa - pb;
+            return String(a.title || '').localeCompare(String(b.title || ''), 'fa');
+          });
           return `
-            <div class="row between admin-list-row" style="flex-wrap:wrap; gap:8px;">
-              <div>
-                <div class="row" style="gap:6px; flex-wrap:wrap; align-items:center;">
-                  <span class="art-tag">📘 ${esc(mainT)}</span>
-                  <b style="font-size:14px;">${esc(ex.title || mainT)}</b>
-                  ${ex.isPremium ? `<span class="ex-vip-badge">⭐ ویژه VIP</span>` : `<span class="pill">رایگان</span>`}
-                  <span class="ex-vis-badge ${isPub ? 'pub' : 'hid'}">${isPub ? 'منتشرشده' : 'مخفی (فقط مدیر)'}</span>
-                </div>
-                <div class="muted small" style="margin-top:4px;">
-                  ${topicsNames.length ? `سرفصل‌ها: <b>${esc(topicsNames.slice(0, 4).join(' · '))}${topicsNames.length > 4 ? ' ...' : ''}</b> · ` : ''}${toFa(qCount)} سوال · ⏱ ${toFa(autoMin)} دقیقه خودکار
+            <section class="adm-exam-group ${isCollapsed ? 'collapsed' : ''}">
+              <div class="adm-exam-group-head baraat-subj-theme-${themeIdx}">
+                <button type="button" class="adm-exam-group-toggle" onclick="toggleAdminExamsGroupEnc('${encName}')">
+                  <span style="font-size:12px; opacity:.8;">${isCollapsed ? '◀' : '▼'}</span>
+                  <span class="adm-exam-group-title">📘 ${esc(g.name)}</span>
+                  <span class="pill done">${toFa(g.items.length)} فایل/آزمون · ${toFa(g.totalQ)} سوال</span>
+                  ${g.pubCount ? `<span class="ex-vis-badge pub">${toFa(g.pubCount)} منتشرشده</span>` : ''}
+                  ${g.hidCount ? `<span class="ex-vis-badge hid">${toFa(g.hidCount)} مخفی</span>` : ''}
+                </button>
+                <div class="row" style="gap:6px; flex-wrap:wrap;">
+                  <button type="button" class="btn small primary" onclick="openMultiExamFileImportModal('${esc(g.name)}')">📥 افزودن فایل</button>
+                  ${g.hidCount ? `<button type="button" class="btn small" onclick="adminSetGroupPublished('${encName}', true)">👁 انتشار همه</button>` : ''}
+                  ${g.pubCount ? `<button type="button" class="btn small" onclick="adminSetGroupPublished('${encName}', false)">🙈 مخفی همه</button>` : ''}
+                  <button type="button" class="btn small" onclick="adminRenameMainTitle('${encName}')">✎ تغییر عنوان</button>
                 </div>
               </div>
-              <div class="row" style="gap:6px; flex-wrap:wrap;">
-                <button type="button" class="btn small primary" onclick="openExamQuestionsEditor('${ex.id}')">📝 سوالات و ویرایش تکی</button>
-                <button type="button" class="btn small" onclick="toggleExamPremium('${ex.id}')">${ex.isPremium ? '⭐ ویژه' : '🆓 رایگان'}</button>
-                <button type="button" class="btn small ${isPub ? '' : 'primary'}" onclick="toggleExamPublished('${ex.id}')">${isPub ? '🙈 مخفی' : '👁 انتشار'}</button>
-                <button type="button" class="btn small" onclick="openExamBulkImportModal('${ex.id}')">📥 ورود فایل</button>
-                <button type="button" class="btn small" onclick="openExamMetaModal('${ex.id}')">✎ عنوان/مبحث</button>
-                <button type="button" class="btn small" onclick="exportExamJson('${ex.id}')">📤 JSON</button>
-                <button type="button" class="btn small danger" onclick="deleteExam('${ex.id}')">✕ حذف</button>
+              <div class="adm-exam-group-body">
+                ${sortedItems.map(renderAdminExamRowHtml).join('')}
               </div>
-            </div>
+            </section>
           `;
         }).join('')}</div>`;
 
@@ -8026,6 +8144,7 @@
           <div class="row" style="gap:8px; flex-wrap:wrap;">
             <button type="button" class="btn small primary" onclick="openMultiExamFileImportModal()">📥 ورود فایل اکسل / CSV</button>
             <button type="button" class="btn small" onclick="openExamMetaModal()">＋ ساخت دستی آزمون</button>
+            ${groups.length > 1 && adminExamsMainFilter === 'all' ? `<button type="button" class="btn small" onclick="adminToggleAllExamGroups(${anyExpanded ? 'true' : 'false'})">${anyExpanded ? '▲ جمع کردن همه بخش‌ها' : '▼ باز کردن همه بخش‌ها'}</button>` : ''}
           </div>
           ${exams.length ? `<button type="button" class="btn small danger" onclick="deleteAllExams()">🗑 حذف همه (${toFa(exams.length)})</button>` : ''}
         </div>
