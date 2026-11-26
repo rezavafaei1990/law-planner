@@ -4898,6 +4898,11 @@
       .adm-exam-group-title { font-size:14.5px; font-weight:800; color:var(--text); transition:color .15s ease; }
       .adm-exam-group-body { display:grid; gap:8px; padding:10px 12px; }
       .adm-exam-group.collapsed .adm-exam-group-body { display:none; }
+      .adm-dropzone { border:1.5px dashed var(--line); border-radius:12px; padding:12px; background:var(--panel); transition:border-color .15s ease, background .15s ease; }
+      .adm-dropzone.dragover { border-color:var(--main); background:var(--soft); }
+      .adm-file-queue { display:grid; gap:6px; margin-top:10px; max-height:210px; overflow-y:auto; }
+      .adm-file-chip { display:flex; align-items:center; justify-content:space-between; gap:8px; padding:7px 10px; border-radius:9px; border:1px solid var(--line); background:var(--soft); font-size:12.5px; }
+      .adm-file-status { margin-top:10px; padding:9px 11px; border-radius:10px; border:1px solid var(--line); background:var(--soft); font-size:12.5px; line-height:1.85; }
     `;
     document.head.appendChild(st);
   }
@@ -8264,7 +8269,7 @@
       bodySection = `
         <div class="row between" style="gap:8px; flex-wrap:wrap; margin-bottom:12px;">
           <div class="row" style="gap:8px; flex-wrap:wrap;">
-            <button type="button" class="btn small primary" onclick="openMultiExamFileImportModal()">📥 ورود فایل اکسل / CSV</button>
+            <button type="button" class="btn small primary" onclick="openMultiExamFileImportModal()">📥 ورود فایل‌های اکسل / CSV</button>
             <button type="button" class="btn small" onclick="openExamMetaModal()">＋ ساخت دستی آزمون</button>
             ${groups.length > 1 && adminExamsMainFilter === 'all' ? `<button type="button" class="btn small" onclick="adminToggleAllExamGroups(${anyExpanded ? 'true' : 'false'})">${anyExpanded ? '▲ جمع کردن همه بخش‌ها' : '▼ باز کردن همه بخش‌ها'}</button>` : ''}
           </div>
@@ -8889,11 +8894,11 @@ WITH CHECK (key &lt;&gt; 'baraat_exams_private_v1' OR EXISTS (SELECT 1 FROM publ
 
       <div class="surface-box" style="margin-top:12px;">
         <div class="row between" style="gap:8px; flex-wrap:wrap; margin-bottom:8px;">
-          <label style="font-size:12.5px; font-weight:700;">۱. بارگذاری مستقیم از فایل اکسل، CSV یا JSON:</label>
+          <label style="font-size:12.5px; font-weight:700;">۱. بارگذاری مستقیم از یک یا چند فایل اکسل، CSV یا JSON:</label>
           <button type="button" class="btn small" onclick="downloadExamSampleCsv()">⬇️ دانلود فایل نمونه CSV</button>
         </div>
-        <input type="file" id="impExamFile" accept=".xlsx,.xls,.csv,.json" onchange="handleExamFileImport('${ex.id}', this)">
-        <div class="muted small" style="margin-top:6px;">ستون‌های پشتیبانی‌شده: سرفصل (فصل/مبحث) | منبع سوال (تالیفی، ارشد، وکلا) | سال | صورت سوال | گزینه ۱ تا ۴ | پاسخ | تشریح | درس | دسته | اسم آزمون</div>
+        <input type="file" id="impExamFile" accept=".xlsx,.xls,.csv,.tsv,.json" multiple onchange="handleExamFileImport('${ex.id}', this)">
+        <div class="muted small" style="margin-top:6px;">می‌توانید هم‌زمان چند فایل انتخاب کنید · ستون‌های پشتیبانی‌شده: سرفصل (فصل/مبحث) | منبع سوال | سال | صورت سوال | گزینه ۱ تا ۴ | پاسخ | تشریح | درس | دسته | اسم آزمون</div>
       </div>
 
       <div class="field" style="margin-top:14px;">
@@ -8909,25 +8914,109 @@ WITH CHECK (key &lt;&gt; 'baraat_exams_private_v1' OR EXISTS (SELECT 1 FROM publ
     document.getElementById('modalBack').classList.add('show');
   };
 
+  let _pendingMultiExamFiles = [];
+  let _multiExamImportBusy = false;
+
+  function renderMultiExamFileQueue() {
+    const qBox = document.getElementById('mImpFileQueue');
+    const startBtn = document.getElementById('mImpStartBtn');
+    const clearBtn = document.getElementById('mImpClearFilesBtn');
+    const count = _pendingMultiExamFiles.length;
+    if (startBtn) {
+      startBtn.disabled = _multiExamImportBusy || count === 0;
+      startBtn.textContent = _multiExamImportBusy
+        ? '⏳ در حال پردازش و ذخیره...'
+        : (count > 0 ? `📥 شروع ورود ${toFa(count)} فایل` : '📥 ابتدا فایل انتخاب کنید');
+    }
+    if (clearBtn) {
+      clearBtn.style.display = count > 1 && !_multiExamImportBusy ? '' : 'none';
+    }
+    if (!qBox) return;
+    if (!count) {
+      qBox.innerHTML = '';
+      return;
+    }
+    qBox.innerHTML = _pendingMultiExamFiles.map((f, idx) => {
+      const kb = Math.max(1, Math.round((f.size || 0) / 1024));
+      return `
+        <div class="adm-file-chip">
+          <div style="min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">
+            <b>${toFa(idx + 1)}.</b> ${esc(f.name)}
+            <span class="muted small">(${toFa(kb)} KB)</span>
+          </div>
+          ${_multiExamImportBusy ? '' : `<button type="button" class="btn small danger" style="padding:2px 8px;" onclick="removeMultiExamFileAt(${idx})">✕</button>`}
+        </div>
+      `;
+    }).join('');
+  }
+
+  window.addMultiExamFiles = function(fileList) {
+    if (_multiExamImportBusy || !fileList || !fileList.length) return;
+    const allowedExt = /\.(xlsx|xls|csv|tsv|json)$/i;
+    const incoming = Array.from(fileList);
+    let skipped = 0;
+    incoming.forEach(f => {
+      if (!f || !allowedExt.test(f.name || '')) {
+        skipped++;
+        return;
+      }
+      const dup = _pendingMultiExamFiles.some(x => x.name === f.name && x.size === f.size && x.lastModified === f.lastModified);
+      if (!dup) _pendingMultiExamFiles.push(f);
+    });
+    if (skipped > 0 && typeof toast === 'function') {
+      toast(`${toFa(skipped)} فایل با فرمت غیرمجاز نادیده گرفته شد (فقط Excel / CSV / JSON).`);
+    }
+    renderMultiExamFileQueue();
+  };
+
+  window.removeMultiExamFileAt = function(idx) {
+    if (_multiExamImportBusy) return;
+    _pendingMultiExamFiles.splice(idx, 1);
+    renderMultiExamFileQueue();
+  };
+
+  window.clearMultiExamFiles = function() {
+    if (_multiExamImportBusy) return;
+    _pendingMultiExamFiles = [];
+    renderMultiExamFileQueue();
+  };
+
+  window.handleMultiExamDrop = function(ev) {
+    ev.preventDefault();
+    const dz = document.getElementById('mImpDropZone');
+    if (dz) dz.classList.remove('dragover');
+    if (ev.dataTransfer && ev.dataTransfer.files && ev.dataTransfer.files.length) {
+      window.addMultiExamFiles(ev.dataTransfer.files);
+    }
+  };
+
+  window.runMultiExamBatchImport = async function() {
+    if (_multiExamImportBusy || !_pendingMultiExamFiles.length) return;
+    await window.handleExamFileImport('__AUTO__', null, _pendingMultiExamFiles.slice());
+  };
+
   window.openMultiExamFileImportModal = function(presetMainTitle) {
     if (!window.isAdmin) return;
+    injectExamUpgradeStyles();
+    _pendingMultiExamFiles = [];
+    _multiExamImportBusy = false;
     const m = document.getElementById('modal');
     if (!m) return;
     const suggestions = getAllMainTitleSuggestions();
     const initialMain = String(presetMainTitle || '').trim();
     m.innerHTML = `
-      <h2>📥 ورود فایل آزمون (CSV / اکسل / JSON)</h2>
+      <h2>📥 ورود یک یا چند فایل آزمون (CSV / اکسل / JSON)</h2>
       <p class="muted small" style="line-height:1.9;">
-        یک <b>عنوان اصلی</b> بدهید (مثل: مدنی، جزا یا هر عنوان دلخواه) و در صورت تمایل <b>عنوان مبحث / سرفصل</b> را دستی بنویسید یا خالی بگذارید تا مستقیم از ستون «سرفصل / مبحث» داخل فایل CSV خوانده شود. زمان آزمون خودکار ۲ دقیقه به ازای هر سوال محاسبه می‌شود.
+        می‌توانید <b>چند فایل را هم‌زمان</b> انتخاب یا داخل کادر زیر رها کنید تا همه در یک نوبت پردازش و ذخیره شوند. اگر <b>عنوان اصلی</b> را مشخص کنید همه فایل‌ها زیر همان عنوان قرار می‌گیرند و اگر خالی بگذارید از داخل فایل یا نام فایل خوانده می‌شود.
       </p>
       <div class="form-grid" style="margin-top:10px; gap:10px;">
         <div class="field" style="grid-column:1/-1;">
           <label>عنوان اصلی (در صفحه اصلی آزمون‌ها نمایش داده می‌شود — خالی بگذارید تا از ستون عنوان یا نام فایل خوانده شود)</label>
-          <input id="mImpMainTitle" list="mImpMainTitleList" value="${esc(initialMain)}" placeholder="مثلاً: حقوق مدنی، حقوق جزا، آزمون وکالت ۱۴۰۳...">
+          <input id="mImpMainTitle" list="mImpMainTitleList" value="${esc(initialMain)}" placeholder="مثلاً: حقوق مدنی · حقوق جزا · آزمون وکالت ۱۴۰۳...">
           <datalist id="mImpMainTitleList">${suggestions.map(s => `<option value="${esc(s)}">`).join('')}</datalist>
         </div>
         <div class="field" style="grid-column:1/-1;">
-          <label>عنوان مبحث / سرفصل (اختیاری — اگر خالی بگذارید از ستون «سرفصل / مبحث» داخل فایل CSV خوانده می‌شود)</label>
+          <label>عنوان مبحث / سرفصل (اختیاری — برای آپلود چند فایلی معمولاً خالی بگذارید تا از ستون سرفصل هر فایل خوانده شود)</label>
           <input id="mImpTopicTitle" value="" placeholder="مثلاً: عقود معین یا قصاص (یا خالی بگذارید برای خواندن از CSV)">
         </div>
         <div class="field">
@@ -8952,15 +9041,25 @@ WITH CHECK (key &lt;&gt; 'baraat_exams_private_v1' OR EXISTS (SELECT 1 FROM publ
           </label>
         </div>
       </div>
-      <div class="surface-box" style="margin-top:12px;">
+      <div id="mImpDropZone" class="adm-dropzone" style="margin-top:12px;"
+        ondragover="event.preventDefault(); this.classList.add('dragover');"
+        ondragleave="this.classList.remove('dragover');"
+        ondrop="handleMultiExamDrop(event)">
         <div class="row between" style="gap:8px; flex-wrap:wrap; margin-bottom:8px;">
-          <label style="font-size:12.5px; font-weight:700;">انتخاب فایل اکسل، CSV یا JSON:</label>
-          <button type="button" class="btn small" onclick="downloadExamSampleCsv()">⬇️ دانلود فایل نمونه CSV</button>
+          <label for="mImpFile" style="font-size:12.5px; font-weight:700;">انتخاب هم‌زمان یک یا چند فایل (Excel / CSV / JSON):</label>
+          <div class="row" style="gap:6px; flex-wrap:wrap;">
+            <button type="button" id="mImpClearFilesBtn" class="btn small" style="display:none;" onclick="clearMultiExamFiles()">پاک کردن لیست</button>
+            <button type="button" class="btn small" onclick="downloadExamSampleCsv()">⬇️ فایل نمونه CSV</button>
+          </div>
         </div>
-        <input type="file" id="mImpFile" accept=".xlsx,.xls,.csv,.json" onchange="handleExamFileImport('__AUTO__', this)">
+        <input type="file" id="mImpFile" accept=".xlsx,.xls,.csv,.tsv,.json" multiple onchange="addMultiExamFiles(this.files); this.value='';">
+        <div class="muted small" style="margin-top:6px;">نکته: می‌توانید چند فایل را با هم انتخاب کنید یا دوباره فایل‌های بیشتری از پوشه‌های دیگر به همین صف اضافه کنید.</div>
+        <div id="mImpFileQueue" class="adm-file-queue"></div>
+        <div id="mImpBatchStatus"></div>
       </div>
       <div class="modal-actions">
         <button type="button" class="btn" onclick="closeModal()">بستن</button>
+        <button type="button" id="mImpStartBtn" class="btn primary" disabled onclick="runMultiExamBatchImport()">📥 ابتدا فایل انتخاب کنید</button>
       </div>
     `;
     document.getElementById('modalBack').classList.add('show');
@@ -9114,9 +9213,12 @@ WITH CHECK (key &lt;&gt; 'baraat_exams_private_v1' OR EXISTS (SELECT 1 FROM publ
     window.openExamQuestionsEditor(examId);
   };
 
-  window.handleExamFileImport = async function(examId, inputEl) {
-    const f = inputEl && inputEl.files && inputEl.files[0];
-    if (!f) return;
+  window.handleExamFileImport = async function(examId, inputEl, explicitFiles) {
+    const files = Array.isArray(explicitFiles)
+      ? explicitFiles.filter(Boolean)
+      : (inputEl && inputEl.files ? Array.from(inputEl.files) : []);
+    if (!files.length || _multiExamImportBusy) return;
+
     const isAutoMode = examId === '__AUTO__';
     const manualMainTitle = isAutoMode ? (document.getElementById('mImpMainTitle')?.value || '').trim() : '';
     const manualTopicTitle = isAutoMode ? (document.getElementById('mImpTopicTitle')?.value || '').trim() : '';
@@ -9127,282 +9229,389 @@ WITH CHECK (key &lt;&gt; 'baraat_exams_private_v1' OR EXISTS (SELECT 1 FROM publ
     const impIsPremium = isAutoMode ? !!document.getElementById('mImpVip')?.checked : false;
     const impIsPublished = isAutoMode ? (document.getElementById('mImpPub') ? !!document.getElementById('mImpPub').checked : true) : true;
 
-    const list = window.getExams();
-    const targetSingleExam = isAutoMode ? null : list.find(x => x.id === examId);
-    if (!isAutoMode && !targetSingleExam) return;
+    const setStatusHtml = (html) => {
+      const box = document.getElementById('mImpBatchStatus');
+      if (box) box.innerHTML = html ? `<div class="adm-file-status">${html}</div>` : '';
+    };
 
-    const fnameLower = f.name.toLowerCase();
-    if (fnameLower.endsWith('.json')) {
-      try {
-        const txt = await f.text();
-        if (!isAutoMode && document.getElementById('impExamText')) {
-          document.getElementById('impExamText').value = txt;
-          await window.submitExamTextBulkImport(examId);
-          return;
-        }
-        const parsed = JSON.parse(txt);
-        const arr = Array.isArray(parsed) ? parsed : [parsed];
-        let addedEx = 0;
-        arr.forEach(item => {
-          if (!item || typeof item !== 'object') return;
-          if (Array.isArray(item.subjects)) {
-            const extra = { id: 'ex_' + Date.now() + '_' + Math.random().toString(36).slice(2, 5) };
-            if (manualMainTitle) extra.mainTitle = manualMainTitle;
-            if (manualTopicTitle) extra.topicTitle = manualTopicTitle;
-            list.unshift(normalizeExamRecord(Object.assign(extra, item)));
-            addedEx++;
-          }
-        });
-        if (!addedEx) return alert('ساختار آزمون معتبری در فایل JSON پیدا نشد.');
-        await persistExamsList(list, toFa(addedEx) + ' آزمون از JSON وارد شد.');
-        closeModal();
-      } catch (e) {
-        alert('فایل JSON معتبر نیست.');
-      } finally {
-        if (inputEl) inputEl.value = '';
-      }
-      return;
-    }
+    _multiExamImportBusy = true;
+    renderMultiExamFileQueue();
 
     try {
-      let rawGrid = [];
-      if (fnameLower.endsWith('.csv') || fnameLower.endsWith('.tsv')) {
-        const buf = await f.arrayBuffer();
-        rawGrid = parseCsvTextToGrid(decodeSpreadsheetBytesSmart(buf));
-      } else {
-        if (window.loadXLSX) await window.loadXLSX();
-        if (!window.XLSX) return alert('ابزار خواندن اکسل بارگذاری نشد.');
-        const wb = window.XLSX.read(await f.arrayBuffer(), { type: 'array' });
-        const sheet = wb.Sheets[wb.SheetNames[0]];
-        rawGrid = window.XLSX.utils.sheet_to_json(sheet, { header: 1, defval: '' });
+      if (!_syncedAsAdmin && _syncPromise) {
+        setStatusHtml('⏳ در حال همگام‌سازی اولیه با سرور...');
+        try { await _syncPromise; } catch (e) {}
       }
-      const indexedRows = rawGrid
-        .map((row, origIdx) => ({ row, origRowNum: origIdx + 1 }))
-        .filter(item => Array.isArray(item.row) && item.row.some(c => String(c).trim() !== ''));
-      if (indexedRows.length < 2) return alert('فایل اکسل/CSV خالی یا بدون سطر داده است.');
 
-      const normH = (c) => String(c || '').trim().toLowerCase().replace(/[\u200c\s_()-]+/g, ' ').replace(/ي/g, 'ی').replace(/ك/g, 'ک');
-      const hdr = indexedRows[0].row.map(normH);
-      const findCol = (exacts, includes) => {
-        let idx = hdr.findIndex(h => exacts.includes(h));
-        if (idx >= 0) return idx;
-        return hdr.findIndex(h => includes.some(p => h.includes(p)));
-      };
+      const list = window.getExams();
+      const targetSingleExam = isAutoMode ? null : list.find(x => x.id === examId);
+      if (!isAutoMode && !targetSingleExam) return;
 
-      const ciNum = findCol(['شماره', 'شماره سوال', 'شماره تست', 'ردیف', 'کد', 'کد سوال', 'no', 'num', 'number', 'row', 'id', '#'], ['شماره سوال', 'شماره تست', 'ردیف']);
-      const ciMainTitle = findCol(['عنوان اصلی', 'بخش اصلی', 'سردسته', 'نام درس اصلی', 'main title', 'maintitle'], ['عنوان اصلی', 'بخش اصلی', 'maintitle']);
-      const ciCat = findCol(['دسته', 'دسته بندی', 'نهاد', 'رشته', 'category', 'org'], ['دسته', 'نهاد', 'category']);
-      const ciSource = findCol(['منبع سوال', 'منبع', 'مرجع', 'آزمون مبدا', 'source', 'origin'], ['منبع', 'مرجع', 'مبدا', 'source', 'origin']);
-      const ciType = findCol(['نوع', 'نوع سوال', 'نوع آزمون', 'ماهیت', 'تالیفی', 'type', 'examtype'], ['تالیفی', 'نوع آزمون', 'نوع سوال', 'examtype']);
-      const ciYear = findCol(['سال', 'سال آزمون', 'year'], ['سال', 'year']);
-      const ciTitle = findCol(['اسم آزمون', 'نام آزمون', 'عنوان آزمون', 'عنوان', 'exam', 'examtitle', 'title'], ['اسم آزمون', 'نام آزمون', 'عنوان آزمون', 'title']);
-      const ciSubj = findCol(['درس', 'subject'], ['درس', 'subject']);
-      const ciChap = findCol(['سرفصل', 'عنوان مبحث', 'مبحث', 'فصل', 'موضوع', 'بخش', 'chapter', 'topic'], ['سرفصل', 'مبحث', 'فصل', 'chapter', 'topic']);
-      const ciQ = findCol(['سوال', 'سؤال', 'صورت سوال', 'متن سوال', 'question'], ['سوال', 'سؤال', 'صورت', 'question']);
-      const ciA = findCol(['الف', 'ا', 'a', '1', '۱', 'گزینه الف', 'گزینه 1', 'گزینه ۱', 'گزینه اول', 'opt1', 'option1', 'option a'], ['گزینه الف', 'گزینه 1', 'گزینه ۱', 'opt1', 'option 1', 'option a']);
-      const ciB = findCol(['ب', 'b', '2', '۲', 'گزینه ب', 'گزینه 2', 'گزینه ۲', 'گزینه دوم', 'opt2', 'option2', 'option b'], ['گزینه ب', 'گزینه 2', 'گزینه ۲', 'opt2', 'option 2', 'option b']);
-      const ciC = findCol(['ج', 'c', '3', '۳', 'گزینه ج', 'گزینه 3', 'گزینه ۳', 'گزینه سوم', 'opt3', 'option3', 'option c'], ['گزینه ج', 'گزینه 3', 'گزینه ۳', 'opt3', 'option 3', 'option c']);
-      const ciD = findCol(['د', 'd', '4', '۴', 'گزینه د', 'گزینه 4', 'گزینه ۴', 'گزینه چهارم', 'opt4', 'option4', 'option d'], ['گزینه د', 'گزینه 4', 'گزینه ۴', 'opt4', 'option 4', 'option d']);
-      const ciAns = (() => {
-        const isExpHeader = (h) => /تشریح|توضیح|نکته|شرح|مستند|explanation|exp/.test(h);
-        const exacts = ['پاسخ', 'پاسخ صحیح', 'گزینه صحیح', 'جواب', 'جواب صحیح', 'کلید', 'کلید پاسخ', 'صحیح', 'answer', 'ans', 'key', 'correct', 'correct answer'];
-        let idx = hdr.findIndex(h => !isExpHeader(h) && exacts.includes(h));
-        if (idx >= 0) return idx;
-        return hdr.findIndex(h => !isExpHeader(h) && ['پاسخ', 'کلید', 'جواب', 'صحیح', 'answer', 'ans', 'correct'].some(p => h.includes(p)));
-      })();
-      const ciExp = findCol(['تشریح', 'پاسخ تشریحی', 'توضیح', 'نکته', 'مستند', 'explanation', 'exp'], ['تشریح', 'توضیح', 'نکته', 'مستند', 'explanation']);
+      const needsXlsx = files.some(f => /\.(xlsx|xls)$/i.test(f.name || ''));
+      if (needsXlsx && !window.XLSX && window.loadXLSX) {
+        setStatusHtml('⏳ در حال بارگذاری موتور خواندن فایل‌های اکسل...');
+        await window.loadXLSX();
+      }
 
-      const qCol = ciQ >= 0 ? ciQ : (ciSubj === 0 ? 1 : 0);
-      const dataRowsForAns = indexedRows.slice(1);
-      const hasZeroAns = ciAns >= 0 && dataRowsForAns.some(({ row: r }) => /^0(?:\.0+)?$/.test(toEn(String(r[ciAns] || '')).trim()));
-      const hasFourAns = ciAns >= 0 && dataRowsForAns.some(({ row: r }) => /^4(?:\.0+)?$/.test(toEn(String(r[ciAns] || '')).trim()));
-      const isZeroBasedAns = hasZeroAns && !hasFourAns;
+      let batchUidSeq = 0;
+      const nextUid = (prefix) => prefix + '_' + Date.now() + '_' + (++batchUidSeq) + '_' + Math.random().toString(36).slice(2, 5);
 
-      const ansToIdx = (v) => {
-        const norm = toEn(String(v || ''))
-          .replace(/[يى]/g, 'ی')
-          .replace(/ك/g, 'ک')
-          .replace(/[\u064B-\u065F\u0670\u0640]/g, '')
-          .replace(/[\u200c\u200f\u200e]/g, ' ')
-          .replace(/\s+/g, ' ')
-          .trim()
-          .toLowerCase();
-        if (!norm) return 0;
-
-        const pureNum = norm.match(/^([0-4])(?:\.0+)?$/);
-        if (pureNum) {
-          const n = Number(pureNum[1]);
-          if (isZeroBasedAns) return Math.max(0, Math.min(3, n));
-          if (n >= 1 && n <= 4) return n - 1;
-          return 0;
-        }
-
-        const expMatch = norm.match(/(?:گزینه|پاسخ|جواب|کلید|شماره)\s*(?:ی\s+|صحیح\s+|درست\s+)?[:：\-–—.]?\s*(?:([0-4])(?:\.0+)?(?![0-9])|(الف|ا|ب|ج|د|a|b|c|d)(?![\u0600-\u06FFa-z])|(اول|یکم|دوم|سوم|چهارم))/);
-        if (expMatch) {
-          if (expMatch[1] !== undefined) {
-            const n = Number(expMatch[1]);
-            if (isZeroBasedAns) return Math.max(0, Math.min(3, n));
-            if (n >= 1 && n <= 4) return n - 1;
-            return 0;
-          }
-          if (expMatch[2]) {
-            const lt = expMatch[2];
-            if (lt === 'الف' || lt === 'ا' || lt === 'a') return 0;
-            if (lt === 'ب' || lt === 'b') return 1;
-            if (lt === 'ج' || lt === 'c') return 2;
-            if (lt === 'د' || lt === 'd') return 3;
-          }
-          if (expMatch[3]) {
-            const ord = expMatch[3];
-            if (ord === 'اول' || ord === 'یکم') return 0;
-            if (ord === 'دوم') return 1;
-            if (ord === 'سوم') return 2;
-            if (ord === 'چهارم') return 3;
-          }
-        }
-
-        const stripped = norm
-          .replace(/(?:گزینه|پاسخ|جواب|کلید|صحیح|درست|است|می\s*باشد|شماره)/g, ' ')
-          .replace(/[:：.\-–—()[\]«»؛،,]+/g, ' ')
-          .replace(/\s+/g, ' ')
-          .trim();
-
-        if (stripped === 'الف' || stripped === 'ا' || stripped === 'a' || stripped === 'اول' || stripped === 'یکم' || stripped === 'یک') return 0;
-        if (stripped === 'ب' || stripped === 'b' || stripped === 'دوم' || stripped === 'دو') return 1;
-        if (stripped === 'ج' || stripped === 'c' || stripped === 'سوم' || stripped === 'سه') return 2;
-        if (stripped === 'د' || stripped === 'd' || stripped === 'چهارم' || stripped === 'چهار') return 3;
-
-        const validDigit = stripped.match(/(?:^|\s)([0-4])(?:\.0+)?(?=\s|$)/);
-        if (validDigit) {
-          const n = Number(validDigit[1]);
-          if (isZeroBasedAns) return Math.max(0, Math.min(3, n));
-          if (n >= 1 && n <= 4) return n - 1;
-          return 0;
-        }
-
-        const any14 = norm.match(/(?<![0-9])([1-4])(?![0-9])/);
-        if (any14) {
-          const n = Number(any14[1]);
-          return isZeroBasedAns ? Math.max(0, Math.min(3, n)) : n - 1;
-        }
-        return 0;
-      };
-
-      const fileBaseTitle = f.name.replace(/\.[^.]+$/, '').replace(/_/g, ' ').trim() || 'آزمون بارگذاری‌شده';
-      const parsedRows = [];
-      let fileQSeq = 0;
-
-      dataRowsForAns.forEach(({ row: r, origRowNum }) => {
-        const qText = String(r[qCol] || '').trim();
-        if (!qText) return;
-        const opts = [
-          String(r[ciA >= 0 ? ciA : qCol + 1] || '').trim(),
-          String(r[ciB >= 0 ? ciB : qCol + 2] || '').trim(),
-          String(r[ciC >= 0 ? ciC : qCol + 3] || '').trim(),
-          String(r[ciD >= 0 ? ciD : qCol + 4] || '').trim()
-        ];
-        if (!opts.some(Boolean)) return;
-
-        fileQSeq++;
-        const explicitNum = ciNum >= 0 ? toEn(String(r[ciNum] || '').trim()) : '';
-        const rowMain = ciMainTitle >= 0 ? String(r[ciMainTitle] || '').trim() : '';
-        const rowSub = ciSubj >= 0 ? String(r[ciSubj] || '').trim() : '';
-        const chName = ciChap >= 0 ? String(r[ciChap] || '').trim() : '';
-        const rowSource = ciSource >= 0 ? String(r[ciSource] || '').trim() : '';
-        const rowType = (ciType >= 0 && String(r[ciType] || '').trim()) || defType;
-        const rowYearRaw = (ciYear >= 0 && toEn(String(r[ciYear] || '').trim())) || (defYear ? String(defYear) : '');
-        const sourceLabel = buildExamSourceLabel(rowSource, rowType, rowYearRaw);
-
-        parsedRows.push({
-          rowMain,
-          rowTitle: (ciTitle >= 0 && String(r[ciTitle] || '').trim()) || '',
-          rowCat: (ciCat >= 0 && String(r[ciCat] || '').trim()) || '',
-          rowType: rowType || 'تالیفی',
-          rowYear: rowYearRaw ? (Number(rowYearRaw) || '') : '',
-          rowSub,
-          chName,
-          sourceLabel,
-          csvQuestionNum: explicitNum || String(fileQSeq),
-          csvRowIndex: origRowNum,
-          csvFileName: f.name,
-          qText,
-          opts,
-          answer: ansToIdx(ciAns >= 0 ? r[ciAns] : 1),
-          exp: ciExp >= 0 ? String(r[ciExp] || '').trim() : ''
-        });
-      });
-
-      if (!parsedRows.length) return alert('سوال معتبری در فایل اکسل/CSV یافت نشد.');
-
-      let added = 0;
+      let totalAddedQ = 0;
+      let totalAddedEx = 0;
       let firstImportedMainTitle = '';
-      parsedRows.forEach(item => {
-        // عنوان اصلی: اولویت با ورودی دستی مدیر -> ستون عنوان اصلی CSV -> ستون عنوان/دسته CSV -> نام فایل
-        const effectiveMainTitle = manualMainTitle || item.rowMain || item.rowTitle || item.rowCat || fileBaseTitle;
-        // عنوان مبحث/سرفصل: اولویت با ورودی دستی مدیر -> ستون سرفصل/مبحث CSV -> ستون درس CSV -> پیش‌فرض
-        const effectiveTopic = isAutoMode
-          ? (manualTopicTitle || item.chName || item.rowSub || 'سوالات عمومی')
-          : (item.chName || item.rowSub || defSubj || 'سوالات عمومی');
+      const fileReports = [];
 
-        if (!firstImportedMainTitle) firstImportedMainTitle = effectiveMainTitle;
+      for (let fi = 0; fi < files.length; fi++) {
+        const f = files[fi];
+        const fnameLower = (f.name || '').toLowerCase();
+        setStatusHtml(`⏳ در حال پردازش فایل <b>${toFa(fi + 1)}</b> از <b>${toFa(files.length)}</b>: ${esc(f.name)}`);
+        await new Promise(r => setTimeout(r, 0));
 
-        let destExam = targetSingleExam;
-        if (isAutoMode) {
-          const examDisplayTitle = manualTopicTitle
-            ? (effectiveMainTitle + ' · ' + manualTopicTitle)
-            : (item.rowTitle && item.rowTitle !== effectiveMainTitle ? (effectiveMainTitle + ' · ' + item.rowTitle) : (fileBaseTitle !== effectiveMainTitle ? (effectiveMainTitle + ' · ' + fileBaseTitle) : effectiveMainTitle));
-          destExam = list.find(x => getExamMainTitle(x) === effectiveMainTitle && x.title === examDisplayTitle);
-          if (!destExam) {
-            destExam = normalizeExamRecord({
-              id: 'ex_' + Date.now() + '_' + Math.random().toString(36).slice(2, 6),
-              mainTitle: effectiveMainTitle,
-              topicTitle: manualTopicTitle || '',
-              title: examDisplayTitle,
-              category: effectiveMainTitle,
-              org: effectiveMainTitle,
-              isPremium: impIsPremium,
-              examType: defType || item.rowType || 'تالیفی',
-              year: defYear || item.rowYear || '',
-              durationMinutes: 60,
-              negativeMarking: true,
-              isPublished: impIsPublished,
-              subjects: []
-            });
-            list.unshift(destExam);
+        try {
+          if (fnameLower.endsWith('.json')) {
+            const txt = await f.text();
+            const parsed = JSON.parse(txt);
+            if (!isAutoMode) {
+              let addedInFile = 0;
+              const incSubjects = Array.isArray(parsed)
+                ? (parsed.length && parsed[0] && Array.isArray(parsed[0].subjects)
+                    ? parsed.flatMap(exItem => exItem.subjects || [])
+                    : [{ name: defSubj || 'سوالات عمومی', questions: parsed }])
+                : (parsed.subjects || []);
+              targetSingleExam.subjects = targetSingleExam.subjects || [];
+              incSubjects.forEach(s => {
+                const sName = (s && s.name) || defSubj || 'سوالات عمومی';
+                let target = targetSingleExam.subjects.find(x => x.name === sName);
+                if (!target) {
+                  target = { id: nextUid('es'), name: sName, questions: [] };
+                  targetSingleExam.subjects.push(target);
+                }
+                (s.questions || []).forEach(q => {
+                  target.questions.push(Object.assign({ id: nextUid('eq'), options: ['', '', '', ''], answer: 0, exp: '', chapter: '' }, q));
+                  addedInFile++;
+                });
+              });
+              if (!addedInFile) {
+                fileReports.push({ name: f.name, ok: false, addedQ: 0, addedEx: 0, error: 'سوالی در JSON پیدا نشد' });
+              } else {
+                totalAddedQ += addedInFile;
+                fileReports.push({ name: f.name, ok: true, addedQ: addedInFile, addedEx: 0 });
+              }
+            } else {
+              const arr = Array.isArray(parsed) ? parsed : [parsed];
+              let addedExInFile = 0;
+              let addedQInFile = 0;
+              arr.forEach(item => {
+                if (!item || typeof item !== 'object' || !Array.isArray(item.subjects)) return;
+                const extra = { id: nextUid('ex') };
+                if (manualMainTitle) extra.mainTitle = manualMainTitle;
+                if (manualTopicTitle) extra.topicTitle = manualTopicTitle;
+                const normEx = normalizeExamRecord(Object.assign(extra, item));
+                if (!firstImportedMainTitle) firstImportedMainTitle = getExamMainTitle(normEx);
+                list.unshift(normEx);
+                addedExInFile++;
+                addedQInFile += totalQuestionsCount(normEx);
+              });
+              if (!addedExInFile) {
+                fileReports.push({ name: f.name, ok: false, addedQ: 0, addedEx: 0, error: 'ساختار آزمون معتبر پیدا نشد' });
+              } else {
+                totalAddedEx += addedExInFile;
+                totalAddedQ += addedQInFile;
+                fileReports.push({ name: f.name, ok: true, addedQ: addedQInFile, addedEx: addedExInFile });
+              }
+            }
+            continue;
           }
-        }
 
-        destExam.subjects = destExam.subjects || [];
-        let targetSubj = destExam.subjects.find(x => x.name === effectiveTopic);
-        if (!targetSubj) {
-          targetSubj = { id: 'es_' + Date.now() + '_' + Math.random().toString(36).slice(2, 5), name: effectiveTopic, questions: [] };
-          destExam.subjects.push(targetSubj);
+          let rawGrid = [];
+          if (fnameLower.endsWith('.csv') || fnameLower.endsWith('.tsv')) {
+            const buf = await f.arrayBuffer();
+            rawGrid = parseCsvTextToGrid(decodeSpreadsheetBytesSmart(buf));
+          } else {
+            if (!window.XLSX) {
+              fileReports.push({ name: f.name, ok: false, addedQ: 0, addedEx: 0, error: 'ابزار خواندن اکسل بارگذاری نشد' });
+              continue;
+            }
+            const wb = window.XLSX.read(await f.arrayBuffer(), { type: 'array' });
+            const sheet = wb.Sheets[wb.SheetNames[0]];
+            rawGrid = window.XLSX.utils.sheet_to_json(sheet, { header: 1, defval: '' });
+          }
+
+          const indexedRows = rawGrid
+            .map((row, origIdx) => ({ row, origRowNum: origIdx + 1 }))
+            .filter(item => Array.isArray(item.row) && item.row.some(c => String(c).trim() !== ''));
+          if (indexedRows.length < 2) {
+            fileReports.push({ name: f.name, ok: false, addedQ: 0, addedEx: 0, error: 'فایل خالی یا بدون سطر داده است' });
+            continue;
+          }
+
+          const normH = (c) => String(c || '').trim().toLowerCase().replace(/[\u200c\s_()-]+/g, ' ').replace(/ي/g, 'ی').replace(/ك/g, 'ک');
+          const hdr = indexedRows[0].row.map(normH);
+          const findCol = (exacts, includes) => {
+            let idx = hdr.findIndex(h => exacts.includes(h));
+            if (idx >= 0) return idx;
+            return hdr.findIndex(h => includes.some(p => h.includes(p)));
+          };
+
+          const ciNum = findCol(['شماره', 'شماره سوال', 'شماره تست', 'ردیف', 'کد', 'کد سوال', 'no', 'num', 'number', 'row', 'id', '#'], ['شماره سوال', 'شماره تست', 'ردیف']);
+          const ciMainTitle = findCol(['عنوان اصلی', 'بخش اصلی', 'سردسته', 'نام درس اصلی', 'main title', 'maintitle'], ['عنوان اصلی', 'بخش اصلی', 'maintitle']);
+          const ciCat = findCol(['دسته', 'دسته بندی', 'نهاد', 'رشته', 'category', 'org'], ['دسته', 'نهاد', 'category']);
+          const ciSource = findCol(['منبع سوال', 'منبع', 'مرجع', 'آزمون مبدا', 'source', 'origin'], ['منبع', 'مرجع', 'مبدا', 'source', 'origin']);
+          const ciType = findCol(['نوع', 'نوع سوال', 'نوع آزمون', 'ماهیت', 'تالیفی', 'type', 'examtype'], ['تالیفی', 'نوع آزمون', 'نوع سوال', 'examtype']);
+          const ciYear = findCol(['سال', 'سال آزمون', 'year'], ['سال', 'year']);
+          const ciTitle = findCol(['اسم آزمون', 'نام آزمون', 'عنوان آزمون', 'عنوان', 'exam', 'examtitle', 'title'], ['اسم آزمون', 'نام آزمون', 'عنوان آزمون', 'title']);
+          const ciSubj = findCol(['درس', 'subject'], ['درس', 'subject']);
+          const ciChap = findCol(['سرفصل', 'عنوان مبحث', 'مبحث', 'فصل', 'موضوع', 'بخش', 'chapter', 'topic'], ['سرفصل', 'مبحث', 'فصل', 'chapter', 'topic']);
+          const ciQ = findCol(['سوال', 'سؤال', 'صورت سوال', 'متن سوال', 'question'], ['سوال', 'سؤال', 'صورت', 'question']);
+          const ciA = findCol(['الف', 'ا', 'a', '1', '۱', 'گزینه الف', 'گزینه 1', 'گزینه ۱', 'گزینه اول', 'opt1', 'option1', 'option a'], ['گزینه الف', 'گزینه 1', 'گزینه ۱', 'opt1', 'option 1', 'option a']);
+          const ciB = findCol(['ب', 'b', '2', '۲', 'گزینه ب', 'گزینه 2', 'گزینه ۲', 'گزینه دوم', 'opt2', 'option2', 'option b'], ['گزینه ب', 'گزینه 2', 'گزینه ۲', 'opt2', 'option 2', 'option b']);
+          const ciC = findCol(['ج', 'c', '3', '۳', 'گزینه ج', 'گزینه 3', 'گزینه ۳', 'گزینه سوم', 'opt3', 'option3', 'option c'], ['گزینه ج', 'گزینه 3', 'گزینه ۳', 'opt3', 'option 3', 'option c']);
+          const ciD = findCol(['د', 'd', '4', '۴', 'گزینه د', 'گزینه 4', 'گزینه ۴', 'گزینه چهارم', 'opt4', 'option4', 'option d'], ['گزینه د', 'گزینه 4', 'گزینه ۴', 'opt4', 'option 4', 'option d']);
+          const ciAns = (() => {
+            const isExpHeader = (h) => /تشریح|توضیح|نکته|شرح|مستند|explanation|exp/.test(h);
+            const exacts = ['پاسخ', 'پاسخ صحیح', 'گزینه صحیح', 'جواب', 'جواب صحیح', 'کلید', 'کلید پاسخ', 'صحیح', 'answer', 'ans', 'key', 'correct', 'correct answer'];
+            let idx = hdr.findIndex(h => !isExpHeader(h) && exacts.includes(h));
+            if (idx >= 0) return idx;
+            return hdr.findIndex(h => !isExpHeader(h) && ['پاسخ', 'کلید', 'جواب', 'صحیح', 'answer', 'ans', 'correct'].some(p => h.includes(p)));
+          })();
+          const ciExp = findCol(['تشریح', 'پاسخ تشریحی', 'توضیح', 'نکته', 'مستند', 'explanation', 'exp'], ['تشریح', 'توضیح', 'نکته', 'مستند', 'explanation']);
+
+          const qCol = ciQ >= 0 ? ciQ : (ciSubj === 0 ? 1 : 0);
+          const dataRowsForAns = indexedRows.slice(1);
+          const hasZeroAns = ciAns >= 0 && dataRowsForAns.some(({ row: r }) => /^0(?:\.0+)?$/.test(toEn(String(r[ciAns] || '')).trim()));
+          const hasFourAns = ciAns >= 0 && dataRowsForAns.some(({ row: r }) => /^4(?:\.0+)?$/.test(toEn(String(r[ciAns] || '')).trim()));
+          const isZeroBasedAns = hasZeroAns && !hasFourAns;
+
+          const ansToIdx = (v) => {
+            const norm = toEn(String(v || ''))
+              .replace(/[يى]/g, 'ی')
+              .replace(/ك/g, 'ک')
+              .replace(/[\u064B-\u065F\u0670\u0640]/g, '')
+              .replace(/[\u200c\u200f\u200e]/g, ' ')
+              .replace(/\s+/g, ' ')
+              .trim()
+              .toLowerCase();
+            if (!norm) return 0;
+
+            const pureNum = norm.match(/^([0-4])(?:\.0+)?$/);
+            if (pureNum) {
+              const n = Number(pureNum[1]);
+              if (isZeroBasedAns) return Math.max(0, Math.min(3, n));
+              if (n >= 1 && n <= 4) return n - 1;
+              return 0;
+            }
+
+            const expMatch = norm.match(/(?:گزینه|پاسخ|جواب|کلید|شماره)\s*(?:ی\s+|صحیح\s+|درست\s+)?[:：\-–—.]?\s*(?:([0-4])(?:\.0+)?(?![0-9])|(الف|ا|ب|ج|د|a|b|c|d)(?![\u0600-\u06FFa-z])|(اول|یکم|دوم|سوم|چهارم))/);
+            if (expMatch) {
+              if (expMatch[1] !== undefined) {
+                const n = Number(expMatch[1]);
+                if (isZeroBasedAns) return Math.max(0, Math.min(3, n));
+                if (n >= 1 && n <= 4) return n - 1;
+                return 0;
+              }
+              if (expMatch[2]) {
+                const lt = expMatch[2];
+                if (lt === 'الف' || lt === 'ا' || lt === 'a') return 0;
+                if (lt === 'ب' || lt === 'b') return 1;
+                if (lt === 'ج' || lt === 'c') return 2;
+                if (lt === 'د' || lt === 'd') return 3;
+              }
+              if (expMatch[3]) {
+                const ord = expMatch[3];
+                if (ord === 'اول' || ord === 'یکم') return 0;
+                if (ord === 'دوم') return 1;
+                if (ord === 'سوم') return 2;
+                if (ord === 'چهارم') return 3;
+              }
+            }
+
+            const stripped = norm
+              .replace(/(?:گزینه|پاسخ|جواب|کلید|صحیح|درست|است|می\s*باشد|شماره)/g, ' ')
+              .replace(/[:：.\-–—()[\]«»؛،,]+/g, ' ')
+              .replace(/\s+/g, ' ')
+              .trim();
+
+            if (stripped === 'الف' || stripped === 'ا' || stripped === 'a' || stripped === 'اول' || stripped === 'یکم' || stripped === 'یک') return 0;
+            if (stripped === 'ب' || stripped === 'b' || stripped === 'دوم' || stripped === 'دو') return 1;
+            if (stripped === 'ج' || stripped === 'c' || stripped === 'سوم' || stripped === 'سه') return 2;
+            if (stripped === 'د' || stripped === 'd' || stripped === 'چهارم' || stripped === 'چهار') return 3;
+
+            const validDigit = stripped.match(/(?:^|\s)([0-4])(?:\.0+)?(?=\s|$)/);
+            if (validDigit) {
+              const n = Number(validDigit[1]);
+              if (isZeroBasedAns) return Math.max(0, Math.min(3, n));
+              if (n >= 1 && n <= 4) return n - 1;
+              return 0;
+            }
+
+            const any14 = norm.match(/(?<![0-9])([1-4])(?![0-9])/);
+            if (any14) {
+              const n = Number(any14[1]);
+              return isZeroBasedAns ? Math.max(0, Math.min(3, n)) : n - 1;
+            }
+            return 0;
+          };
+
+          const fileBaseTitle = f.name.replace(/\.[^.]+$/, '').replace(/_/g, ' ').trim() || 'آزمون بارگذاری‌شده';
+          const parsedRows = [];
+          let fileQSeq = 0;
+
+          dataRowsForAns.forEach(({ row: r, origRowNum }) => {
+            const qText = String(r[qCol] || '').trim();
+            if (!qText) return;
+            const opts = [
+              String(r[ciA >= 0 ? ciA : qCol + 1] || '').trim(),
+              String(r[ciB >= 0 ? ciB : qCol + 2] || '').trim(),
+              String(r[ciC >= 0 ? ciC : qCol + 3] || '').trim(),
+              String(r[ciD >= 0 ? ciD : qCol + 4] || '').trim()
+            ];
+            if (!opts.some(Boolean)) return;
+
+            fileQSeq++;
+            const explicitNum = ciNum >= 0 ? toEn(String(r[ciNum] || '').trim()) : '';
+            const rowMain = ciMainTitle >= 0 ? String(r[ciMainTitle] || '').trim() : '';
+            const rowSub = ciSubj >= 0 ? String(r[ciSubj] || '').trim() : '';
+            const chName = ciChap >= 0 ? String(r[ciChap] || '').trim() : '';
+            const rowSource = ciSource >= 0 ? String(r[ciSource] || '').trim() : '';
+            const rowType = (ciType >= 0 && String(r[ciType] || '').trim()) || defType;
+            const rowYearRaw = (ciYear >= 0 && toEn(String(r[ciYear] || '').trim())) || (defYear ? String(defYear) : '');
+            const sourceLabel = buildExamSourceLabel(rowSource, rowType, rowYearRaw);
+
+            parsedRows.push({
+              rowMain,
+              rowTitle: (ciTitle >= 0 && String(r[ciTitle] || '').trim()) || '',
+              rowCat: (ciCat >= 0 && String(r[ciCat] || '').trim()) || '',
+              rowType: rowType || 'تالیفی',
+              rowYear: rowYearRaw ? (Number(rowYearRaw) || '') : '',
+              rowSub,
+              chName,
+              sourceLabel,
+              csvQuestionNum: explicitNum || String(fileQSeq),
+              csvRowIndex: origRowNum,
+              csvFileName: f.name,
+              qText,
+              opts,
+              answer: ansToIdx(ciAns >= 0 ? r[ciAns] : 1),
+              exp: ciExp >= 0 ? String(r[ciExp] || '').trim() : ''
+            });
+          });
+
+          if (!parsedRows.length) {
+            fileReports.push({ name: f.name, ok: false, addedQ: 0, addedEx: 0, error: 'سوال معتبری در فایل یافت نشد' });
+            continue;
+          }
+
+          let addedInFile = 0;
+          parsedRows.forEach(item => {
+            const effectiveMainTitle = manualMainTitle || item.rowMain || item.rowTitle || item.rowCat || fileBaseTitle;
+            const effectiveTopic = isAutoMode
+              ? (manualTopicTitle || item.chName || item.rowSub || 'سوالات عمومی')
+              : (item.chName || item.rowSub || defSubj || 'سوالات عمومی');
+
+            if (!firstImportedMainTitle) firstImportedMainTitle = effectiveMainTitle;
+
+            let destExam = targetSingleExam;
+            if (isAutoMode) {
+              const examDisplayTitle = manualTopicTitle
+                ? (effectiveMainTitle + ' · ' + manualTopicTitle)
+                : (item.rowTitle && item.rowTitle !== effectiveMainTitle ? (effectiveMainTitle + ' · ' + item.rowTitle) : (fileBaseTitle !== effectiveMainTitle ? (effectiveMainTitle + ' · ' + fileBaseTitle) : effectiveMainTitle));
+              destExam = list.find(x => getExamMainTitle(x) === effectiveMainTitle && x.title === examDisplayTitle);
+              if (!destExam) {
+                destExam = normalizeExamRecord({
+                  id: nextUid('ex'),
+                  mainTitle: effectiveMainTitle,
+                  topicTitle: manualTopicTitle || '',
+                  title: examDisplayTitle,
+                  category: effectiveMainTitle,
+                  org: effectiveMainTitle,
+                  isPremium: impIsPremium,
+                  examType: defType || item.rowType || 'تالیفی',
+                  year: defYear || item.rowYear || '',
+                  durationMinutes: 60,
+                  negativeMarking: true,
+                  isPublished: impIsPublished,
+                  subjects: []
+                });
+                list.unshift(destExam);
+                totalAddedEx++;
+              }
+            }
+
+            destExam.subjects = destExam.subjects || [];
+            let targetSubj = destExam.subjects.find(x => x.name === effectiveTopic);
+            if (!targetSubj) {
+              targetSubj = { id: nextUid('es'), name: effectiveTopic, questions: [] };
+              destExam.subjects.push(targetSubj);
+            }
+            targetSubj.questions.push({
+              id: nextUid('eq'),
+              q: item.qText,
+              chapter: effectiveTopic,
+              sourceLabel: item.sourceLabel,
+              csvQuestionNum: item.csvQuestionNum,
+              csvRowIndex: item.csvRowIndex,
+              csvFileName: item.csvFileName,
+              options: item.opts,
+              answer: item.answer,
+              exp: item.exp
+            });
+            addedInFile++;
+          });
+
+          totalAddedQ += addedInFile;
+          fileReports.push({ name: f.name, ok: true, addedQ: addedInFile, addedEx: 0 });
+        } catch (fileErr) {
+          fileReports.push({ name: f.name, ok: false, addedQ: 0, addedEx: 0, error: (fileErr && fileErr.message) || 'خطا در خواندن فایل' });
         }
-        targetSubj.questions.push({
-          id: 'eq_' + Date.now() + '_' + Math.random().toString(36).slice(2, 6),
-          q: item.qText,
-          chapter: effectiveTopic,
-          sourceLabel: item.sourceLabel,
-          csvQuestionNum: item.csvQuestionNum,
-          csvRowIndex: item.csvRowIndex,
-          csvFileName: item.csvFileName,
-          options: item.opts,
-          answer: item.answer,
-          exp: item.exp
-        });
-        added++;
-      });
+      }
+
+      const okReports = fileReports.filter(r => r.ok);
+      const failReports = fileReports.filter(r => !r.ok);
+
+      if (totalAddedQ === 0 && totalAddedEx === 0) {
+        const errListHtml = failReports.map(r => `<div>✕ <b>${esc(r.name)}</b>: ${esc(r.error || 'نامعتبر')}</div>`).join('');
+        if (isAutoMode) {
+          setStatusHtml(`<b style="color:var(--danger,#dc2626);">هیچ سوالی وارد نشد:</b>${errListHtml}`);
+        } else {
+          alert(failReports.map(r => `${r.name}: ${r.error}`).join('\n') || 'سوال معتبری در فایل‌ها یافت نشد.');
+        }
+        return;
+      }
 
       if (isAutoMode && firstImportedMainTitle) {
         examHubSection = 'exams';
         selectedMainTitle = firstImportedMainTitle;
       }
-      await persistExamsList(list, toFa(added) + ' سوال زیر عنوان «' + (firstImportedMainTitle || 'آزمون') + '» با زمان خودکار (۲ دقیقه/سوال) وارد شد.');
-      if (isAutoMode) closeModal();
-      else window.openExamQuestionsEditor(examId);
+
+      setStatusHtml(`☁️ در حال ذخیره <b>${toFa(totalAddedQ)}</b> سوال از <b>${toFa(okReports.length)}</b> فایل روی سرور...`);
+      const summaryMsg = files.length > 1
+        ? `${toFa(okReports.length)} فایل (${toFa(totalAddedQ)} سوال) با موفقیت وارد و ذخیره شد ✓`
+        : (totalAddedQ
+            ? `${toFa(totalAddedQ)} سوال زیر عنوان «${firstImportedMainTitle || 'آزمون'}» با زمان خودکار وارد شد ✓`
+            : `${toFa(totalAddedEx)} آزمون از JSON وارد شد ✓`);
+
+      await persistExamsList(list, summaryMsg, { allowEmptyPrivSync: true, alertOnError: true });
+      _pendingMultiExamFiles = [];
+
+      if (failReports.length > 0 && isAutoMode) {
+        const reportHtml = fileReports.map(r => r.ok
+          ? `<div style="color:var(--ok,#059669);">✓ <b>${esc(r.name)}</b> (${toFa(r.addedQ)} سوال)</div>`
+          : `<div style="color:var(--danger,#dc2626);">✕ <b>${esc(r.name)}</b>: ${esc(r.error || 'خطا')}</div>`
+        ).join('');
+        setStatusHtml(`<b>نتیجه ورود ${toFa(files.length)} فایل (${toFa(okReports.length)} موفق · ${toFa(failReports.length)} ناموفق):</b>${reportHtml}`);
+      } else if (isAutoMode) {
+        closeModal();
+      } else {
+        if (failReports.length > 0 && typeof toast === 'function') {
+          toast(`${toFa(okReports.length)} فایل وارد شد و ${toFa(failReports.length)} فایل خطا داشت.`);
+        }
+        window.openExamQuestionsEditor(examId);
+      }
     } catch (e) {
-      alert('خطا در خواندن فایل: ' + (e && e.message));
+      alert('خطا در خواندن فایل‌ها: ' + (e && e.message));
     } finally {
+      _multiExamImportBusy = false;
+      renderMultiExamFileQueue();
       if (inputEl) inputEl.value = '';
     }
   };
