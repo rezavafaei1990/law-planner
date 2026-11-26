@@ -1,5 +1,5 @@
 // Service Worker سامانه گروه حقوقی برائت
-const CACHE_NAME = 'baraat-cache-v33';
+const CACHE_NAME = 'baraat-cache-v34';
 
 function scopeUrl(rel) {
   return new URL(rel, self.registration.scope).href;

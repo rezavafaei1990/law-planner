@@ -20,6 +20,11 @@
   let _hasSyncedOnce = false;
   let _syncedAsAdmin = false;
   let _lastEmptyExamsSyncAt = 0;
+  let _examsMutationSeq = 0;
+  let _examsMutatingCount = 0;
+  let _examsWriteQueue = Promise.resolve();
+  let _serverConfirmedPubExams = null;
+  let _serverConfirmedPrivExams = null;
 
   // ذخیره پایدار آزمون‌ها در RAM و IndexedDB تا محدودیت ۵ مگابایتی localStorage در PWA هرگز باعث ناپدید شدن آزمون‌ها نشود
   let _memPubExams = null;
@@ -80,18 +85,35 @@
       });
     } catch (e) {}
   }
+  async function saveLocalExamsCache(key, arr) {
+    const clean = Array.isArray(arr) ? arr : [];
+    await idbExamsSet(key, clean);
+    let changed = true;
+    try {
+      const s = JSON.stringify(clean);
+      changed = localStorage.getItem(key) !== s;
+      if (changed) localStorage.setItem(key, s);
+    } catch (e) {
+      // در صورت پر شدن سهمیه localStorage، نسخه قدیمی را پاک می‌کنیم تا بعداً داده‌های حذف‌شده برنگردند
+      try { localStorage.removeItem(key); } catch (_) {}
+      changed = true;
+    }
+    return changed;
+  }
   async function hydrateExamsFromIdb() {
+    const startSeq = _examsMutationSeq;
     try {
       const [pubData, privData] = await Promise.all([
         idbExamsGet(EXAMS_KEY),
         idbExamsGet(EXAMS_PRIVATE_KEY)
       ]);
+      if (_examsMutationSeq !== startSeq || _examsMutatingCount > 0) return;
       let hydrated = false;
-      if (Array.isArray(pubData) && pubData.length && !_memPubExams) {
+      if (Array.isArray(pubData) && _memPubExams === null) {
         _memPubExams = pubData;
         hydrated = true;
       }
-      if (Array.isArray(privData) && privData.length && !_memPrivExams) {
+      if (Array.isArray(privData) && _memPrivExams === null) {
         _memPrivExams = privData;
         hydrated = true;
       }
@@ -106,31 +128,44 @@
   }
 
   async function syncToSupabase(key, data) {
-    try {
-      if (!window.sb) {
-        return { ok: false, error: 'اتصال به پایگاه داده Supabase برقرار نیست.' };
+    const maxAttempts = 2;
+    let lastErr = 'خطای ثبت در پایگاه داده';
+    for (let attempt = 1; attempt <= maxAttempts; attempt++) {
+      try {
+        if (!window.sb) {
+          return { ok: false, error: 'اتصال به پایگاه داده Supabase برقرار نیست.' };
+        }
+        const res = await window.sb
+          .from('meta')
+          .upsert({ key: key, value: JSON.stringify(data) }, { onConflict: 'key' })
+          .select('key');
+        if (res && res.error) {
+          console.warn('Supabase sync error for ' + key + ':', res.error.message);
+          serverStatus.lastError = res.error.message || 'خطای ثبت در پایگاه داده';
+          return { ok: false, error: serverStatus.lastError };
+        }
+        if (!res || !Array.isArray(res.data) || res.data.length === 0) {
+          const rlsMsg = 'سرور تغییر را ثبت نکرد (ممکن است نشست ورود مدیر منقضی شده باشد یا مجوز نوشتن در جدول meta وجود نداشته باشد).';
+          console.warn('Supabase sync zero rows confirmed for ' + key);
+          serverStatus.lastError = rlsMsg;
+          return { ok: false, error: rlsMsg };
+        }
+        if (key === ARTICLES_KEY && Array.isArray(data)) {
+          serverStatus.checked = true;
+          serverStatus.articlesCount = data.length;
+          serverStatus.lastError = '';
+        }
+        return { ok: true };
+      } catch(err) {
+        lastErr = (err && err.message) ? err.message : 'خطای شبکه در ارتباط با سرور';
+        console.warn('Supabase sync attempt ' + attempt + ' error:', err);
+        if (attempt < maxAttempts) {
+          await new Promise(r => setTimeout(r, 650));
+        }
       }
-      const res = await window.sb
-        .from('meta')
-        .upsert({ key: key, value: JSON.stringify(data) }, { onConflict: 'key' })
-        .select('key');
-      if (res && res.error) {
-        console.warn('Supabase sync error for ' + key + ':', res.error.message);
-        serverStatus.lastError = res.error.message || 'خطای ثبت در پایگاه داده';
-        return { ok: false, error: serverStatus.lastError };
-      }
-      if (key === ARTICLES_KEY && Array.isArray(data)) {
-        serverStatus.checked = true;
-        serverStatus.articlesCount = data.length;
-        serverStatus.lastError = '';
-      }
-      return { ok: true };
-    } catch(err) {
-      const msg = (err && err.message) ? err.message : 'خطای شبکه در ارتباط با سرور';
-      console.warn('Supabase sync error:', err);
-      serverStatus.lastError = msg;
-      return { ok: false, error: msg };
     }
+    serverStatus.lastError = lastErr;
+    return { ok: false, error: lastErr };
   }
 
   async function syncFromSupabase(key, onDataLoaded) {
@@ -187,6 +222,7 @@
         } else if (window._authResolved) {
           try { localStorage.removeItem(EXAMS_PRIVATE_KEY); } catch (e) {}
         }
+        const syncStartExamSeq = _examsMutationSeq;
         const res = await window.sb.from('meta').select('key, value').in('key', keysToFetch);
         if (res && res.error) {
           console.warn('Supabase batch sync error:', res.error.message);
@@ -270,7 +306,8 @@
         if (window.isAdmin && Array.isArray(map[EXAM_ATTEMPTS_KEY])) {
           writeIfChanged(EXAM_ATTEMPTS_KEY, map[EXAM_ATTEMPTS_KEY]);
         }
-        if (Array.isArray(map[EXAMS_KEY]) || (window.isAdmin && Array.isArray(map[EXAMS_PRIVATE_KEY]))) {
+        const canApplyServerExams = (_examsMutatingCount === 0 && _examsMutationSeq === syncStartExamSeq);
+        if (canApplyServerExams && (Array.isArray(map[EXAMS_KEY]) || (window.isAdmin && Array.isArray(map[EXAMS_PRIVATE_KEY])))) {
           let examsChanged = false;
           const pubListRaw = Array.isArray(map[EXAMS_KEY]) ? map[EXAMS_KEY] : [];
           if (window.isAdmin) {
@@ -287,33 +324,38 @@
               }
             }
             const legacyHiddenInPub = pubListRaw.filter(x => x && x.isPublished === false);
-            const cleanPub = pubListRaw.filter(x => !x || x.isPublished !== false);
             const mergedPrivMap = new Map();
             privListRaw.forEach(x => { if (x && x.id) mergedPrivMap.set(x.id, Object.assign({}, x, { isPublished: false })); });
             legacyHiddenInPub.forEach(x => { if (x && x.id && !mergedPrivMap.has(x.id)) mergedPrivMap.set(x.id, Object.assign({}, x, { isPublished: false })); });
             const cleanPriv = [...mergedPrivMap.values()];
+            // جلوگیری از تکرار هم‌زمان یک آزمون در هر دو کلید عمومی و مخفی
+            const cleanPub = pubListRaw.filter(x => x && x.isPublished !== false && !(x.id && mergedPrivMap.has(x.id)));
+            const dupInPub = pubListRaw.length !== (cleanPub.length + legacyHiddenInPub.length);
             if (Array.isArray(map[EXAMS_KEY])) {
               _memPubExams = cleanPub;
-              idbExamsSet(EXAMS_KEY, cleanPub);
-              if (writeIfChanged(EXAMS_KEY, cleanPub)) examsChanged = true;
+              _serverConfirmedPubExams = cleanPub.slice();
+              if (await saveLocalExamsCache(EXAMS_KEY, cleanPub)) examsChanged = true;
             }
             if (hasServerPriv || legacyHiddenInPub.length > 0) {
               _memPrivExams = cleanPriv;
-              idbExamsSet(EXAMS_PRIVATE_KEY, cleanPriv);
-              if (writeIfChanged(EXAMS_PRIVATE_KEY, cleanPriv)) examsChanged = true;
+              if (hasServerPriv) _serverConfirmedPrivExams = cleanPriv.slice();
+              if (await saveLocalExamsCache(EXAMS_PRIVATE_KEY, cleanPriv)) examsChanged = true;
             }
-            // پاکسازی خودکار آزمون‌های مخفی قدیمی از کلید عمومی
-            if (legacyHiddenInPub.length > 0) {
-              await syncToSupabase(EXAMS_PRIVATE_KEY, cleanPriv.map(normalizeExamRecord));
-              await syncToSupabase(EXAMS_KEY, cleanPub.map(normalizeExamRecord));
+            // پاکسازی خودکار آزمون‌های مخفی قدیمی یا تکراری از کلید عمومی (فقط وقتی هیچ ویرایش/حذفی در جریان نباشد)
+            if ((legacyHiddenInPub.length > 0 || dupInPub) && _examsMutatingCount === 0 && _examsMutationSeq === syncStartExamSeq) {
+              const rPriv = await syncToSupabase(EXAMS_PRIVATE_KEY, cleanPriv.map(normalizeExamRecord));
+              const rPub = await syncToSupabase(EXAMS_KEY, cleanPub.map(normalizeExamRecord));
+              if (rPriv.ok) _serverConfirmedPrivExams = cleanPriv.slice();
+              if (rPub.ok) _serverConfirmedPubExams = cleanPub.slice();
             }
           } else {
             const pubOnly = pubListRaw.filter(x => !x || x.isPublished !== false);
             _memPubExams = pubOnly;
-            idbExamsSet(EXAMS_KEY, pubOnly);
-            if (writeIfChanged(EXAMS_KEY, pubOnly)) examsChanged = true;
+            _serverConfirmedPubExams = pubOnly.slice();
+            if (await saveLocalExamsCache(EXAMS_KEY, pubOnly)) examsChanged = true;
             if (window._authResolved) {
               _memPrivExams = null;
+              _serverConfirmedPrivExams = null;
               idbExamsDel(EXAMS_PRIVATE_KEY);
               try {
                 if (localStorage.getItem(EXAMS_PRIVATE_KEY) !== null) {
@@ -5194,29 +5236,101 @@
     return list.filter(ex => ex.isPublished !== false);
   }
 
-  async function persistExamsList(list, successMsg) {
-    const normalized = (list || []).map(normalizeExamRecord);
+  async function persistExamsList(list, successMsg, opts) {
+    const options = opts || {};
+    const mySeq = ++_examsMutationSeq;
+    _examsMutatingCount++;
+
+    const deletedSet = new Set(Array.isArray(options.deletedIds) ? options.deletedIds.filter(Boolean) : []);
+    const normalized = (list || [])
+      .map(normalizeExamRecord)
+      .filter(ex => ex && !(deletedSet.size && deletedSet.has(ex.id)));
     const pubList = normalized.filter(ex => ex.isPublished !== false);
     const privList = normalized.filter(ex => ex.isPublished === false);
+
+    let hasLocalPriv = false;
+    try { hasLocalPriv = localStorage.getItem(EXAMS_PRIVATE_KEY) !== null; } catch (e) {}
+    const hasKnownPriv = _syncedAsAdmin || Array.isArray(_memPrivExams) || Array.isArray(_serverConfirmedPrivExams) || hasLocalPriv;
+    const canSyncPriv = !!(window.isAdmin && (hasKnownPriv || privList.length > 0 || options.allowEmptyPrivSync));
+
+    const prevPubFallback = Array.isArray(_memPubExams) ? _memPubExams.slice() : null;
+    const prevPrivFallback = Array.isArray(_memPrivExams) ? _memPrivExams.slice() : null;
+
     _memPubExams = pubList;
-    idbExamsSet(EXAMS_KEY, pubList);
-    try { localStorage.setItem(EXAMS_KEY, JSON.stringify(pubList)); } catch (e) {}
-    const canSyncPriv = window.isAdmin && (_syncedAsAdmin || privList.length > 0);
     if (canSyncPriv) {
       _memPrivExams = privList;
-      idbExamsSet(EXAMS_PRIVATE_KEY, privList);
-      try { localStorage.setItem(EXAMS_PRIVATE_KEY, JSON.stringify(privList)); } catch (e) {}
     }
     invalidateExamsCache();
     if (window.renderExamsHub) window.renderExamsHub();
     if (typeof renderAdminPanels === 'function') renderAdminPanels();
-    const resPub = await syncToSupabase(EXAMS_KEY, pubList);
-    const resPriv = canSyncPriv ? await syncToSupabase(EXAMS_PRIVATE_KEY, privList) : { ok: true };
-    if (resPub.ok && resPriv.ok) {
-      if (typeof toast === 'function') toast(successMsg || 'آزمون در سرور ذخیره شد (آزمون‌های مخفی در کلید اختصاصی مدیر).');
-    } else {
-      if (typeof toast === 'function') toast('ذخیره محلی انجام شد اما خطای سرور رخ داد: ' + (resPub.error || resPriv.error));
+
+    // ذخیره محلی امن در IndexedDB و localStorage (پاک کردن کش قدیمی در صورت پر بودن localStorage)
+    await saveLocalExamsCache(EXAMS_KEY, pubList);
+    if (canSyncPriv) {
+      await saveLocalExamsCache(EXAMS_PRIVATE_KEY, privList);
     }
+
+    const doUpload = async () => {
+      try {
+        // اگر تغییر جدیدتری در صف ثبت شده، این آپلود میانی را رد می‌کنیم تا نسخه نهایی بدون تداخل ذخیره شود
+        if (mySeq !== _examsMutationSeq) return;
+
+        const needPub = !!options.forceSyncBoth ||
+          !Array.isArray(_serverConfirmedPubExams) ||
+          JSON.stringify(_serverConfirmedPubExams) !== JSON.stringify(pubList);
+        const needPriv = canSyncPriv && (
+          !!options.forceSyncBoth ||
+          !Array.isArray(_serverConfirmedPrivExams) ||
+          JSON.stringify(_serverConfirmedPrivExams) !== JSON.stringify(privList)
+        );
+
+        let resPub = { ok: true };
+        let resPriv = { ok: true };
+        if (needPub) resPub = await syncToSupabase(EXAMS_KEY, pubList);
+        if (resPub.ok && needPriv) resPriv = await syncToSupabase(EXAMS_PRIVATE_KEY, privList);
+
+        if (mySeq !== _examsMutationSeq) return;
+
+        if (resPub.ok && resPriv.ok) {
+          if (needPub) _serverConfirmedPubExams = pubList.slice();
+          if (needPriv) _serverConfirmedPrivExams = privList.slice();
+          _lastSyncAt = Date.now();
+          if (window.isAdmin) _syncedAsAdmin = true;
+          if (typeof toast === 'function') toast(successMsg || 'آزمون در سرور ذخیره شد ✓');
+        } else {
+          const errTxt = (!resPub.ok ? resPub.error : resPriv.error) || 'خطای نامشخص سرور';
+          // اگر ثبت در سرور شکست خورد، وضعیت تاییدشده قبلی را برمی‌گردانیم تا تغییر جعلی نشان داده نشود
+          const rollbackPub = Array.isArray(_serverConfirmedPubExams) ? _serverConfirmedPubExams.slice() : prevPubFallback;
+          const rollbackPriv = Array.isArray(_serverConfirmedPrivExams) ? _serverConfirmedPrivExams.slice() : prevPrivFallback;
+          if (Array.isArray(rollbackPub)) {
+            _memPubExams = rollbackPub;
+            await saveLocalExamsCache(EXAMS_KEY, rollbackPub);
+          }
+          if (canSyncPriv && Array.isArray(rollbackPriv)) {
+            _memPrivExams = rollbackPriv;
+            await saveLocalExamsCache(EXAMS_PRIVATE_KEY, rollbackPriv);
+          }
+          invalidateExamsCache();
+          if (window.renderExamsHub) window.renderExamsHub();
+          if (typeof renderAdminPanels === 'function') renderAdminPanels();
+          if (typeof toast === 'function') toast('تغییر در سرور ثبت نشد: ' + errTxt);
+          if (window.showModal && options.alertOnError) {
+            window.showModal(`
+              <h2>⚠️ تغییر در سرور ذخیره نشد</h2>
+              <p style="line-height:2; font-size:13.5px; color:var(--danger, #dc2626);">سرور Supabase این تغییر را تایید نکرد به همین دلیل وضعیت قبلی بازگردانده شد:</p>
+              <pre dir="ltr" class="surface-box" style="overflow:auto; font-size:12px;">${esc(errTxt)}</pre>
+              <p class="muted small" style="line-height:1.9;">لطفاً اتصال اینترنت را بررسی کنید و در صورت منقضی شدن نشست یک بار از حساب مدیر خارج و دوباره وارد شوید.</p>
+              <div class="modal-actions"><button class="btn primary" onclick="closeModal()">متوجه شدم</button></div>
+            `);
+          }
+        }
+      } finally {
+        _examsMutatingCount = Math.max(0, _examsMutatingCount - 1);
+      }
+    };
+
+    _examsWriteQueue = _examsWriteQueue.then(doUpload, doUpload);
+    return _examsWriteQueue;
   }
 
   // --- نکات شخصی کاربر برای هر سوال (همگام کامل بین وب، PWA و اپلیکیشن اندروید) ---
@@ -6682,7 +6796,11 @@
     if (!target) return;
     target.isPublished = (target.isPublished === false);
     target.updatedAt = new Date().toISOString();
-    await persistExamsList(list, target.isPublished ? 'آزمون برای همه کاربران فعال و نمایش داده شد.' : 'آزمون برای کاربران عادی مخفی شد (فقط مدیر می‌بیند).');
+    await persistExamsList(
+      list,
+      target.isPublished ? 'آزمون برای همه کاربران فعال و نمایش داده شد.' : 'آزمون برای کاربران عادی مخفی شد (فقط مدیر می‌بیند).',
+      { allowEmptyPrivSync: true, alertOnError: true }
+    );
   };
 
   window.openPastAttemptReview = function(attemptId) {
@@ -7949,7 +8067,11 @@
       ex.isPublished = !!shouldPublish;
       ex.updatedAt = nowIso;
     });
-    await persistExamsList(list, `${toFa(targets.length)} آزمون زیر عنوان «${mainTitle}» ${shouldPublish ? 'منتشر شدند ✓' : 'مخفی شدند.'}`);
+    await persistExamsList(
+      list,
+      `${toFa(targets.length)} آزمون زیر عنوان «${mainTitle}» ${shouldPublish ? 'منتشر شدند ✓' : 'مخفی شدند.'}`,
+      { allowEmptyPrivSync: true, alertOnError: true }
+    );
   };
 
   window.toggleExamPremium = async function(examId) {
@@ -8113,7 +8235,7 @@
                   ${g.hidCount ? `<span class="ex-vis-badge hid">${toFa(g.hidCount)} مخفی</span>` : ''}
                 </button>
                 <div class="row" style="gap:6px; flex-wrap:wrap;">
-                  <button type="button" class="btn small primary" onclick="openMultiExamFileImportModal('${esc(g.name)}')">📥 افزودن فایل</button>
+                  <button type="button" class="btn small primary" onclick="openMultiExamFileImportModal(decodeURIComponent('${encName}'))">📥 افزودن فایل</button>
                   ${g.hidCount ? `<button type="button" class="btn small" onclick="adminSetGroupPublished('${encName}', true)">👁 انتشار همه</button>` : ''}
                   ${g.pubCount ? `<button type="button" class="btn small" onclick="adminSetGroupPublished('${encName}', false)">🙈 مخفی همه</button>` : ''}
                   <button type="button" class="btn small" onclick="adminRenameMainTitle('${encName}')">✎ تغییر عنوان</button>
@@ -8392,16 +8514,30 @@ WITH CHECK (key &lt;&gt; 'baraat_exams_private_v1' OR EXISTS (SELECT 1 FROM publ
   window.deleteExam = async function(examId) {
     if (!window.isAdmin) return;
     if (!confirm('این آزمون و تمام سوالات آن حذف شود؟')) return;
+    if (!_syncedAsAdmin && _syncPromise) {
+      try { await _syncPromise; } catch (e) {}
+    }
     const list = window.getExams().filter(x => x.id !== examId);
-    await persistExamsList(list, 'آزمون حذف شد.');
+    await persistExamsList(list, 'آزمون حذف و در سرور ثبت شد ✓', {
+      deletedIds: [examId],
+      allowEmptyPrivSync: true,
+      alertOnError: true
+    });
   };
 
   window.deleteAllExams = async function() {
     if (!window.isAdmin) return;
+    if (!_syncedAsAdmin && _syncPromise) {
+      try { await _syncPromise; } catch (e) {}
+    }
     const list = window.getExams();
     if (!list.length) return;
     if (!confirm('آیا از حذف کامل تمام ' + toFa(list.length) + ' آزمون ثبت‌شده مطمئن هستید؟ نکات شخصی دانشجویان حفظ می‌شوند.')) return;
-    await persistExamsList([], 'تمام آزمون‌ها با موفقیت حذف شدند.');
+    await persistExamsList([], 'تمام آزمون‌ها با موفقیت از سرور حذف شدند ✓', {
+      allowEmptyPrivSync: true,
+      forceSyncBoth: true,
+      alertOnError: true
+    });
   };
 
   window.exportExamJson = function(examId) {
